@@ -12,8 +12,13 @@
 #define strcasecmp  _stricmp
 #define strncasecmp _strnicmp
 
+/* mkdir — POSIX takes (path, mode); Win32 _mkdir takes only (path) */
+#include <direct.h>
+#define mkdir(path, mode) _mkdir(path)
+
 /* Minimal dirent shim using Win32 FindFirstFile/FindNextFile */
 #include <windows.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
 
