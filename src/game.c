@@ -25,6 +25,10 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include "compat.h"
+#ifndef _WIN32
+#include <strings.h>
+#endif
 
 /* Part context for CT_SPAWN_LIVE dispatch — set by execute_part_code. */
 static part_t *g_execute_part = NULL;

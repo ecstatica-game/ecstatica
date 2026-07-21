@@ -41,7 +41,9 @@ int main(int argc, char *argv[]) {
     (void)argc;
     (void)argv;
     signal(SIGSEGV, crash_handler);
+#ifndef _WIN32
     signal(SIGBUS, crash_handler);
+#endif
     signal(SIGABRT, crash_handler);
     setvbuf(stderr, NULL, _IONBF, 0); /* unbuffered stderr for diagnostics */
     debug_log_file = fopen("ecstatica_debug.log", "w");
