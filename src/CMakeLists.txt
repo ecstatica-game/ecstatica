@@ -40,7 +40,8 @@ add_executable(ecstatica ${C_SRCS})
 target_include_directories(ecstatica PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 if(MSVC)
-    target_compile_options(ecstatica PRIVATE /W3)
+    target_compile_options(ecstatica PRIVATE /W3 /std:c17)
+    target_compile_definitions(ecstatica PRIVATE _CRT_SECURE_NO_WARNINGS)
 else()
     target_compile_options(ecstatica PRIVATE
         -Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -fwrapv

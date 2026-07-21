@@ -5,6 +5,13 @@
 #include <stdbool.h>
 #include <stdio.h>
 
+/* UNUSED_ATTR: suppress unused-variable/function warnings portably */
+#ifdef _MSC_VER
+#  define UNUSED_ATTR
+#else
+#  define UNUSED_ATTR __attribute__((unused))
+#endif
+
 /* ══════════════════════════════════════════════════════════════
  *  Compile-time Constants
  * ══════════════════════════════════════════════════════════════ */
@@ -149,7 +156,7 @@ typedef struct line_of_code_s line_of_code_t;
 typedef struct gadget_s gadget_t;
 typedef struct request_s request_t;
 typedef struct map_area_s map_area_t;
-typedef struct key_s key_t;
+typedef struct key_s key_state_t;
 typedef struct act_s act_t;
 typedef struct camera_data_s camera_data_t;
 

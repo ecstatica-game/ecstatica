@@ -526,7 +526,7 @@ void swap_in_actor(int actor_idx) {
                 quit("");
             }
 
-            key_t *key = script->script_action.key_list;
+            key_state_t *key = script->script_action.key_list;
             if (key && !key->KEY_position) {
                 int saved_rep_idx = actor->actor_rep_index;
                 copy_defaults_to_actual(actor);

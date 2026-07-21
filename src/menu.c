@@ -771,9 +771,9 @@ void delete_point(point_t *point) {
 
 /* menu_delete_script  E2: 0x43AA94 */
 void delete_script(script_t *script) {
-    key_t *key = script->script_action.key_list;
+    key_state_t *key = script->script_action.key_list;
     while (key) {
-        key_t *next = key->next;
+        key_state_t *next = key->next;
         delete_key(key);
         key = next;
     }

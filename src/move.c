@@ -21,6 +21,10 @@
 #include "topo.h"
 #include <string.h>
 #include <stdlib.h>
+#include "compat.h"
+#ifndef _WIN32
+#include <strings.h>
+#endif
 
 static int16_t e1_pick_up_hand = 0;
 
@@ -1676,7 +1680,7 @@ void spawn_action(event_t *event, actor_t *actor, int some_time) {
 void complete_act(act_t *act, actor_t *actor) {
     if (!act || !actor || !act->act_action) return;
 
-    for (key_t *key = act->actor_keys_list; key; key = key->next) {
+    for (key_state_t *key = act->actor_keys_list; key; key = key->next) {
         for (event_t *event = key->key_event_list; event; event = event->next) {
             /* asm move_complete_act_42B004+1C: `mov ebx, 0FFFFh` zero-extends
              * to 65535 in 32-bit ebx; spawn_action then reads it as uint16. */
@@ -1697,7 +1701,7 @@ void position_act(act_t *act, uint16_t some_duration, actor_t *actor) {
     if (some_duration < act->key_progress)
         complete_act(act, actor);
 
-    key_t *key;
+    key_state_t *key;
     for (key = act->actor_keys_list; key; key = key->next) {
         if (some_duration < key->KEY_position)
             break;

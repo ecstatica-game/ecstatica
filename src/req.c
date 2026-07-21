@@ -61,7 +61,7 @@ void draw_gadget(gadget_t *gadget);
 static void refresh_request(request_t *req);
 
 static request_t active_request;
-__attribute__((unused)) static int request_result = 0;
+UNUSED_ATTR static int request_result = 0;
 static int32_t input_in_progress = 0;
 static gadget_t *input_gadg = NULL;
 
