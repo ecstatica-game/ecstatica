@@ -112,7 +112,7 @@ part_t part_heap_arr[PART_POOL_SIZE] = {{0}};
 action_t action_heap_arr[ACTION_POOL_SIZE] = {{0}};
 scene_t scene_heap_arr[SCENE_POOL_SIZE] = {{0}};
 event_t event_heap_arr[EVENT_POOL_SIZE] = {{0}};
-key_t key_heap_arr[KEY_POOL_SIZE] = {{0}};
+key_state_t key_heap_arr[KEY_POOL_SIZE] = {{0}};
 tri_t tri_arr[TRI_SIZE] = {{0}};
 point_t point_heap_arr[POINT_POOL_SIZE] = {{0}};
 sound_t sound_heap_arr[SOUND_POOL_SIZE] = {{0}};
@@ -164,7 +164,7 @@ int16_t saved_game_num = 0;
 int32_t extra_life_time = 0;
 
 /* ── Forward declarations for static helpers ── */
-__attribute__((unused)) static int find_empty_actor_slot(void);
+UNUSED_ATTR static int find_empty_actor_slot(void);
 
 /* ══════════════════════════════════════════════════════════════
  *  Script Execution Engine
@@ -197,7 +197,7 @@ static bool check_token_value_exist(int16_t token) {
 }
 
 /* Check if the token's upper nibble indicates a string/second-value marker */
-__attribute__((unused)) static bool check_token_second_value_exist(int16_t token) {
+UNUSED_ATTR static bool check_token_second_value_exist(int16_t token) {
     return (token & 0xF000) == (int16_t)0xE000;
 }
 
@@ -877,7 +877,7 @@ void do_execute_code(code_t *code, actor_t *actor) {
                     for (script_t *scr = scene->scene_script_list; scr; scr = scr->next_script) {
                         int16_t ai = scr->script_actor_index;
                         if (ai < 0 || ai >= THING_TAB_SIZE) continue;
-                        key_t *key = scr->script_action.key_list;
+                        key_state_t *key = scr->script_action.key_list;
                         if (!key) continue;
                         event_t *evt = key->key_event_list;
                         if (!evt) continue;
@@ -1545,7 +1545,7 @@ void tokenize_code(code_t *code) {
  * ══════════════════════════════════════════════════════════════ */
 
 /* game_find_empty_actor_slot  E1: ? | E2P: 0x426128 */
-__attribute__((unused))
+UNUSED_ATTR
 static int find_empty_actor_slot(void) {
     for (int i = 1; i < ACTOR_POOL_SIZE; i++) {
         if (!(actor_flags[i] & ACTOR_FLAG_ACTIVE)) {
@@ -2435,8 +2435,6 @@ void start_game_medium(int notUsed1, int notUsed2) {
 
     stop_the_clock = true;
     break_do_movement = 0;
-
-    actor_t *saved_selected = selected_thing;
 
     if (selected_thing)
         thing_name_flags[selected_thing->name_index] |= 0x0002;
@@ -3367,7 +3365,7 @@ void add_to_display_list(actor_t *actor) {
 /* game_add_to_display_list_held_42E8E8 — defined in map.c */
 
 /* game_turn_actor  E1: ? | E2P: 0x42E9C8 */
-__attribute__((unused)) static void game_turn_actor(actor_t *actor) {
+UNUSED_ATTR static void game_turn_actor(actor_t *actor) {
     if (!actor) return;
 
     /* Rotate actor's Y axis towards its last facing direction */
@@ -3555,7 +3553,7 @@ void free_point(point_t *point) {
     if (point) point->point_use_flag = 1;
 }
 
-void free_key(key_t *key) {
+void free_key(key_state_t *key) {
     if (key) key->field_E = 0x80u;
 }
 
@@ -3721,12 +3719,12 @@ tri_t *find_free_tri(void) {
     return free_slot;
 }
 
-key_t *find_free_key(void) {
-    key_t *free_slot = NULL;
+key_state_t *find_free_key(void) {
+    key_state_t *free_slot = NULL;
     do {
         for (int i = 0; i < KEY_POOL_SIZE; i++) {
             if (key_heap_arr[i].field_E & 0x80) {
-                memset(&key_heap_arr[i], 0, sizeof(key_t));
+                memset(&key_heap_arr[i], 0, sizeof(key_state_t));
                 free_slot = &key_heap_arr[i];
                 break;
             }
@@ -3782,7 +3780,7 @@ taction_t *find_free_t_action(void) {
  * ══════════════════════════════════════════════════════════════ */
 
 /* menu_delete_key  E1: 0x4307E0 | E2: 0x43AAB8 */
-void delete_key(key_t *key) {
+void delete_key(key_state_t *key) {
     if (!key) return;
 
     /* Free all events attached to the key */
@@ -3861,8 +3859,8 @@ void do_delete_action(action_t *action) {
     }
 
     /* Delete all keys */
-    for (key_t *key = action->key_list; key; ) {
-        key_t *next = key->next;
+    for (key_state_t *key = action->key_list; key; ) {
+        key_state_t *next = key->next;
         delete_key(key);
         key = next;
     }
@@ -3887,8 +3885,8 @@ void do_delete_scene(scene_t *scene) {
     /* Free all scripts and their keys */
     for (script_t *scr = scene->scene_script_list; scr; ) {
         script_t *next = scr->next_script;
-        for (key_t *key = scr->script_action.key_list; key; ) {
-            key_t *next_key = key->next;
+        for (key_state_t *key = scr->script_action.key_list; key; ) {
+            key_state_t *next_key = key->next;
             delete_key(key);
             key = next_key;
         }
@@ -4488,7 +4486,7 @@ void start_scene(scene_t *scene) {
         free_spent_acts(actor);
 
         /* Initialize from first key if at position 0 */
-        key_t *key = script->script_action.key_list;
+        key_state_t *key = script->script_action.key_list;
         if (key && !key->KEY_position) {
             int16_t save_rep = actor->actor_rep_index;
             copy_defaults_to_actual_not_flags(actor);

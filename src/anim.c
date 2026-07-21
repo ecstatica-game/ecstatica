@@ -24,7 +24,7 @@
 /* anim_add_ellipse_to_key_430568
  * Appends an ellipse_t to the end of a key's ellipse list.
  */
-void add_ellipse_to_key(ellipse_t *new_ellipse, key_t *key) {
+void add_ellipse_to_key(ellipse_t *new_ellipse, key_state_t *key) {
     new_ellipse->next = NULL;
     ellipse_t *ellipse = key->ellipses_list;
 
@@ -107,7 +107,7 @@ int check_action_name_exists(int16_t index) {
 }
 
 /* anim_calculate_ellipses_one_key_430474 — E2: 0x430474 */
-void calculate_ellipses_one_key(key_t *key, actor_t *actor) {
+void calculate_ellipses_one_key(key_state_t *key, actor_t *actor) {
     ellipse_t *ell = key->ellipses_list;
     part_t *part = actor->actor_parts_list;
     while (part) {
@@ -127,7 +127,7 @@ void calculate_ellipses_one_key(key_t *key, actor_t *actor) {
 }
 
 /* anim_calculate_ellipses_430304 — E2: 0x430304 */
-void calculate_ellipses(key_t *key, actor_t *actor, int16_t factor) {
+void calculate_ellipses(key_state_t *key, actor_t *actor, int16_t factor) {
     ellipse_t *cur = key->ellipses_list;
     ellipse_t *nxt = key->next ? key->next->ellipses_list : NULL;
     part_t *part = actor->actor_parts_list;
@@ -220,7 +220,7 @@ void position_external_act(act_t *act, uint16_t game_time, actor_t *actor) {
     if (game_time < act->key_progress)
         return;
 
-    key_t *cur_key = act->actor_keys_list;
+    key_state_t *cur_key = act->actor_keys_list;
     if (cur_key) {
         while (game_time >= cur_key->KEY_position) {
             event_t *event = cur_key->key_event_list;

@@ -8,17 +8,20 @@
 #include "win.h"
 #include "platform.h"
 #include <signal.h>
-#include <execinfo.h>
 #include <stdlib.h>
+#ifndef _WIN32
+#include <execinfo.h>
 #include <unistd.h>
+#endif
 
 int debug_verbose = 1;  /* 0=quiet, 1=important, 2=verbose */
 FILE *debug_log_file = NULL;
 
 static void crash_handler(int sig) {
+    fprintf(stderr, "\n=== CRASH sig=%d ===\n", sig);
+#ifndef _WIN32
     void *bt[32];
     int n = backtrace(bt, 32);
-    fprintf(stderr, "\n=== CRASH sig=%d ===\n", sig);
     backtrace_symbols_fd(bt, n, 2);
     if (debug_log_file) {
         fprintf(debug_log_file, "\n=== CRASH sig=%d ===\n", sig);
@@ -30,6 +33,7 @@ static void crash_handler(int sig) {
         }
         fflush(debug_log_file);
     }
+#endif
     _exit(128 + sig);
 }
 

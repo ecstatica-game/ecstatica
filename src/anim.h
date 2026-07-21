@@ -58,7 +58,7 @@ struct ellipse_s {
 struct action_s {
     int16_t action_index;
     int16_t act_duration;
-    key_t *key_list;
+    key_state_t *key_list;
     struct action_s *next;
     uint16_t action_flags;
     int16_t thing_name_index;
@@ -73,7 +73,7 @@ struct action_s {
 
 extern action_t action_heap_arr[ACTION_POOL_SIZE];
 extern event_t event_heap_arr[EVENT_POOL_SIZE];
-extern key_t key_heap_arr[KEY_POOL_SIZE];
+extern key_state_t key_heap_arr[KEY_POOL_SIZE];
 
 /* ══════════════════════════════════════════════════════════════
  *  Function Declarations
@@ -81,15 +81,15 @@ extern key_t key_heap_arr[KEY_POOL_SIZE];
 
 void clear_choice_box(void);
 void draw_choice_box(void);
-void add_ellipse_to_key(ellipse_t *ell, key_t *key);
+void add_ellipse_to_key(ellipse_t *ell, key_state_t *key);
 ellipse_t *add_ellipse(void);
 void load_action_directory(void);
 void draw_view_cone_tri(void);
 void draw_world_square(void);
 void recalc_cam(void);
 int check_action_name_exists(int16_t index);
-void calculate_ellipses_one_key(key_t *key, actor_t *actor);
-void calculate_ellipses(key_t *key, actor_t *actor, int16_t factor);
+void calculate_ellipses_one_key(key_state_t *key, actor_t *actor);
+void calculate_ellipses(key_state_t *key, actor_t *actor, int16_t factor);
 void clear_all_choices(int16_t x, int16_t y);
 void draw_all_choices(int16_t x, int16_t y);
 void position_external_act(act_t *act, uint16_t game_time, actor_t *actor);

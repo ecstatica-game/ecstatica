@@ -25,10 +25,13 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
-#include <dirent.h>
 #include <ctype.h>
-#include <strings.h>
 #include <sys/stat.h>
+#include "compat.h"
+#ifndef _WIN32
+#include <strings.h>
+#include <dirent.h>
+#endif
 
 /* ── File pointers ── */
 FILE *file_pointer = NULL;
@@ -138,7 +141,7 @@ void file_read_triangle(FILE *f, actor_t *actor);
 void file_read_point(FILE *f, actor_t *actor);
 void file_read_action(FILE *f);
 void file_read_key(FILE *f, action_t *action);
-void file_read_event(FILE *f, key_t *key);
+void file_read_event(FILE *f, key_state_t *key);
 void file_read_scene(FILE *f);
 void file_read_code(FILE *f);
 void file_read_sound(FILE *f);
@@ -541,7 +544,7 @@ void print_action(action_t *action, FILE *f) {
     char *name = file_find_action_name(action->action_index);
     fprintf(f, "   ACTION '%s' ", name);
     fprintf(f, "Dur %d, Flg %4.4x\n", action->act_duration, action->action_flags);
-    key_t *key = action->key_list;
+    key_state_t *key = action->key_list;
     while (key) {
         fprintf(f, "      KEY Pos %4.4x\n", key->KEY_position);
         event_t *ev = key->key_event_list;
@@ -999,7 +1002,7 @@ void file_read_action(FILE *f) {
 void file_read_key(FILE *f, action_t *action) {
     if (!f || !action) return;
 
-    key_t *key = (key_t *)calloc(1, sizeof(key_t));
+    key_state_t *key = (key_state_t *)calloc(1, sizeof(key_state_t));
     if (!key) return;
 
     key->KEY_position = getw_be(f);
@@ -1016,7 +1019,7 @@ void file_read_key(FILE *f, action_t *action) {
 }
 
 /* file_read_event  E1: 0x4370FC | E2: 0x44137C */
-void file_read_event(FILE *f, key_t *key) {
+void file_read_event(FILE *f, key_state_t *key) {
     if (!f || !key) return;
 
     event_t *event = (event_t *)calloc(1, sizeof(event_t));
@@ -1915,7 +1918,7 @@ check_add_thing:
 
 /* file_read_actions  E1: 0x43A31C | E2: 0x4445E8 */
 void read_actions(FILE *f) {
-    key_t *inserted_key = NULL;
+    key_state_t *inserted_key = NULL;
     action_t *added_action = NULL;
     int16_t event_type;
     int action_event_count = 0;
@@ -2518,7 +2521,7 @@ void merge_sought_file(FILE *f, int quiet) {
     /* Read events/scenes/scripts/keys/ellipses */
     int16_t event_type;
     script_t *current_script = NULL;
-    key_t *key_struct = NULL;
+    key_state_t *key_struct = NULL;
     ellipse_t *ellipse = NULL;
 
     do {

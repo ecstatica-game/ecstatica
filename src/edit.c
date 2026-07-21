@@ -430,7 +430,7 @@ void remove_from_display_list(actor_t *actor) {
         actor_hit_points[actor->name_index] = actor->actor_hitpoints;
         actor_magic[actor->name_index] = (int16_t)actor->actor_magic;
         if (actor->actor_act.act_action) {
-            for (key_t *key = actor->actor_act.actor_keys_list; key; key = key->next) {
+            for (key_state_t *key = actor->actor_act.actor_keys_list; key; key = key->next) {
                 for (event_t *event = key->key_event_list; event; event = event->next) {
                     if (event->event_type == INTERACT && event->param1 == 4 && event->param2 != 0) {
                         execute_thing_code(actor, (int16_t)(event->param2 - 1));
@@ -451,16 +451,16 @@ void remove_from_display_list(actor_t *actor) {
  * ══════════════════════════════════════════════════════════════ */
 
 /* edit_insert_key_41F80C — insert key sorted by position */
-key_t *insert_key(action_t *action, uint16_t position) {
+key_state_t *insert_key(action_t *action, uint16_t position) {
     if (!action) return NULL;
 
-    key_t *key = find_free_key();
+    key_state_t *key = find_free_key();
     if (!key) return NULL;
 
     key->KEY_position = position;
 
     /* Find insertion point: sorted by position ascending */
-    key_t **prev_ptr = &action->key_list;
+    key_state_t **prev_ptr = &action->key_list;
     while (*prev_ptr && (*prev_ptr)->KEY_position <= key->KEY_position) {
         prev_ptr = &(*prev_ptr)->next;
     }
@@ -471,7 +471,7 @@ key_t *insert_key(action_t *action, uint16_t position) {
 }
 
 /* edit_add_event_to_key_41F964 — add event sorted by priority */
-void add_event_to_key(event_t *event, key_t *key) {
+void add_event_to_key(event_t *event, key_state_t *key) {
     if (!key || !event) return;
 
     int priority = event_priority[event->event_type & 0x7F];
@@ -1134,7 +1134,7 @@ void update_act(act_t *act, actor_t *actor, int some_time) {
             return;
         }
         position_act(act, (uint16_t)some_duration, actor);
-        key_t *key = act->actor_keys_list;
+        key_state_t *key = act->actor_keys_list;
         if (!key || key->key_event_list) {
             if (actor->flags & 0x0400)
                 clear_a_stuck_thing(actor);

@@ -18,6 +18,7 @@
 #include "topo.h"
 #include <string.h>
 #include <stdlib.h>
+#include "compat.h"
 #include <math.h>
 
 /* Ellipse column renderers in asm_f.c — 5-arg packed convention.

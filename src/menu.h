@@ -14,7 +14,7 @@ void delete_parts(part_t *part);
 void delete_triangle(tri_t *tri);
 void do_delete_action(action_t *action);
 void do_delete_scene(scene_t *scene);
-void delete_key(key_t *key);
+void delete_key(key_state_t *key);
 void remove_part(part_t *part);
 void go_svga(void);
 void go_vga(void);
