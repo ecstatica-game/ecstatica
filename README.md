@@ -6,6 +6,9 @@ Primary reverse-engineering target is `E2WIN95.EXE` (Ecstatica 2 Win95 build, wh
 
 The goal is a single native executable that runs both games on modern systems (macOS first, Linux/Windows scaffolded) using the original game data.
 
+![Ecstatica 1](docs/e1.png)
+![Ecstatica 2](docs/e2.png)
+
 ## Goals
 
 * Disassemble Ecstatica 1 & 2 with IDA Pro 9.1 + Open Watcom debug symbols

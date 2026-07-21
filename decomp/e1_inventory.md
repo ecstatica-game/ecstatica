@@ -1,7 +1,7 @@
-# E1WIN95.EXE Decompilation Inventory
+# ECSTATIC.EXE Decompilation Inventory
 
 Function-level status of the Ecstatica I Win95 decompilation.
-Base binary: E1WIN95.EXE.
+Base binary: ECSTATIC.EXE.
 
 > **Note:** Functions may be implemented in a different .c file than their
 > original E1 module. This inventory searches across all src/ files.
