@@ -1,0 +1,130 @@
+File:          data/e1-dos/SCENES/ACTORS.FAN
+FAN version:   27
+new_name_sys:  0 (name tables in file)
+Internal name: actors
+
+  part names (76):
+    [  0] Right hand
+    [  1] Left hand
+    [  2] Body
+    [  3] Head
+    [  4] Left thigh
+    [  5] Left foot
+    [  6] Left upper arm
+    [  7] Left forearm
+    [  8] Right upper arm
+    [  9] Right forearm
+    [ 10] Left eye
+    [ 11] Right eye
+    [ 12] Right thigh
+    [ 13] Right shin
+    [ 14] Right foot
+    [ 15] Left shin
+    [ 16] Mouth
+    [ 17] Chest
+    [ 18] neck
+    [ 19] Left cheek
+    [ 20] Right cheek
+    [ 21] Right ear
+    [ 22] Left ear
+    [ 23] Right shoulder
+    [ 24] Right pectorals
+    [ 25] Left pectorals
+    [ 26] Left shoulder
+    [ 27] Left butt
+    [ 28] Right butt
+    [ 29] Left knee
+    [ 30] Right knee
+    [ 31] Hair
+    [ 32] pony
+    [ 33] belt
+    [ 34] Right molet
+    [ 35] Left molet
+    [ 36] Left hair
+    [ 37] Right hair
+    [ 38] secret piece
+    [ 39] tail
+    [ 40] pupil1
+    [ 41] pupil2
+    [ 42] patch
+    [ 43] Right elbow
+    [ 44] Left elbow
+    [ 45] quiver
+    [ 46] hat
+    [ 47] Right bras
+    [ 48] Left bras
+    [ 49] Right eye bird
+    [ 50] Left eye bird
+    [ 51] garde
+    [ 52] tail2
+    [ 53] tail1
+    [ 54] Right hole
+    [ 55] Left hole
+    [ 56] bow
+    [ 57] pipss
+    [ 58] z1
+    [ 59] beck
+    [ 60] bird
+    [ 61] back
+    [ 62] ribs
+    [ 63] Right toe
+    [ 64] Left toe
+    [ 65] z2
+    [ 66] Left pect
+    [ 67] Right pect
+    [ 68] belly
+    [ 69] jewel
+    [ 70] Left tail3
+    [ 71] Right tail3
+    [ 72] pommeau
+    [ 73] knife
+    [ 74] bellybutton
+    [ 75] beret
+
+  thing names (3):
+    [  0] fdinhe
+    [  1] fdinette
+    [  2] cheval2
+
+  scene names (1):
+    [  0] actors
+
+  point names (13):
+    [  0] 1
+    [  1] 2
+    [  2] L 1
+    [  3] R 1
+    [  4] L 2
+    [  5] L 3
+    [  6] L 4
+    [  7] R 12
+    [  8] R 2
+    [  9] R 3
+    [ 10] R 4
+    [ 11] L 0
+    [ 12] R 0
+
+  triangle names (8):
+    [  0] L 2
+    [  1] R 2
+    [  2] 1
+    [  3] L 1
+    [  4] R 1
+    [  5] 9
+    [  6] 10
+    [  7] 11
+
+  code names (3):
+    [  0] endactors
+    [  1] theend
+    [  2] cleartheend
+
+Event stream: 11 events
+
+Event type distribution:
+  ROTATE              : 9
+  INTERACT            : 1
+  VECTOR1             : 1
+
+INTERACT events (1):
+  @   884 idx=224 CheckPartHit         p2=    0 p3=12000

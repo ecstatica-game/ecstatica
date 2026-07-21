@@ -1,0 +1,16 @@
+File:          data/e1-dos/ACTORS/A.FAN
+FAN version:   23
+new_name_sys:  (not present, version < 26)
+Internal name: a
+
+  part names (1):
+    [  0] hat
+
+  thing names (1):
+    [  0] a
+
+Event stream: 2 events
+
+Event type distribution:
+  ROTATE              : 1
+  START_POSITION      : 1

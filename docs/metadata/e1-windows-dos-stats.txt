@@ -1,0 +1,12 @@
+Version distribution for data/e1/W/D/
+
+ Version  Count  Bar
+--------------------------------------------------
+      51      1  
+
+Subdir             51
+---------------------
+CODE                1
+TOTAL               1
+
+Total files: 1

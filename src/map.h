@@ -1,0 +1,66 @@
+#ifndef MAP_H
+#define MAP_H
+
+#include "types.h"
+
+/* ══════════════════════════════════════════════════════════════
+ *  Structure Definitions
+ * ══════════════════════════════════════════════════════════════ */
+
+/* ── Map area structure ── */
+#pragma pack(push, 1)
+struct map_area_s {
+    uint16_t map_area_index;
+    uint16_t map_area_element_num[10];
+    struct map_area_s *next;
+};
+#pragma pack(pop)
+
+/* ── Map area element ── */
+#pragma pack(push, 1)
+typedef struct map_area_element_s {
+    uint8_t def_height;
+    uint8_t block_config;
+    int16_t code_index_p1;
+    char wanderer_spawn;
+    uint8_t height2;
+    char material;
+    char height;
+    int16_t camera_index;
+    int16_t camera_override;
+} map_area_element_t;  /* 12 bytes */
+#pragma pack(pop)
+
+/* ══════════════════════════════════════════════════════════════
+ *  Map Globals (extern)
+ * ══════════════════════════════════════════════════════════════ */
+
+extern uint16_t new_map[128][128];
+extern map_area_element_t map_elements[60000];
+extern int32_t top_of_map_elements;
+
+/* ══════════════════════════════════════════════════════════════
+ *  Function Declarations
+ * ══════════════════════════════════════════════════════════════ */
+
+void check_view(int camera_index);
+void check_hot_spots(void);
+void check_camera(void);
+void copy_vga_to_svga(void);
+void switch_camera(camera_data_t *camera);
+void init_map(void);
+void reposition_thing(actor_t *actor);
+int  position_is_visible(vector_t *pos);
+void check_visibility(actor_t *actor);
+void check_thing_name_invis(int actor_index);
+void swap_out_actor(actor_t *actor);
+void check_thing_name_vis(int actor_index);
+void add_to_display_list_held(actor_t *actor);
+void swap_in_actor(int actor_index);
+void make_invisible(actor_t *actor);
+void reposition_fixed_parts(void);
+int find_highest_camera_num(void);
+void copy_background2to01(void);
+void copy_background3to012(void);
+
+#endif /* MAP_H */
