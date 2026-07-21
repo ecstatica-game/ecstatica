@@ -1,0 +1,86 @@
+File:          data/e1-dos/ACTORS/FDINHE.FAN
+FAN version:   25
+new_name_sys:  (not present, version < 26)
+Internal name: fdinhe
+
+  part names (43):
+    [  0] Right hand
+    [  1] Left hand
+    [  2] Body
+    [  3] Head
+    [  4] Left thigh
+    [  5] Left foot
+    [  6] Left upper arm
+    [  7] Left forearm
+    [  8] Right upper arm
+    [  9] Right forearm
+    [ 10] Left eye
+    [ 11] Right eye
+    [ 12] Right thigh
+    [ 13] Right shin
+    [ 14] Right foot
+    [ 15] Left shin
+    [ 16] Mouth
+    [ 17] Chest
+    [ 18] neck
+    [ 19] Left cheek
+    [ 20] Right cheek
+    [ 21] Right ear
+    [ 22] Left ear
+    [ 23] Right shoulder
+    [ 24] Right pectorals
+    [ 25] Left pectorals
+    [ 26] Left shoulder
+    [ 27] Left butt
+    [ 28] Right butt
+    [ 29] Left knee
+    [ 30] Right knee
+    [ 31] Hair
+    [ 32] pony
+    [ 33] belt
+    [ 34] Right molet
+    [ 35] Left molet
+    [ 36] Left hair
+    [ 37] Right hair
+    [ 38] secret piece
+    [ 39] tail
+    [ 40] pupil1
+    [ 41] pupil2
+    [ 42] patch
+
+  thing names (1):
+    [  0] fdinhe
+
+  point names (11):
+    [  0] 1
+    [  1] 2
+    [  2] L 1
+    [  3] R 1
+    [  4] L 2
+    [  5] L 3
+    [  6] L 4
+    [  7] R 12
+    [  8] R 2
+    [  9] R 3
+    [ 10] R 4
+
+  triangle names (5):
+    [  0] L 2
+    [  1] R 2
+    [  2] 1
+    [  3] L 1
+    [  4] R 1
+
+  code names (3):
+    [  0] fdinhe hit
+    [  1] fdinhe gethit
+    [  2] start fdinhe
+
+  repertoire names (1):
+    [  0] f_walk
+
+Event stream: 2 events
+
+Event type distribution:
+  ROTATE              : 1
+  T78                 : 1

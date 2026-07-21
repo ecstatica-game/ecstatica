@@ -1,0 +1,12 @@
+Version distribution for data/e2/
+
+ Version  Count  Bar
+--------------------------------------------------
+      55      1  
+
+Subdir             55
+---------------------
+CODE                1
+TOTAL               1
+
+Total files: 1

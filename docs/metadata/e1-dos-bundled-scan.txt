@@ -1,0 +1,7 @@
+Scanning 3 .FAN files in data/e1/
+
+File                                                Ver  NNS Internal Name                 
+--------------------------------------------------------------------------------------------
+CODE/ECSTATIC.FAN                                    30    0 (empty)                       
+W/CODE/ECSTATIC.FAN                                  48    0 \fast\code\ecstatic.fan       
+W/D/CODE/ECSTATIC.FAN                                51    0 \fast\code\ecstatic.fan       

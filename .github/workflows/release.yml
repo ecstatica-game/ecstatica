@@ -1,0 +1,200 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build universal binary
+        run: |
+          cmake -S src -B build -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+          cmake --build build
+
+      - name: Package
+        run: |
+          cd build/bin
+          zip ecstatica-macos-universal.zip ecstatica
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-build
+          path: build/bin/ecstatica-macos-universal.zip
+
+  build-linux-x86_64:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev libasound2-dev
+
+      - name: Build
+        run: |
+          cmake -S src -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build
+
+      - name: Package AppImage
+        run: |
+          mkdir -p AppDir/usr/bin AppDir/usr/share/applications AppDir/usr/share/icons/hicolor/256x256/apps
+
+          cp build/bin/ecstatica AppDir/usr/bin/
+
+          cat > AppDir/usr/share/applications/ecstatica.desktop << 'DESKTOP'
+          [Desktop Entry]
+          Name=Ecstatica
+          Exec=ecstatica
+          Icon=ecstatica
+          Type=Application
+          Categories=Game;
+          DESKTOP
+
+          cp AppDir/usr/share/applications/ecstatica.desktop AppDir/
+
+          printf '\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05\x18\xd8N\x00\x00\x00\x00IEND\xaeB`\x82' > AppDir/usr/share/icons/hicolor/256x256/apps/ecstatica.png
+          ln -sf usr/share/icons/hicolor/256x256/apps/ecstatica.png AppDir/ecstatica.png
+
+          wget -q https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool-x86_64.AppImage
+
+          cat > AppDir/AppRun << 'APPRUN'
+          #!/bin/bash
+          SELF=$(readlink -f "$0")
+          HERE=${SELF%/*}
+          exec "${HERE}/usr/bin/ecstatica" "$@"
+          APPRUN
+          chmod +x AppDir/AppRun
+
+          ./appimagetool-x86_64.AppImage --appimage-extract-and-run AppDir ecstatica-linux-x86_64.AppImage
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-x86_64-build
+          path: ecstatica-linux-x86_64.AppImage
+
+  build-linux-arm64:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev libasound2-dev
+
+      - name: Build
+        run: |
+          cmake -S src -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build
+
+      - name: Package AppImage
+        run: |
+          mkdir -p AppDir/usr/bin AppDir/usr/share/applications AppDir/usr/share/icons/hicolor/256x256/apps
+
+          cp build/bin/ecstatica AppDir/usr/bin/
+
+          cat > AppDir/usr/share/applications/ecstatica.desktop << 'DESKTOP'
+          [Desktop Entry]
+          Name=Ecstatica
+          Exec=ecstatica
+          Icon=ecstatica
+          Type=Application
+          Categories=Game;
+          DESKTOP
+
+          cp AppDir/usr/share/applications/ecstatica.desktop AppDir/
+
+          printf '\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05\x18\xd8N\x00\x00\x00\x00IEND\xaeB`\x82' > AppDir/usr/share/icons/hicolor/256x256/apps/ecstatica.png
+          ln -sf usr/share/icons/hicolor/256x256/apps/ecstatica.png AppDir/ecstatica.png
+
+          wget -q https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-aarch64.AppImage
+          chmod +x appimagetool-aarch64.AppImage
+
+          cat > AppDir/AppRun << 'APPRUN'
+          #!/bin/bash
+          SELF=$(readlink -f "$0")
+          HERE=${SELF%/*}
+          exec "${HERE}/usr/bin/ecstatica" "$@"
+          APPRUN
+          chmod +x AppDir/AppRun
+
+          ./appimagetool-aarch64.AppImage --appimage-extract-and-run AppDir ecstatica-linux-arm64.AppImage
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-arm64-build
+          path: ecstatica-linux-arm64.AppImage
+
+  build-windows-x86_64:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        shell: cmd
+        run: |
+          cmake -S src -B build -DCMAKE_BUILD_TYPE=Release -A x64
+          cmake --build build --config Release
+
+      - name: Package
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem -Path build/bin -Recurse -Filter ecstatica.exe | Select-Object -First 1
+          Compress-Archive -Path $exe.FullName -DestinationPath ecstatica-windows-x86_64.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-x86_64-build
+          path: ecstatica-windows-x86_64.zip
+
+  build-windows-arm64:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        shell: cmd
+        run: |
+          cmake -S src -B build -DCMAKE_BUILD_TYPE=Release -A ARM64
+          cmake --build build --config Release
+
+      - name: Package
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem -Path build/bin -Recurse -Filter ecstatica.exe | Select-Object -First 1
+          Compress-Archive -Path $exe.FullName -DestinationPath ecstatica-windows-arm64.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-arm64-build
+          path: ecstatica-windows-arm64.zip
+
+  release:
+    needs: [build-macos, build-linux-x86_64, build-linux-arm64, build-windows-x86_64, build-windows-arm64]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/macos-build/ecstatica-macos-universal.zip
+            artifacts/linux-x86_64-build/ecstatica-linux-x86_64.AppImage
+            artifacts/linux-arm64-build/ecstatica-linux-arm64.AppImage
+            artifacts/windows-x86_64-build/ecstatica-windows-x86_64.zip
+            artifacts/windows-arm64-build/ecstatica-windows-arm64.zip
+          generate_release_notes: true

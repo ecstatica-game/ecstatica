@@ -1,0 +1,52 @@
+# Modules
+
+## init
+* Game initialization routines
+
+## display
+* Drawing Game Objects to the screen
+
+## edit
+*
+
+## move
+* Scripting
+
+## anim
+* 3D Animations
+
+## ellipse
+* Ellipse rendering and shading
+
+## tri
+* Triangle rendering
+
+## icon
+*
+
+## menu
+* Menu Options
+
+## req
+*
+
+## file
+* File management
+
+## topo
+*
+
+## map
+* 3D World Map
+
+## pack
+* Resource
+
+## game
+* Gameplay
+
+## chars
+* font and characters
+
+## win
+* Windows 95 related

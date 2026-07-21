@@ -1,0 +1,4839 @@
+File:          data/e1/CODE/ECSTATIC.FAN
+FAN version:   30
+new_name_sys:  0 (name tables in file)
+Internal name: (empty)
+
+  part names (203):
+    [  0] Right hand
+    [  1] Left hand
+    [  2] Body
+    [  3] Head
+    [  4] Left thigh
+    [  5] Left foot
+    [  6] Left upper arm
+    [  7] Left forearm
+    [  8] Right upper arm
+    [  9] Right forearm
+    [ 10] Left eye
+    [ 11] Right eye
+    [ 12] Right thigh
+    [ 13] Right shin
+    [ 14] Right foot
+    [ 15] Left shin
+    [ 16] Mouth
+    [ 17] Chest
+    [ 18] neck
+    [ 19] Left cheek
+    [ 20] Right cheek
+    [ 21] Right ear
+    [ 22] Left ear
+    [ 23] Right shoulder
+    [ 24] Right pectorals
+    [ 25] Left pectorals
+    [ 26] Left shoulder
+    [ 27] Left butt
+    [ 28] Right butt
+    [ 29] Left knee
+    [ 30] Right knee
+    [ 31] Hair
+    [ 32] pony
+    [ 33] belt
+    [ 34] Right molet
+    [ 35] Left molet
+    [ 36] Left hair
+    [ 37] Right hair
+    [ 38] secret piece
+    [ 39] tail
+    [ 40] pupil1
+    [ 41] pupil2
+    [ 42] patch
+    [ 43] Right elbow
+    [ 44] Left elbow
+    [ 45] quiver
+    [ 46] hat
+    [ 47] Right bras
+    [ 48] Left bras
+    [ 49] Right eye bird
+    [ 50] Left eye bird
+    [ 51] garde
+    [ 52] tail2
+    [ 53] tail1
+    [ 54] Right hole
+    [ 55] Left hole
+    [ 56] bow
+    [ 57] pipss
+    [ 58] z1
+    [ 59] beck
+    [ 60] bird
+    [ 61] back
+    [ 62] ribs
+    [ 63] Right toe
+    [ 64] Left toe
+    [ 65] z2
+    [ 66] Left pect
+    [ 67] Right pect
+    [ 68] belly
+    [ 69] decoration
+    [ 70] headhammer
+    [ 71] nosehair
+    [ 72] hammer
+    [ 73] shield
+    [ 74] moredecoration
+    [ 75] sword
+    [ 76] pips
+    [ 77] tophat
+    [ 78] beard
+    [ 79] jewel
+    [ 80] neck1
+    [ 81] Left tail3
+    [ 82] Right tail3
+    [ 83] Right iris
+    [ 84] Left iris
+    [ 85] pommeau
+    [ 86] head
+    [ 87] Right pupil
+    [ 88] Right nostril
+    [ 89] Left nostril
+    [ 90] Right avantbras
+    [ 91] Left avantbras
+    [ 92] Left main
+    [ 93] Right main
+    [ 94] Left pupil
+    [ 95] bow3
+    [ 96] bow2
+    [ 97] helmet
+    [ 98] tail bird
+    [ 99] hair
+    [100] bow1
+    [101] arrow
+    [102] neepl
+    [103] neepll
+    [104] Right foreleg
+    [105] Left foreleg
+    [106] knife
+    [107] nose
+    [108] neck2
+    [109] Left tooth
+    [110] Right tooth
+    [111] taily
+    [112] stick
+    [113] ball
+    [114] pectoraux
+    [115] Left circle
+    [116] Right circle
+    [117] head bird
+    [118] Left wing
+    [119] Right wing
+    [120] Left claws
+    [121] Right claws
+    [122] Right sourcil
+    [123] Left sourcil
+    [124] Right moustache
+    [125] Right mustach
+    [126] Left mustach
+    [127] Right collier
+    [128] Left collier
+    [129] claviculas
+    [130] Left cubitus
+    [131] Right cubitus
+    [132] sortofnose
+    [133] Left gorge
+    [134] gorge
+    [135] gorge1
+    [136] Left n
+    [137] Right n
+    [138] tutu
+    [139] tutu2
+    [140] tutu3
+    [141] belly botton
+    [142] i dont know
+    [143] z3
+    [144] z4
+    [145] z5
+    [146] z6
+    [147] z7
+    [148] nose helmet
+    [149] arrow3
+    [150] somethink
+    [151] Left sleeve
+    [152] jaw
+    [153] toppy
+    [154] dragonhead
+    [155] tail4
+    [156] Right corn
+    [157] bracelet
+    [158] bellybutton
+    [159] beret
+    [160] strap
+    [161] strap1
+    [162] mouth1
+    [163] collier
+    [164] museau
+    [165] earing
+    [166] belly button
+    [167] tongue
+    [168] blade
+    [169] sheet
+    [170] arrow1
+    [171] bosse
+    [172] chin
+    [173] hair3
+    [174] hair4
+    [175] Right footy
+    [176] Left footy
+    [177] hair5
+    [178] hair6
+    [179] hair7
+    [180] hair1
+    [181] circle
+    [182] Right sleeve
+    [183] part
+    [184] q1
+    [185] q2
+    [186] q3
+    [187] q4
+    [188] q5
+    [189] q6
+    [190] q7
+    [191] q8
+    [192] col
+    [193] couronne
+    [194] cercle
+    [195] a1
+    [196] a2
+    [197] a3
+    [198] a4
+    [199] ddd
+    [200] Left eyelid
+    [201] Right eyelid
+    [202] Throat
+
+  thing names (467):
+    [  0] fdinhe
+    [  1] dinette
+    [  2] bridge
+    [  3] cheval
+    [  4] warrior
+    [  5] dinnstop
+    [  6] dinbalai
+    [  7] demon
+    [  8] dragon2
+    [  9] dragon1
+    [ 10] traveller
+    [ 11] warhammer
+    [ 12] old knight
+    [ 13] table3
+    [ 14] chair1
+    [ 15] goldsword
+    [ 16] demoness
+    [ 17] table4
+    [ 18] herminedinn
+    [ 19] teddybear
+    [ 20] sorcerer
+    [ 21] fireball
+    [ 22] sword
+    [ 23] pigotor
+    [ 24] liddlegirl
+    [ 25] monk
+    [ 26] monk2
+    [ 27] monk1
+    [ 28] portelivre
+    [ 29] monk3
+    [ 30] monk4
+    [ 31] penitent
+    [ 32] werewolf
+    [ 33] druid
+    [ 34] chair2
+    [ 35] chimney1
+    [ 36] dolmen1
+    [ 37] dolmen2
+    [ 38] dolmen3
+    [ 39] dolmen4
+    [ 40] dolmen5
+    [ 41] book
+    [ 42] tabledinn
+    [ 43] lady_of_the_lake
+    [ 44] monk5
+    [ 45] dragon
+    [ 46] fdinette
+    [ 47] bird
+    [ 48] old_knight
+    [ 49] rat1
+    [ 50] bed1
+    [ 51] rat2
+    [ 52] rat3
+    [ 53] ladder
+    [ 54] priest
+    [ 55] bird1
+    [ 56] bell
+    [ 57] doormonestry
+    [ 58] doormon2
+    [ 59] bird2
+    [ 60] bird3
+    [ 61] bird4
+    [ 62] bird5
+    [ 63] bird6
+    [ 64] bird7
+    [ 65] christ
+    [ 66] barrel
+    [ 67] barrel2
+    [ 68] barrel3
+    [ 69] barrel4
+    [ 70] cupboard
+    [ 71] chair6
+    [ 72] barrel5
+    [ 73] shelves
+    [ 74] door1
+    [ 75] herb1
+    [ 76] key
+    [ 77] door2
+    [ 78] sign_her
+    [ 79] sign_pb
+    [ 80] door3
+    [ 81] window1
+    [ 82] window2
+    [ 83] window3
+    [ 84] door_ch1
+    [ 85] door_ch
+    [ 86] door_ch2
+    [ 87] tbl_stil
+    [ 88] priest2
+    [ 89] witch
+    [ 90] the_cup
+    [ 91] skinny1
+    [ 92] table6
+    [ 93] table7
+    [ 94] head_ski
+    [ 95] oldman
+    [ 96] spiderman
+    [ 97] cross
+    [ 98] roof
+    [ 99] knife
+    [100] grille
+    [101] cherub
+    [102] cherub1
+    [103] c_cherub
+    [104] meanotor
+    [105] foolish
+    [106] wisard
+    [107] chimney3
+    [108] jester
+    [109] jester1
+    [110] dinntird
+    [111] balaie
+    [112] chair_sor
+    [113] candle1
+    [114] candle2
+    [115] table_so
+    [116] candle3
+    [117] candle4
+    [118] chimney5
+    [119] book_sor
+    [120] plume
+    [121] feather
+    [122] bat1
+    [123] bat2
+    [124] bat3
+    [125] snakman
+    [126] spi
+    [127] tble_4
+    [128] mecanism
+    [129] top
+    [130] herb2
+    [131] herb3
+    [132] herb4
+    [133] flame5
+    [134] flame6
+    [135] flame7
+    [136] flame8
+    [137] flame9
+    [138] devil1
+    [139] devil2
+    [140] devil3
+    [141] devil4
+    [142] bat4
+    [143] bat5
+    [144] bok_pray
+    [145] devil6
+    [146] devil7
+    [147] devil8
+    [148] flame1
+    [149] flame2
+    [150] flame3
+    [151] flame4
+    [152] invisible
+    [153] invi2
+    [154] skelton6
+    [155] skelton5
+    [156] skelton4
+    [157] skelton3
+    [158] skelton1
+    [159] skelton2
+    [160] monster
+    [161] chair_ki
+    [162] king
+    [163] roi
+    [164] porte
+    [165] birdy
+    [166] flame10
+    [167] flame20
+    [168] flame30
+    [169] flame40
+    [170] Ogredinn
+    [171] doubldi
+    [172] doubledi
+    [173] grille2
+    [174] grille3
+    [175] grille4
+    [176] grille5
+    [177] lqdder2
+    [178] torch1
+    [179] t2
+    [180] t3
+    [181] t4
+    [182] bas1
+    [183] bas2
+    [184] bas3
+    [185] bas4
+    [186] relief4
+    [187] bas5
+    [188] bas6
+    [189] bas7
+    [190] bas8
+    [191] bas9
+    [192] bas10
+    [193] bas11
+    [194] bas12
+    [195] bas13
+    [196] bas14
+    [197] bas15
+    [198] pic
+    [199] deco
+    [200] 
+    [201] deco2
+    [202] trap
+    [203] pic2
+    [204] trap2
+    [205] hercule
+    [206] hercule2
+    [207] hercule3
+    [208] hercule4
+    [209] eunuque
+    [210] bed6
+    [211] eunuqu2
+    [212] skelton7
+    [213] hotel
+    [214] djinn
+    [215] didi
+    [216] demon3
+    [217] demon2
+    [218] pic10
+    [219] bed11
+    [220] bed12
+    [221] bed13
+    [222] ornment1
+    [223] ornment2
+    [224] ornment3
+    [225] ornment4
+    [226] ornment5
+    [227] beams1
+    [228] beams2
+    [229] bok_mon3
+    [230] beam3
+    [231] bem1
+    [232] bem2
+    [233] bem3
+    [234] bridge2
+    [235] horse1
+    [236] panneau
+    [237] gourde
+    [238] torture1
+    [239] handy1
+    [240] torture2
+    [241] handy2
+    [242] blason
+    [243] torture3
+    [244] torture4
+    [245] handy3
+    [246] handy4
+    [247] ornment10
+    [248] torture20
+    [249] relic
+    [250] support
+    [251] stand
+    [252] bok_mon2
+    [253] bok_mon1
+    [254] sofa1
+    [255] sofa2
+    [256] altar_d
+    [257] light1
+    [258] light2
+    [259] light3
+    [260] light4
+    [261] f_book_r
+    [262] f_book_l
+    [263] minotor
+    [264] biblio1
+    [265] biblio2
+    [266] biblio3
+    [267] biblio4
+    [268] biblio5
+    [269] dinbal
+    [270] birdy1
+    [271] lampy1
+    [272] lampy2
+    [273] lampy3
+    [274] barry1
+    [275] portebot
+    [276] porty
+    [277] tably
+    [278] table_fr
+    [279] table_ex
+    [280] zest1
+    [281] zest2
+    [282] zest3
+    [283] zest4
+    [284] zest5
+    [285] ogerdin2
+    [286] Ogredin1
+    [287] zest6
+    [288] zest7
+    [289] sarco1
+    [290] sarco2
+    [291] sarco3
+    [292] sraco4
+    [293] sarco4
+    [294] rope
+    [295] horse3
+    [296] epouvail
+    [297] kador
+    [298] dinn_up
+    [299] anna1
+    [300] anna2
+    [301] anna3
+    [302] anna4
+    [303] ratty
+    [304] ratty2
+    [305] ratty3
+    [306] flower
+    [307] mandraka
+    [308] saint
+    [309] saint2
+    [310] l_a
+    [311] hello2
+    [312] hello3
+    [313] hello4
+    [314] hello10
+    [315] hello11
+    [316] piles
+    [317] piles2
+    [318] piles3
+    [319] vitrail1
+    [320] vitrail2
+    [321] nice1
+    [322] nice2
+    [323] nice3
+    [324] nice4
+    [325] nice5
+    [326] nice6
+    [327] nice7
+    [328] nice8
+    [329] three1
+    [330] three2
+    [331] three3
+    [332] lad_mino
+    [333] three4
+    [334] three5
+    [335] chi_pigy
+    [336] lad_pigy
+    [337] bok_pigy
+    [338] tab_pigy
+    [339] fir_pigy
+    [340] trois_fly
+    [341] dev10
+    [342] bot
+    [343] eagle
+    [344] bok_sto1
+    [345] bok_sto2
+    [346] bok_sto3
+    [347] bok_sto4
+    [348] bok_sto5
+    [349] tri1
+    [350] tri2
+    [351] tri3
+    [352] foyer
+    [353] foyer2
+    [354] foyer3
+    [355] foyer4
+    [356] tri20
+    [357] tri40
+    [358] tri41
+    [359] cheval1
+    [360] devil22
+    [361] devil11
+    [362] devil33
+    [363] devil51
+    [364] devil52
+    [365] devil53
+    [366] devil54
+    [367] devil333
+    [368] devil123
+    [369] monk222
+    [370] skel_ait
+    [371] tria1
+    [372] sofa10
+    [373] sofa20
+    [374] tri30
+    [375] bot1
+    [376] verre1
+    [377] tria10
+    [378] cheval2
+    [379] warrior2
+    [380] warrior3
+    [381] page_her
+    [382] page_sor
+    [383] page_s_b
+    [384] frogdinn
+    [385] bot7
+    [386] new_dev
+    [387] devil13
+    [388] devil12
+    [389] mandrak2
+    [390] mandrak3
+    [391] flower2
+    [392] flower3
+    [393] flower4
+    [394] flower5
+    [395] actor1
+    [396] actor2
+    [397] actor3
+    [398] actor4
+    [399] carpet
+    [400] rampant
+    [401] fountain
+    [402] x_fount2
+    [403] serpent
+    [404] inarmor
+    [405] hello5
+    [406] thearm
+    [407] thearm2
+    [408] creeply
+    [409] thearm4
+    [410] thearm5
+    [411] thearm6
+    [412] thearm7
+    [413] x_were
+    [414] x_were1
+    [415] ornament1a
+    [416] hello8
+    [417] hello7
+    [418] hello6
+    [419] hello9
+    [420] ornmen10
+    [421] dev2
+    [422] drag2
+    [423] min2
+    [424] wer2
+    [425] fool
+    [426] try
+    [427] dinetty
+    [428] nette1
+    [429] ffff
+    [430] fdi2
+    [431] nette2
+    [432] nette_nit
+    [433] doublent
+    [434] barbar
+    [435] nil
+    [436] a
+    [437] skel
+    [438] z_door
+    [439] viper
+    [440] piggy1
+    [441] mino
+    [442] dinn_s
+    [443] fdinh
+    [444] xxx1
+    [445] xxx2
+    [446] xxx3
+    [447] xxx4
+    [448] p
+    [449] buffer
+    [450] couteau
+    [451] xxx5
+    [452] liddleboy
+    [453] bok
+    [454] port
+    [455] d
+    [456] f
+    [457] fdin
+    [458] door_f
+    [459] redrag
+    [460] nette
+    [461] dinn
+    [462] dinhe
+    [463] floppy2
+    [464] floppy1
+    [465] floppy3
+    [466] floppy4
+
+  action names (869):
+    [  0] *dodge fdinn
+    [  1] +end back
+    [  2] +get hit face
+    [  3] +get hit belly
+    [  4] +end belly 1
+    [  5] +slash up>down
+    [  6] +get hit back
+    [  7] +walk 7
+    [  8] +walk 7 start
+    [  9] +end face
+    [ 10] +slash r>l
+    [ 11] +turn l start
+    [ 12] +turn r start
+    [ 13] +turn l
+    [ 14] +turn r
+    [ 15] sideway r
+    [ 16] turn l
+    [ 17] sideway l
+    [ 18] *jump
+    [ 19] sideway l start
+    [ 20] sideway r start
+    [ 21] turn start l
+    [ 22] turn start r
+    [ 23] hit left swing
+    [ 24] walk 7 start
+    [ 25] walk 7
+    [ 26] turn r
+    [ 27] walk backward
+    [ 28] walk backward start
+    [ 29] -run 3 start
+    [ 30] -run 3
+    [ 31] -run turn l
+    [ 32] -run turn r
+    [ 33] -turn r
+    [ 34] -standing1
+    [ 35] - turn l start
+    [ 36] - turn r start
+    [ 37] -runbackward
+    [ 38] -runback start
+    [ 39] -standing2
+    [ 40] -standing3
+    [ 41] -standing4
+    [ 42] -standing5
+    [ 43] - turn l
+    [ 44] =walk
+    [ 45] =walkturn r
+    [ 46] =walkturn l
+    [ 47] =startwalk
+    [ 48] =turn r
+    [ 49] =turn l
+    [ 50] =walkback
+    [ 51] =startwalkback
+    [ 52] =standing1
+    [ 53] =standing2
+    [ 54] =standing3
+    [ 55] =standing4
+    [ 56] =standing5
+    [ 57] sideway r1
+    [ 58] +sideway r start
+    [ 59] *stand 3
+    [ 60] +stand 1
+    [ 61] *stand 4
+    [ 62] +stand 2
+    [ 63] +stand 3
+    [ 64] end face
+    [ 65] end belly2
+    [ 66] end back
+    [ 67] get hit face
+    [ 68] get hit belly
+    [ 69] get hit back
+    [ 70] hit left
+    [ 71] stand 1
+    [ 72] stand 4
+    [ 73] stand 5
+    [ 74] hit right ahah
+    [ 75] stand6
+    [ 76] pickup low dinn
+    [ 77] pickup+inpocket
+    [ 78] putdown low dinn
+    [ 79] -stoprun
+    [ 80] -panting
+    [ 81] pickuplow l
+    [ 82] putdownlow r
+    [ 83] pickuplow r
+    [ 84] putdownlow l
+    [ 85] !!!!pickup
+    [ 86] !!!!stand1
+    [ 87] !!!!stand2
+    [ 88] !!!!stand3
+    [ 89] !!!!forth
+    [ 90] !!!!turn r
+    [ 91] !!!!turn l
+    [ 92] !!!!back
+    [ 93] !!!!sideway r
+    [ 94] !!!!sideway l
+    [ 95] !!!!startforth
+    [ 96] !!!!putdown
+    [ 97] !!!!hit
+    [ 98] !!!!gethit
+    [ 99] !!!!end
+    [100] djinn_demon
+    [101] dem_walk
+    [102] dem_stand
+    [103] dem_turn r
+    [104] dem_turn l
+    [105] dem_hit
+    [106] #walkturn l
+    [107] #walkturn r
+    [108] +end belly 2
+    [109] +slash l>r swing
+    [110] !@#stand1
+    [111] !@#fly
+    [112] !@#fly r
+    [113] !@#fly l
+    [114] !@#hit
+    [115] !@#gethit
+    [116] !@#end
+    [117] +slash l>r
+    [118] ||walk monk
+    [119] ||turnwalk l
+    [120] ||end1 monk
+    [121] ||gethit
+    [122] ||gethit2
+    [123] ||gethit3
+    [124] ||hit1 monk
+    [125] ||hit2 monk
+    [126] ||hit3 monk
+    [127] ||hit4
+    [128] ||run monk
+    [129] ||runback
+    [130] ||runturn l
+    [131] ||runturn r
+    [132] ||standfight1
+    [133] ||standing1 monk
+    [134] ||standing2 monk
+    [135] ||standing3 monk
+    [136] ||turnwalk r
+    [137] ||walkback
+    [138] ||standfight2
+    [139] standing hermindinn
+    [140] walk hermdinn
+    [141] turn r hermdinn
+    [142] turn l hermdinn
+    [143] run hermindinn
+    [144] jump hermindinn
+    [145] walkbackward hermidinn
+    [146] sideway r hermdinn
+    [147] sideway l hermdinn
+    [148] stand dragon
+    [149] stand1 dragon
+    [150] stand3 dragon
+    [151] stand2 dragon
+    [152] stand4 dragon
+    [153] standing dragon
+    [154] fly r dragon
+    [155] fly l dragon
+    [156] attack1 dragon
+    [157] attack2 dragon
+    [158] attack3 dragon
+    [159] flybackward dragon
+    [160] flyturbo dragon
+    [161] flying r dragon
+    [162] flying l dragon
+    [163] 
+    [164] ||standingbook
+    [165] >>>jump hermindinn
+    [166] >>>run hermindinn
+    [167] >>>sideway l hermdinn
+    [168] >>>standing hermindinn
+    [169] >>>walk hermdinn
+    [170] >>>sideway r hermdinn
+    [171] >>>turn l hermdinn
+    [172] >>>walkbackward hermi
+    [173] ??fly dragon
+    [174] ??flying r dragon
+    [175] ??attack1 dragon
+    [176] ??attack3 dragon
+    [177] ??stand4 dragon
+    [178] ??stand3 dragon
+    [179] ??stand1 dragon
+    [180] ??stand dragon
+    [181] ??flyturbo dragon
+    [182] ??flying l dragon
+    [183] ??flybackward dragon
+    [184] ??fly r dragon
+    [185] ??stand2 dragon
+    [186] ??attack2 dragon
+    [187] ??fly l dragon
+    [188] ??standing dragon
+    [189] standing 1
+    [190] standing 2
+    [191] standing 3
+    [192] standing 5
+    [193] standing 7
+    [194] stand
+    [195] walkbackward fdinhe
+    [196] startwalkbackward fdinh
+    [197] hit right
+    [198] walkturn r dinn
+    [199] walkturn start l dinn
+    [200] walkturn start r dinn
+    [201] walkturn l dinn
+    [202] >dinette gethitback
+    [203] >dinette end gethitback
+    [204] >end belly fdinette
+    [205] #walk sword
+    [206] #standing
+    [207] #standing2
+    [208] !!!walk lady
+    [209] !!!walkturn r
+    [210] !!!walkturn l
+    [211] !!!stand1
+    [212] !!!stand2
+    [213] @@@turn r
+    [214] @@@turn l
+    [215] @@@stand1
+    [216] @@@stand2
+    [217] @@@stand3
+    [218] fight 1 stand
+    [219] fight 2 stand
+    [220] fight 3 stand
+    [221] fight 4 stand
+    [222] *stand 1
+    [223] -sideway r start
+    [224] -sideway r
+    [225] -sideway l start
+    [226] -sideway l
+    [227] =sideway r
+    [228] =sideway l
+    [229] stand 3
+    [230] !!!turn r
+    [231] !!!turn l
+    [232] !!!adoubing
+    [233] >>>gethit hermin
+    [234] >>>end hermin
+    [235] <>standknight
+    [236] <>standknight1
+    [237] <>standknight2
+    [238] <>gethit
+    [239] <>end
+    [240] `hit1 minotor
+    [241] `hit2 minotor
+    [242] `hit3 minotor
+    [243] `run minotor
+    [244] `standing1 minotor
+    [245] `standing2 minotor
+    [246] `standing3 minotor
+    [247] `standing4 minotor
+    [248] `standing5 minotor
+    [249] `standing6 minotor
+    [250] `turn l minotor
+    [251] `walk minotor
+    [252] `runturn r minotor
+    [253] `runturn l
+    [254] `walkturn r
+    [255] `walkturn l
+    [256] `walkstart
+    [257] `turn r
+    [258] `gethit1
+    [259] `gethit2
+    [260] `end1
+    [261] <hit werewolf
+    [262] <hit2 werewolf
+    [263] <hit3 werewolf
+    [264] <end1
+    [265] <gethit1
+    [266] <gethit2
+    [267] <gethit3
+    [268] <end2
+    [269] /walk
+    [270] /walkturn r
+    [271] /walkturn l
+    [272] /standing1
+    [273] /walkstart
+    [274] /turn r
+    [275] /walk+flut
+    [276] /walkstart+flut
+    [277] /walk+flut r turn
+    [278] /walk+flut l turn
+    [279] /turn l
+    [280] &walk wisard
+    [281] &stand wisard
+    [282] &turn l wisard
+    [283] &turn r wisard
+    [284] (walk liddlegirl
+    [285] (walkturn r
+    [286] (walkturn l
+    [287] (hit1
+    [288] (turn r
+    [289] (turn l
+    [290] (stand1
+    [291] (stand2
+    [292] (stand3
+    [293] (stand4
+    [294] (gethit
+    [295] (hitdown
+    [296] (angerliddlegirl
+    [297] run fdinhe
+    [298] ^eatstand
+    [299] ^eatstand2
+    [300] ^eatstand3
+    [301] ^eatstand4
+    [302] ^eatstand5
+    [303] ^end
+    [304] ^gethit
+    [305] |hit1 monk
+    [306] |hit2 monk
+    [307] |hit3 monk
+    [308] |standing1 monk
+    [309] |standing3 monk
+    [310] |standing2 monk
+    [311] |walk monk
+    [312] |turnwalk r
+    [313] |turnwalk l
+    [314] |walkback
+    [315] |run monk
+    [316] |runback
+    [317] |runturn r
+    [318] |runturn l
+    [319] |standfight1
+    [320] |standfight2
+    [321] |gethit
+    [322] |gethit2
+    [323] |gethit3
+    [324] |hit4
+    [325] |end1 monk
+    [326] ?walk
+    [327] ?walk r
+    [328] ?walk l
+    [329] ?standing1
+    [330] ?standing2
+    [331] ?standing3
+    [332] ?standing4
+    [333] ?standing5
+    [334] ?standing beg 5
+    [335] ?gethit
+    [336] ?end
+    [337] ?turn r
+    [338] ?turn l
+    [339] $standing1
+    [340] $standing2
+    [341] $standing3
+    [342] $en_garde
+    [343] $hit_after_engarde
+    [344] $hit
+    [345] $turn r
+    [346] $turn l
+    [347] $gethit
+    [348] $end
+    [349] %%%walkrat
+    [350] %%%turn r rat
+    [351] %%%turn l
+    [352] %%%stop rat
+    [353] %%%stop1 rat
+    [354] %%%stop2 rat
+    [355] :::bellring
+    [356] &gethit
+    [357] /gethit
+    [358] /end
+    [359] ~flybird
+    [360] ~fly r
+    [361] ~fly l
+    [362] ~flyonspot
+    [363] ~startstand
+    [364] ~stand
+    [365] ~stand1
+    [366] ~startstand1
+    [367] ~startfly
+    [368] ~gethit
+    [369] ~end
+    [370] ***fly
+    [371] <run werewolf
+    [372] <runturn r werewolf
+    [373] <runturn l werewolf
+    [374] <standing1 werewolf
+    [375] <standing2 werewolf
+    [376] <standing3 werewolf
+    [377] <turn l werewolf
+    [378] <turn r werewolf
+    [379] <walk werewolf
+    [380] <walkbackward werewolf
+    [381] <walkturn r werewolf
+    [382] <walkturn l werewolf
+    [383] <walkbackstart
+    [384] <hitrun
+    [385] <hitwalk
+    [386] |praystand
+    [387] |praystand2
+    [388] |praystand3
+    [389] |endpriest
+    [390] }walk witch
+    [391] }walkturn l
+    [392] }stand1 witch
+    [393] }stand2
+    [394] }turn l witch
+    [395] }gethit1
+    [396] }end witch
+    [397] }runtokissfdinn
+    [398] }walkturn r tokiss
+    [399] }walkturn l tokiss
+    [400] }kissfrog witch
+    [401] }grabfrog_to_kiss
+    [402] }kissdinn
+    [403] }metawitchafterkiss
+    [404] `gethit3
+    [405] {"?walkspider
+    [406] {"?turn r spider
+    [407] {"?turn l spider
+    [408] {"?stand
+    [409] {"?hit
+    [410] {"?gethit
+    [411] {"?end
+    [412] {"?hit2
+    [413] :::standgrille
+    [414] :::hit grille
+    [415] ***turn l cherub
+    [416] ***turn rr cherub
+    [417] ***turn ll cherub
+    [418] ***stand
+    [419] ***stand1
+    [420] ***cherub
+    [421] `turn rr
+    [422] `turn ll
+    [423] `hitt1
+    [424] `hitt2
+    [425] `hitt3
+    [426] `runturn rr
+    [427] `runturn ll
+    [428] ~~~standing jester
+    [429] ~~~turn l jester
+    [430] ~~~turn start l jester
+    [431] ~~~walkbackward jester
+    [432] ~~~turn r jester
+    [433] ~~~turn start r jester
+    [434] ~~~walk1 jester
+    [435] ~~~walkbackstart jest
+    [436] ~~~kick
+    [437] ~~~gethit
+    [438] ~~~end
+    [439] ~~~run
+    [440] #hit
+    [441] #gethit
+    [442] #end
+    [443] `standing8
+    [444] ----walk
+    [445] ----turn r
+    [446] ----turn l
+    [447] ----stand1
+    [448] ----stand2
+    [449] ----stand3
+    [450] ----stand4
+    [451] ----picklow
+    [452] ----putdown
+    [453] ---walkback
+    [454] ----startwalkback
+    [455] ----sideways r
+    [456] ----sideway l
+    [457] ****walkback
+    [458] ****picklow
+    [459] ****putdown
+    [460] ****sideway l
+    [461] ****sideways r
+    [462] ****stand1
+    [463] ****stand2
+    [464] ****stand3
+    [465] ****stand4
+    [466] ****startwalkback
+    [467] ****turn l
+    [468] ****turn r
+    [469] ****walk
+    [470] <startrun
+    [471] `runstart
+    [472] !@#hit1
+    [473] !!!!flame
+    [474] (*(fly
+    [475] (*(fly r
+    [476] (*(fly l
+    [477] )*)turn r
+    [478] )*)turn l
+    [479] asegf
+    [480] stand2
+    [481] spi_walk
+    [482] spi_stand
+    [483] spi_stand2
+    [484] api_turn r
+    [485] spi_turn l
+    [486] spi_turn r
+    [487] flame1
+    [488] flame5
+    [489] flame2
+    [490] dev_walk
+    [491] dev_turn r
+    [492] dev_turn l
+    [493] dev_hit
+    [494] dev_gethit
+    [495] dev_end
+    [496] dev_stand
+    [497] dev_stand2
+    [498] dev_stand3
+    [499] dev_stand4
+    [500] dev_stand5
+    [501] spi_gethit
+    [502] spi_end
+    [503] flame
+    [504] war_stand1
+    [505] war_stand2
+    [506] war_hit
+    [507] war_gethit
+    [508] war_stand3
+    [509] war_turn r
+    [510] war_turn l
+    [511] war_walk
+    [512] inv_slash
+    [513] inv_turn l
+    [514] inv_turn l start
+    [515] inv_run 3
+    [516] inv_run 3 start
+    [517] inv_turn r start
+    [518] inv_get hit back
+    [519] inv_slash up>down
+    [520] ske_walk
+    [521] ske_turn l
+    [522] ske_walkstart
+    [523] ske_stand1
+    [524] ske_stand2
+    [525] ske_turn r
+    [526] turn monster1
+    [527] mons_turn l
+    [528] mons_turn r
+    [529] mons_walk
+    [530] mons_hit
+    [531] mons_gethit
+    [532] mons_end
+    [533] mons_stand
+    [534] mons_stand2
+    [535] mons_turning r
+    [536] mons_turning l
+    [537] ><walk king
+    [538] king_walk
+    [539] king_stand
+    [540] king_stand2
+    [541] king_stand3
+    [542] king_stand4
+    [543] king_turn r
+    [544] king_turn l
+    [545] king_walky
+    [546] king_startwalk
+    [547] dbl_walk
+    [548] bird_walk
+    [549] bird_turn r
+    [550] bird_turn l
+    [551] bird_hit
+    [552] bird_gethit
+    [553] bird_end
+    [554] bird_stand
+    [555] bird_stand2
+    [556] bird_stand3
+    [557] end belly1
+    [558] hit right swing
+    [559] Walk ogerdinn
+    [560] sideway l ogerdinn
+    [561] sideway r ogerdinn
+    [562] turn l ogerdinn
+    [563] turn r ogerdinn
+    [564] turnstart l ogerdinn
+    [565] turnstart r ogerdinn
+    [566] standing ogerdinn
+    [567] standing 2 ogerdinn
+    [568] standing 3 ogerdinn
+    [569] walkback ogerdinn
+    [570] walkstartback ogerdinn
+    [571] jump ogerdinn
+    [572] run ogerdinn
+    [573] fightstanding
+    [574] eun_wind
+    [575] dji_walk
+    [576] dji_stand
+    [577] dji_turn r
+    [578] dji_turn l
+    [579] (*(hit
+    [580] dem2_stand
+    [581] dem2_turn r
+    [582] dem2_turn l
+    [583] dem2_walk
+    [584] dem2_hit
+    [585] horse_walk
+    [586] horse_turn r
+    [587] horse_turn l
+    [588] horse_canter
+    [589] horse_walk l
+    [590] horse_walk r
+    [591] horse_stop
+    [592] horse_stand
+    [593] horse_stand2
+    [594] horse_stand3
+    [595] horse_stand4
+    [596] horse_stand5
+    [597] horse_stand6
+    [598] horse_std
+    [599] horse_std2
+    [600] horse_std3
+    [601] reading
+    [602] inpocket r
+    [603] outpocket r
+    [604] inpocket l
+    [605] outpocket l
+    [606] read
+    [607] reading l
+    [608] !!!!pick_first
+    [609] zest6
+    [610] <hit9were
+    [611] -stand7
+    [612] =stand8
+    [613] dinn_up
+    [614] fdinn_up
+    [615] fdinn_up_l
+    [616] fdinn_up_r
+    [617] ~~~~forth
+    [618] ~~~~sideway l
+    [619] ~~~~sideway r
+    [620] ~~~~startwalkback
+    [621] ~~~~walkback
+    [622] ~~~~turn l
+    [623] ~~~~turn r
+    [624] ~~~~run
+    [625] ~~~~startrun
+    [626] sneak_werewolf
+    [627] <sneak_werewolf
+    [628] tri_lay
+    [629] tri_lay2
+    [630] tri_lay3
+    [631] tri_lay4
+    [632] try_lay6
+    [633] try_lay7
+    [634] try_lay8
+    [635] try_lay9
+    [636] try_lay1
+    [637] try_lay5
+    [638] horse_trot
+    [639] horse_starttrot
+    [640] horse l canter
+    [641] horse r canter
+    [642] horse_up
+    [643] horse r turn
+    [644] horse l turn
+    [645] horse ll turn
+    [646] horse rr turn
+    [647] stop_walk
+    [648] fallflat
+    [649] fall_flat2
+    [650] monk222_walk
+    [651] ske_wait_walk
+    [652] to_frog
+    [653] ]walky frog
+    [654] ]hit straight frogdinn
+    [655] ]sideway l frogdinn
+    [656] ]run frog
+    [657] ]sideway r frogdinn
+    [658] ]standing1 frogdinn
+    [659] ]standing2 frogdinn
+    [660] ]standing3 frog
+    [661] ]turn l frogdinn
+    [662] ]turn r frogdinn
+    [663] ]walk frog
+    [664] ]walkback frofdinn
+    [665] do nothing
+    [666] !!!!pickup2
+    [667] ?begging
+    [668] monk_speech
+    [669] pickout r
+    [670] re_reading
+    [671] pickmedium l
+    [672] pickmedium r
+    [673] putmedium r
+    [674] putmedium l
+    [675] pickhigh l
+    [676] pickhigh r
+    [677] puthigh r
+    [678] puthigh l
+    [679] nothing_r
+    [680] nothing_l
+    [681] (start_walk_lg
+    [682] (stop_walk_lg
+    [683] db_walk
+    [684] db_turn l
+    [685] db_turn r
+    [686] db_startturn l
+    [687] db_startturn r
+    [688] db_gethit
+    [689] db_stand
+    [690] db_kick
+    [691] 3_4gethit
+    [692] 2_4gethit
+    [693] 1_4gethit
+    [694] her_to_d
+    [695] }turn r witch
+    [696] }walkturn r
+    [697] witch_f
+    [698] }nil
+    [699] pig_stand
+    [700] +stand 1 fight
+    [701] +stand 2 fight
+    [702] +stand 3 fight
+    [703] +stand 4 fight
+    [704] +stand 5 fight
+    [705] fight_rep
+    [706] (endlit
+    [707] king_end
+    [708] king_gethit
+    [709] |praystand4
+    [710] |praystand5
+    [711] |praystand6
+    [712] frog_dinn
+    [713] witch_bendtokiss
+    [714] witch_w
+    [715] ]gethit frog
+    [716] [end frog
+    [717] f_to_dragon
+    [718] f_to_drag
+    [719] hit rat
+    [720] x-stand rat
+    [721] x_stand2 rat
+    [722] x_stand3 rat
+    [723] drag_to_dinn
+    [724] rampant_walk
+    [725] rampant_stand
+    [726] ramp_r
+    [727] ramp_l
+    [728] ramp_standing
+    [729] ramp_end
+    [730] dinn_pick_put
+    [731] d_l_pick_put
+    [732] pipi dinn
+    [733] serpent_walk
+    [734] serp_turn_r
+    [735] serp_turn_l
+    [736] serp_stand
+    [737] serp_stand2
+    [738] serp_stand3
+    [739] dinn_armour
+    [740] creep_walk
+    [741] creep_turn l
+    [742] creep_stand
+    [743] creep_stand2
+    [744] creep_hit
+    [745] roi_benedic
+    [746] double_end
+    [747] ramp_turn l
+    [748] ramp_turn_r
+    [749] fightrep
+    [750] s_putm_r
+    [751] s_put_l
+    [752] swap
+    [753] ramp_turn r
+    [754] pig_2
+    [755] end_skel_tab
+    [756] end_invis
+    [757] knit_walk
+    [758] white_walk
+    [759] white_stand
+    [760] white_stand2
+    [761] white_stand3
+    [762] white_stand4
+    [763] white_turn r
+    [764] white_turn l
+    [765] white_gethit
+    [766] white_gethit2
+    [767] white_hit
+    [768] white_slash
+    [769] white_fall
+    [770] white_hit2
+    [771] white_r
+    [772] white_l
+    [773] white_hit3
+    [774] white_backward
+    [775] white_down
+    [776] white_down2
+    [777] white_down3
+    [778] white_down4
+    [779] white_down5
+    [780] p_after
+    [781] p_after2
+    [782] p_after3
+    [783] p_after5
+    [784] p_after6
+    [785] x
+    [786] creep_turn r
+    [787] h_to_net
+    [788] n_tofrog
+    [789] frog_net
+    [790] n_to_fro
+    [791] barbar_w
+    [792] s_gethit
+    [793] s_gethit2
+    [794] s_gethit3
+    [795] no_touch
+    [796] djdj
+    [797] relic_hit
+    [798] earga
+    [799] z_right
+    [800] z_left
+    [801] z_hit
+    [802] drag_gethit
+    [803] drag_end
+    [804] m_gethit
+    [805] m1_gethit
+    [806] skel_gh
+    [807] skel_gh2
+    [808] spot_r
+    [809] spot_l
+    [810] demoness_hit
+    [811] z_dormir
+    [812] balaie_stand
+    [813] >>>turn r hermdinn
+    [814] were_stand4
+    [815] were_new1
+    [816] serpent_hit
+    [817] were_herm
+    [818] were_nice
+    [819] were_curious
+    [820] pig_no
+    [821] creep_stand3
+    [822] balaie_zero
+    [823] prst
+    [824] prst2
+    [825] invi_r
+    [826] trd_dodge
+    [827] were_fight
+    [828] were_stop
+    [829] monkspray
+    [830] monkpray_2
+    [831] monkpray_3
+    [832] m_g_h1
+    [833] m_g_h2
+    [834] m_g_h3
+    [835] m_g_h
+    [836] endwinner
+    [837] minoback
+    [838] minoback2
+    [839] minoback3
+    [840] meanback
+    [841] meanback2
+    [842] minogethit
+    [843] scared_back
+    [844] mean_scared2
+    [845] mean_scared3
+    [846] arm_dodge
+    [847] dev_hit2
+    [848] <walkbackstar
+    [849] <walk_b
+    [850] mean_b
+    [851] mmean
+    [852] mino_st
+    [853] m1
+    [854] anger_l
+    [855] priestt
+    [856] demmy
+    [857] startwalk_a
+    [858] nononono
+    [859] follow_j
+    [860] gethit_herm
+    [861] `flyspot bird
+    [862] `fly the bird
+    [863] `hit the bird
+    [864] dem
+    [865] were_lok
+    [866] extra5
+    [867] extra55
+    [868] dev_hit3
+
+  scene names (932):
+    [  0] Start_scene
+    [  1] EndScen1
+    [  2] EndScen2
+    [  3] EndScn1F
+    [  4] EndScn2F
+    [  5] lady1
+    [  6] pub
+    [  7] pub1
+    [  8] bar
+    [  9] knight1
+    [ 10] 1demoness1
+    [ 11] 1topfriend
+    [ 12] 1wisardhit1
+    [ 13] 2demoness2
+    [ 14] 2topfriend
+    [ 15] 2wisardhit2
+    [ 16] 3demoness3
+    [ 17] 3wisardhit3
+    [ 18] 4wisardhit4
+    [ 19] 5wisardhit5
+    [ 20] 6wisardhit6
+    [ 21] forge1
+    [ 22] forge2
+    [ 23] forge3
+    [ 24] friend
+    [ 25] friend1
+    [ 26] friend3
+    [ 27] knight2
+    [ 28] knight4
+    [ 29] liddlegirl
+    [ 30] knight3
+    [ 31] minotor
+    [ 32] minotor1
+    [ 33] minotor2
+    [ 34] monk_entrance
+    [ 35] monk_in
+    [ 36] monk_library
+    [ 37] monk_pray1
+    [ 38] penitent
+    [ 39] shop1
+    [ 40] shop2
+    [ 41] Start scene
+    [ 42] wisard1
+    [ 43] wisard2
+    [ 44] witch
+    [ 45] shop3
+    [ 46] dolmen
+    [ 47] hovel1
+    [ 48] lady2
+    [ 49] lady3
+    [ 50] friend2
+    [ 51] church1
+    [ 52] wisard
+    [ 53] wisard_a
+    [ 54] wisard_b
+    [ 55] bar1
+    [ 56] knight
+    [ 57] 3topfriend
+    [ 58] stable
+    [ 59] lady4
+    [ 60] church
+    [ 61] church2
+    [ 62] church4
+    [ 63] doormon
+    [ 64] dooropen
+    [ 65] lake1
+    [ 66] tower1
+    [ 67] tower2
+    [ 68] christ
+    [ 69] backshop
+    [ 70] jump_in
+    [ 71] church5
+    [ 72] up_ladder
+    [ 73] down_ladder
+    [ 74] down_church
+    [ 75] jump_out
+    [ 76] wereattck1
+    [ 77] were3
+    [ 78] were1
+    [ 79] were2
+    [ 80] were4
+    [ 81] mino1
+    [ 82] mino2
+    [ 83] were5
+    [ 84] mino3
+    [ 85] board1
+    [ 86] board
+    [ 87] board2
+    [ 88] mino5
+    [ 89] mino6
+    [ 90] w_board
+    [ 91] down2_ladder
+    [ 92] stable1
+    [ 93] stable2
+    [ 94] stable3
+    [ 95] stable4
+    [ 96] look_out
+    [ 97] monk_ok
+    [ 98] were7
+    [ 99] shelves
+    [100] door1
+    [101] door1_op
+    [102] door_cl
+    [103] door_sw
+    [104] door_sw1
+    [105] shop4
+    [106] door_br
+    [107] door_bk
+    [108] friend_d
+    [109] friend_o
+    [110] door_b
+    [111] doorshop
+    [112] door_kn
+    [113] knght_op
+    [114] f_teddy
+    [115] door_pb
+    [116] pub_open
+    [117] win1
+    [118] door_c
+    [119] hovel3
+    [120] fall1
+    [121] fall2
+    [122] fall3
+    [123] fall4
+    [124] fall5
+    [125] fall6
+    [126] hovel4
+    [127] hovel2
+    [128] were8
+    [129] priest2
+    [130] priest3
+    [131] priest4
+    [132] win_pub
+    [133] t_knight
+    [134] f_witch
+    [135] b_friend
+    [136] f_friend
+    [137] were9
+    [138] intro
+    [139] intro1
+    [140] intro2
+    [141] chimney1
+    [142] skin1
+    [143] skinny
+    [144] skinny1
+    [145] skinny2
+    [146] oldman
+    [147] spider1
+    [148] spider2
+    [149] happy
+    [150] hovel6
+    [151] roof1
+    [152] up_roof
+    [153] down_rof
+    [154] spider3
+    [155] door_m
+    [156] were10
+    [157] knife
+    [158] grille
+    [159] hitgrill
+    [160] hitgril1
+    [161] endgrill
+    [162] cherub1
+    [163] cherub
+    [164] cherub2
+    [165] hit_h1
+    [166] hit_h2
+    [167] spider4
+    [168] spider5
+    [169] spider6
+    [170] penitent2
+    [171] mean1
+    [172] happy1
+    [173] happy2
+    [174] mean2
+    [175] peni1
+    [176] mean3
+    [177] fool1
+    [178] fool2
+    [179] fool3
+    [180] chimney3
+    [181] fool4
+    [182] were30
+    [183] spider30
+    [184] peni2
+    [185] were50
+    [186] were51
+    [187] were52
+    [188] balaie1
+    [189] balaie
+    [190] sorce1
+    [191] candle_s
+    [192] chim_frd
+    [193] cand_tow
+    [194] balaie3
+    [195] sor1
+    [196] sor2
+    [197] sor3
+    [198] sor4
+    [199] sor5
+    [200] sor
+    [201] spi
+    [202] bat1
+    [203] f_hb_out
+    [204] f_hrb_in
+    [205] herbshop
+    [206] f_tedd
+    [207] f_object
+    [208] f_flame2
+    [209] f_flame
+    [210] dev
+    [211] spi2
+    [212] dev2
+    [213] candle
+    [214] candle2
+    [215] candl
+    [216] candle3
+    [217] candle4
+    [218] sor6
+    [219] candle5
+    [220] cand_t
+    [221] warrior
+    [222] invisibl
+    [223] invi
+    [224] war
+    [225] skelton1
+    [226] monster
+    [227] chair_ki
+    [228] king
+    [229] king_up
+    [230] in_knit
+    [231] din_down
+    [232] birdy
+    [233] war_hit1
+    [234] war_hit2
+    [235] war_hit3
+    [236] champion
+    [237] champ2
+    [238] king2
+    [239] king3
+    [240] fall_mon
+    [241] climb_mo
+    [242] sew1
+    [243] dormo
+    [244] lad
+    [245] lad2
+    [246] torche_s
+    [247] torch_se
+    [248] torchy
+    [249] torchy2
+    [250] mon_gril
+    [251] bas
+    [252] lettring
+    [253] entree
+    [254] entre
+    [255] relief
+    [256] relief2
+    [257] relief3
+    [258] relief4
+    [259] yoh_oh
+    [260] yoh_oh2
+    [261] yoh_oh3
+    [262] bas2
+    [263] bas3
+    [264] pic
+    [265] endpic
+    [266] bas4
+    [267] bas5
+    [268] deco
+    [269] deco2
+    [270] deco3
+    [271] trap
+    [272] trap2
+    [273] hercule
+    [274] hercule2
+    [275] bed6
+    [276] eunuque
+    [277] dinn_sm
+    [278] dinn_sm2
+    [279] dinn_sm3
+    [280] dinn_sm4
+    [281] porte
+    [282] porte1
+    [283] porte3
+    [284] porte5
+    [285] porte6
+    [286] hotel
+    [287] hotel2
+    [288] hotel1_1
+    [289] dinnbalaie
+    [290] batty
+    [291] demon2
+    [292] demon
+    [293] pic10
+    [294] pic11
+    [295] bed11
+    [296] ornment
+    [297] ornment2
+    [298] ornment3
+    [299] beam2
+    [300] thebird
+    [301] sor_tow6
+    [302] relif
+    [303] bridge
+    [304] horse_intro
+    [305] panneau
+    [306] intro_h
+    [307] brdg_out
+    [308] torture1
+    [309] torture2
+    [310] pic20
+    [311] pic21
+    [312] support
+    [313] relic
+    [314] stand
+    [315] well
+    [316] stand2
+    [317] sofa
+    [318] altar_d
+    [319] altar_f
+    [320] altar_g
+    [321] altar_h
+    [322] read_l
+    [323] read_r
+    [324] sor7
+    [325] biblio1
+    [326] biblio2
+    [327] avemaria
+    [328] ave_l
+    [329] ave2_l
+    [330] monk_rep
+    [331] monk2_entrance
+    [332] monk2_rep
+    [333] ave_r
+    [334] ave2_r
+    [335] brg_bird
+    [336] stop
+    [337] take_bal
+    [338] new1
+    [339] new
+    [340] thebar
+    [341] barry
+    [342] thebar2
+    [343] zest1
+    [344] zest2
+    [345] zest3
+    [346] zest4
+    [347] zest5
+    [348] zest6
+    [349] zest7
+    [350] zest8
+    [351] zest9
+    [352] zest10
+    [353] zest11
+    [354] zest12
+    [355] cell
+    [356] zest14
+    [357] zest15
+    [358] zest16
+    [359] zest17
+    [360] zest18
+    [361] yes1
+    [362] yes2
+    [363] yes3
+    [364] sarco
+    [365] yes4
+    [366] yes5
+    [367] yes6
+    [368] yes7
+    [369] yes8
+    [370] yes9
+    [371] yes10
+    [372] ropy
+    [373] yes11
+    [374] yes12
+    [375] yes13
+    [376] yes14
+    [377] yes15
+    [378] yes16
+    [379] yes17
+    [380] yes18
+    [381] hor_dead
+    [382] sp
+    [383] din_dow2
+    [384] in_knit2
+    [385] travel
+    [386] in_sarco
+    [387] in_sarco2
+    [388] in_sarco3
+    [389] in_sarc2
+    [390] in_sarc3
+    [391] anna1
+    [392] little
+    [393] f_hrb_i2
+    [394] f_hrb_i3
+    [395] din_herm
+    [396] l1
+    [397] dor_cl2
+    [398] dor_cl3
+    [399] dor_cl4
+    [400] flower
+    [401] dor_cl5
+    [402] were1000
+    [403] relax
+    [404] relax2
+    [405] relax3
+    [406] piles
+    [407] piles3
+    [408] vitrail
+    [409] vinivini
+    [410] nice1
+    [411] nice2
+    [412] nice3
+    [413] wer_litl
+    [414] wer_lit2
+    [415] three1
+    [416] three2
+    [417] three5
+    [418] three3
+    [419] three6
+    [420] three7
+    [421] three8
+    [422] three9
+    [423] three10
+    [424] three20
+    [425] hom_pigy
+    [426] lit_pigy
+    [427] three21
+    [428] three22
+    [429] three23
+    [430] three24
+    [431] three25
+    [432] three26
+    [433] trois1
+    [434] trois2
+    [435] trois3
+    [436] trois4
+    [437] trois10
+    [438] trois13
+    [439] trois14
+    [440] trois20
+    [441] trois11
+    [442] trois30
+    [443] trois31
+    [444] trois32
+    [445] trois40
+    [446] trois41
+    [447] trois42
+    [448] trois43
+    [449] trois44
+    [450] trois45
+    [451] trois50
+    [452] trois51
+    [453] trois52
+    [454] trois54
+    [455] trois55
+    [456] trois57
+    [457] portex5
+    [458] trois60
+    [459] trois61
+    [460] trois70
+    [461] trois75
+    [462] trois76
+    [463] trois77
+    [464] trois80
+    [465] trois81
+    [466] trois82
+    [467] trois85
+    [468] climb_m2
+    [469] fall_mo2
+    [470] tri1
+    [471] tri2
+    [472] tri3
+    [473] tri4
+    [474] tri5
+    [475] tri6
+    [476] tri7
+    [477] tri8
+    [478] tri10
+    [479] tri11
+    [480] tri13
+    [481] tri14
+    [482] tri15
+    [483] tri17
+    [484] tri19
+    [485] tri20
+    [486] tri21
+    [487] tri22
+    [488] tri25
+    [489] tri26
+    [490] tri29
+    [491] tri30
+    [492] h1
+    [493] h2
+    [494] h3
+    [495] h4
+    [496] h5
+    [497] start
+    [498] hh1
+    [499] Start1
+    [500] hh2
+    [501] hh3
+    [502] hh4
+    [503] hh6
+    [504] aft_int
+    [505] hh5
+    [506] hhh5
+    [507] hhh4
+    [508] tri50
+    [509] yoh_oh33
+    [510] yoh_oh22
+    [511] tri55
+    [512] tri56
+    [513] tri57
+    [514] tri59
+    [515] dev1
+    [516] start_fl
+    [517] tria1
+    [518] tri70
+    [519] tria3
+    [520] tria4
+    [521] tria5
+    [522] tria6
+    [523] tria7
+    [524] tria8
+    [525] tria9
+    [526] tria10
+    [527] tria5a
+    [528] tria11
+    [529] tria12
+    [530] tria13
+    [531] tria14
+    [532] tria15
+    [533] tria16
+    [534] tria17
+    [535] tria18
+    [536] tria19
+    [537] tria20
+    [538] tria21
+    [539] tria180
+    [540] tria190
+    [541] tria200
+    [542] tria210
+    [543] tria30
+    [544] tria31
+    [545] tria33
+    [546] tria36
+    [547] the_war
+    [548] the_war2
+    [549] hotel2_2
+    [550] hotel3_3
+    [551] hotel4_4
+    [552] hotel5_5
+    [553] tria38
+    [554] tria39
+    [555] tria40
+    [556] tria41
+    [557] tria42
+    [558] tria43
+    [559] bridge_2
+    [560] tria45
+    [561] tria45_r
+    [562] monk3_4
+    [563] tria50
+    [564] tria46
+    [565] tria47
+    [566] tria66
+    [567] tria56
+    [568] tria57
+    [569] tria58
+    [570] tria59
+    [571] tria61
+    [572] tria62
+    [573] tria63
+    [574] tria67
+    [575] tria68
+    [576] tria55
+    [577] tria65
+    [578] tria60
+    [579] tria45_l
+    [580] tria70
+    [581] tria71
+    [582] tria72
+    [583] tria73
+    [584] tria75
+    [585] tria76
+    [586] tria79
+    [587] tria80
+    [588] tria81
+    [589] tria82
+    [590] tria84
+    [591] tria85
+    [592] tria87
+    [593] tria88
+    [594] tria90
+    [595] tria90_r
+    [596] tria90_l
+    [597] tria91_r
+    [598] tria92_r
+    [599] tria91_l
+    [600] tria92_l
+    [601] tria91
+    [602] tria93
+    [603] tria900
+    [604] tria9000
+    [605] tria9001
+    [606] tria9100
+    [607] tria9101
+    [608] tria910
+    [609] tria930
+    [610] tria9300
+    [611] tria9301
+    [612] tria9302
+    [613] tria97
+    [614] tria96
+    [615] tria98
+    [616] tria99
+    [617] tria100
+    [618] tria101
+    [619] tria102
+    [620] tao1
+    [621] tao2
+    [622] two1
+    [623] two2
+    [624] two3
+    [625] two4
+    [626] two5
+    [627] two7
+    [628] two8
+    [629] two10
+    [630] two11
+    [631] two12
+    [632] two13
+    [633] two15
+    [634] two16
+    [635] two17
+    [636] a_troi30
+    [637] two19
+    [638] two20
+    [639] two21
+    [640] two22
+    [641] two23
+    [642] two24
+    [643] two25
+    [644] two26
+    [645] two27
+    [646] two29
+    [647] two30
+    [648] flagfrog
+    [649] ff
+    [650] fh
+    [651] witch_fr
+    [652] fd
+    [653] two40
+    [654] two41
+    [655] two43
+    [656] two45
+    [657] two46
+    [658] two48
+    [659] two32
+    [660] two33
+    [661] two34
+    [662] hitgril2
+    [663] hitgril3
+    [664] hitgril4
+    [665] hitgril5
+    [666] knit_not
+    [667] tria7000
+    [668] sp_monk
+    [669] sp_monk9
+    [670] sp_monk8
+    [671] spmonk10
+    [672] spmonk11
+    [673] spmonk12
+    [674] x_skel2
+    [675] x_skel3
+    [676] x_skel4
+    [677] x_bok2
+    [678] x_bok4
+    [679] x_bok5
+    [680] x_bok7
+    [681] x_bok9
+    [682] x_bok10
+    [683] x_bok11
+    [684] x_bok13
+    [685] x_fol1
+    [686] x_war1
+    [687] x_king1
+    [688] x_priest
+    [689] x_sor1
+    [690] x_dem1
+    [691] WWWW
+    [692] efx
+    [693] x_din1
+    [694] x_ratty
+    [695] x_ratty2
+    [696] x_lady
+    [697] x_bird
+    [698] x_were
+    [699] x_ramp
+    [700] x_pipi
+    [701] x_pipi2
+    [702] x_fount
+    [703] x_fount2
+    [704] x_fount3
+    [705] x_serp
+    [706] thearm
+    [707] thearm3
+    [708] x_creep
+    [709] x_tria30
+    [710] two6
+    [711] x_frog
+    [712] x_end
+    [713] x_zest7
+    [714] x_arm2
+    [715] x_arm
+    [716] x_arm3
+    [717] x_arm4
+    [718] x_arm5
+    [719] x_arm6
+    [720] x_monkin
+    [721] torture3
+    [722] x_arm8
+    [723] x_fall
+    [724] x_fall1
+    [725] x_fall2
+    [726] x_tria80
+    [727] x_fall3
+    [728] sp_mk8
+    [729] x_tria70
+    [730] x_tri1
+    [731] x_chch5
+    [732] x_wis2
+    [733] wis1
+    [734] x_wis3
+    [735] x_end1
+    [736] x_door1
+    [737] try
+    [738] m_rep_fl
+    [739] Start_s
+    [740] Start_sc
+    [741] Start_s2
+    [742] dsfdsf
+    [743] x_end2
+    [744] x_end3
+    [745] x_two4
+    [746] x_d_herm
+    [747] x_n_arm2
+    [748] x_n_arm8
+    [749] x_king2
+    [750] x_door3
+    [751] x_door2
+    [752] x_barbar
+    [753] x_barb2
+    [754] x_barb3
+    [755] x_barb4
+    [756] x_barb5
+    [757] x_barb6
+    [758] x_barb7
+    [759] f_hrb_1l
+    [760] f_hrb_1r
+    [761] f_hrb_2l
+    [762] f_hrb_3l
+    [763] f_hrb_2r
+    [764] f_hrb_3r
+    [765] f_man_l
+    [766] f_flo_l
+    [767] f_man_r
+    [768] f_flo_r
+    [769] x_two32
+    [770] x_two32l
+    [771] two32_r
+    [772] x_tria82
+    [773] x_tri82
+    [774] hb_out_l
+    [775] read_rr
+    [776] z_tria90
+    [777] z_t9000
+    [778] z_tria91
+    [779] z_t9100
+    [780] z_tria93
+    [781] z_t9300
+    [782] z_t70
+    [783] z_put_r
+    [784] z_demon
+    [785] x_l
+    [786] x_2
+    [787] x_7
+    [788] f_win
+    [789] in
+    [790] relic2
+    [791] ye6
+    [792] tw45
+    [793] tw46
+    [794] z_creep
+    [795] z_creep2
+    [796] z_creep3
+    [797] z_creep4
+    [798] z_creep5
+    [799] up_lar
+    [800] a_away
+    [801] bok
+    [802] mon_swap
+    [803] mon_put
+    [804] z_girl1
+    [805] z_girl
+    [806] z_trav
+    [807] z_dol
+    [808] z_doldol
+    [809] z_dormir
+    [810] z_sor
+    [811] z_witch
+    [812] z_d_w
+    [813] z_d_w2
+    [814] z_d_w3
+    [815] viper
+    [816] piggy1
+    [817] were_h1
+    [818] viper2
+    [819] z_were1
+    [820] z_two6
+    [821] z6
+    [822] z_two8
+    [823] tritri
+    [824] tritri2
+    [825] bibi1
+    [826] bibi
+    [827] bibi2
+    [828] bien
+    [829] z_nit2
+    [830] t
+    [831] tr
+    [832] z
+    [833] z90
+    [834] z9000
+    [835] z91
+    [836] z9100
+    [837] tria93b
+    [838] z93
+    [839] z9300
+    [840] t9301
+    [841] zdw
+    [842] door_wch
+    [843] pipi
+    [844] pipi1
+    [845] mode_walk
+    [846] mode_run
+    [847] mode_stealth
+    [848] weapon
+    [849] isibl
+    [850] isi
+    [851] inv
+    [852] i
+    [853] is
+    [854] isib
+    [855] stophere
+    [856] tree6
+    [857] w1
+    [858] dragon1
+    [859] dragon11
+    [860] dddddd
+    [861] d_o
+    [862] oger
+    [863] xxx5
+    [864] two6two6
+    [865] tw6tw6
+    [866] two
+    [867] druid
+    [868] druid2
+    [869] herb1
+    [870] herb2
+    [871] herb3
+    [872] min
+    [873] tri29a
+    [874] eunu
+    [875] anger-l
+    [876] anger_l
+    [877] sar
+    [878] din
+    [879] putput_r
+    [880] putputl
+    [881] twotwo5
+    [882] s2
+    [883] s3
+    [884] s
+    [885] s4
+    [886] pubbb
+    [887] w_a_1
+    [888] w_a_2
+    [889] w_a_3
+    [890] End1
+    [891] End2
+    [892] brums
+    [893] catch22
+    [894] bother
+    [895] bother_r
+    [896] bother_l
+    [897] anger_l2
+    [898] anger_l3
+    [899] anger_l4
+    [900] 1wis
+    [901] areher
+    [902] swappy
+    [903] diary_r
+    [904] diary_l
+    [905] stop_sp
+    [906] teddy
+    [907] EndScen3
+    [908] End1f
+    [909] End2f
+    [910] fin
+    [911] dorm
+    [912] tria36f
+    [913] finf
+    [914] two23f
+    [915] two25f
+    [916] two26f
+    [917] two27f
+    [918] tria33f
+    [919] theend
+    [920] actors
+    [921] two27a
+    [922] two27b
+    [923] two27c
+    [924] out
+    [925] fool
+    [926] bienbien
+    [927] cutty
+    [928] hithit
+    [929] stophit
+    [930] fedup
+    [931] testers
+
+  point names (45):
+    [  0] 1
+    [  1] 2
+    [  2] L 1
+    [  3] R 1
+    [  4] L 2
+    [  5] L 3
+    [  6] L 4
+    [  7] R 12
+    [  8] R 2
+    [  9] R 3
+    [ 10] R 4
+    [ 11] L 0
+    [ 12] R 0
+    [ 13] L W0
+    [ 14] L W1
+    [ 15] 5
+    [ 16] R W0
+    [ 17] R W1
+    [ 18] L W2
+    [ 19] R W2
+    [ 20] L W3
+    [ 21] L W4
+    [ 22] R W3
+    [ 23] R W4
+    [ 24] L 5
+    [ 25] R 5
+    [ 26] L 6
+    [ 27] R 6
+    [ 28] L 7
+    [ 29] R 7
+    [ 30] L 9
+    [ 31] R 9
+    [ 32] L 10
+    [ 33] R 10
+    [ 34] L 11
+    [ 35] R 11
+    [ 36] L 13
+    [ 37] R 13
+    [ 38] 0
+    [ 39] 3
+    [ 40] 4
+    [ 41] 6
+    [ 42] L 8
+    [ 43] R 8
+    [ 44] 7
+
+  triangle names (27):
+    [  0] L 2
+    [  1] R 2
+    [  2] 1
+    [  3] L 1
+    [  4] R 1
+    [  5] 9
+    [  6] 10
+    [  7] 11
+    [  8] 0
+    [  9] 2
+    [ 10] 3
+    [ 11] 4
+    [ 12] 5
+    [ 13] 6
+    [ 14] 7
+    [ 15] 8
+    [ 16] 12
+    [ 17] 13
+    [ 18] 14
+    [ 19] 15
+    [ 20] 16
+    [ 21] 17
+    [ 22] 18
+    [ 23] 19
+    [ 24] 20
+    [ 25] 21
+    [ 26] 23
+
+  code names (1444):
+    [  0] Backgrounds
+    [  1] Backgrounds2
+    [  2] Backgrounds3
+    [  3] Backgrounds4
+    [  4] Backgrounds5
+    [  5] Key_F1_4
+    [  6] Key_F5_8
+    [  7] Key_F9_12
+    [  8] fdinhe hit
+    [  9] fdinhe gethit
+    [ 10] start fdinhe
+    [ 11] startup
+    [ 12] title9
+    [ 13] endstart_scene
+    [ 14] duringStartscen
+    [ 15] cleartitle9
+    [ 16] tune6
+    [ 17] tune12
+    [ 18] shop1
+    [ 19] dolmen
+    [ 20] lady1
+    [ 21] lady2
+    [ 22] lady3
+    [ 23] hovel1
+    [ 24] hovel2
+    [ 25] shop
+    [ 26] forge
+    [ 27] forge1
+    [ 28] forge2
+    [ 29] forge3
+    [ 30] friend
+    [ 31] friend1
+    [ 32] friend2
+    [ 33] friend3
+    [ 34] hovel_1
+    [ 35] penitent
+    [ 36] minotor
+    [ 37] minotor1
+    [ 38] minotor2
+    [ 39] monk_in
+    [ 40] monk_entrance
+    [ 41] monk_pray1
+    [ 42] monk_library
+    [ 43] lady
+    [ 44] 1demoness1
+    [ 45] 2demoness2
+    [ 46] 3demoness3
+    [ 47] church1
+    [ 48] wisard_a
+    [ 49] wisard_b
+    [ 50] kinght1
+    [ 51] wisard1
+    [ 52] wisard2
+    [ 53] 1hitwisard
+    [ 54] 1wisardhit1
+    [ 55] 2wisardhit2
+    [ 56] 6wisardhit6
+    [ 57] 3wisardhit3
+    [ 58] 4wisardhit4
+    [ 59] 5wisardhit5
+    [ 60] liddlegirl
+    [ 61] witch
+    [ 62] 1topfriend
+    [ 63] 2topfriend
+    [ 64] bar
+    [ 65] bar1
+    [ 66] pub
+    [ 67] pub1
+    [ 68] knight
+    [ 69] 3topfriend
+    [ 70] stable
+    [ 71] lady4
+    [ 72] church
+    [ 73] church2
+    [ 74] church4
+    [ 75] doormon
+    [ 76] dooropen
+    [ 77] lake1
+    [ 78] tower1
+    [ 79] tower2
+    [ 80] christ
+    [ 81] backshop
+    [ 82] jump_in
+    [ 83] endlady1
+    [ 84] endlady2
+    [ 85] endlady3
+    [ 86] endshop1
+    [ 87] knight4
+    [ 88] endknight1
+    [ 89] endknight2
+    [ 90] endknight3
+    [ 91] church5
+    [ 92] endchurch2
+    [ 93] down_ladder
+    [ 94] enddown_ladder
+    [ 95] jump_out
+    [ 96] wereattck1
+    [ 97] wereattck3
+    [ 98] were3
+    [ 99] were1
+    [100] were2
+    [101] were4
+    [102] mino1
+    [103] mino2
+    [104] were5
+    [105] endmino2
+    [106] endminotor
+    [107] endminotor1
+    [108] mino3
+    [109] board1
+    [110] board2
+    [111] mino5
+    [112] mino6
+    [113] endboard1
+    [114] endw_board
+    [115] down_ladder2
+    [116] enddown2_ladder
+    [117] endstable4
+    [118] endstable2
+    [119] stable2
+    [120] endjump_in
+    [121] endlook_out
+    [122] monk_ok
+    [123] were7
+    [124] shelves
+    [125] door1
+    [126] door1_op
+    [127] enddoor1_op
+    [128] enddoor_st
+    [129] door_cl
+    [130] enddoor_cl
+    [131] endsoor_sw
+    [132] enddoor_sw1
+    [133] door_br
+    [134] door_bk
+    [135] endshop2
+    [136] shop3
+    [137] friend_d
+    [138] friend_o
+    [139] doorshop
+    [140] door_kn
+    [141] knght_op
+    [142] f_teddy
+    [143] door_pb
+    [144] pub_open
+    [145] hovel3
+    [146] fall1
+    [147] endfall1
+    [148] endfall2
+    [149] endfall4
+    [150] fall4
+    [151] endfall5
+    [152] hovel4
+    [153] r
+    [154] were8
+    [155] priest3
+    [156] endpriest3
+    [157] priest4
+    [158] were9
+    [159] intro
+    [160] intro1
+    [161] intro2
+    [162] skinny2
+    [163] duringlook_out
+    [164] duringfall2
+    [165] duringfall5
+    [166] duringstable4
+    [167] spider1
+    [168] spider3
+    [169] happy
+    [170] endhovel6
+    [171] roof1
+    [172] up_roof
+    [173] endup_roof
+    [174] down_rof
+    [175] spider4
+    [176] grille
+    [177] hitgrill
+    [178] endhitgrill
+    [179] endendgrill
+    [180] priest2
+    [181] cherub
+    [182] endcherub2
+    [183] cherub2
+    [184] hit_h1
+    [185] hit_h2
+    [186] spider5
+    [187] spider6
+    [188] penitent2
+    [189] mean1
+    [190] happy1
+    [191] happy2
+    [192] endhappy2
+    [193] mean2
+    [194] mean3
+    [195] fool1
+    [196] endfool2
+    [197] fool2
+    [198] fool3
+    [199] chimney3
+    [200] fool4
+    [201] were30
+    [202] spider30
+    [203] were50
+    [204] were51
+    [205] were52
+    [206] balaie1
+    [207] balaie
+    [208] sorce1
+    [209] candle_s
+    [210] cand_tow
+    [211] balaie3
+    [212] sor1
+    [213] endsor1
+    [214] endsor2
+    [215] spi
+    [216] spi1
+    [217] spi2
+    [218] endspi
+    [219] dev
+    [220] dev2
+    [221] f_tedd
+    [222] f_object
+    [223] flame2
+    [224] f_flame
+    [225] f_hrb_in
+    [226] endf_hrb_in
+    [227] herbshop
+    [228] candl
+    [229] cqndle3
+    [230] endsor4
+    [231] endsor3
+    [232] cand_t
+    [233] warrior
+    [234] endinvisibl
+    [235] invisibl
+    [236] invi
+    [237] war
+    [238] skelton1
+    [239] monster
+    [240] endking
+    [241] king
+    [242] king_up
+    [243] in_knit
+    [244] din_down
+    [245] birdy
+    [246] war_hit1
+    [247] war_hit2
+    [248] war_hit3
+    [249] champion
+    [250] champ2
+    [251] endking2
+    [252] endking3
+    [253] king3
+    [254] fall_mon
+    [255] climb_mo
+    [256] fall_m1
+    [257] fall_m2
+    [258] torch_se
+    [259] torche_s
+    [260] torchy2
+    [261] mon_gril
+    [262] lettring
+    [263] bas
+    [264] entree
+    [265] relief
+    [266] relief2
+    [267] relief3
+    [268] relief4
+    [269] yoh_oh
+    [270] endyoh_oh
+    [271] endyoh_oh2
+    [272] bas2
+    [273] bas3
+    [274] pic
+    [275] pic2
+    [276] endofpic
+    [277] endendpic
+    [278] bas4
+    [279] bas5
+    [280] deco
+    [281] deco2
+    [282] deco3
+    [283] trap
+    [284] hercule2
+    [285] eunuque
+    [286] bed6
+    [287] enddinn_sm
+    [288] enddinn_sm2
+    [289] dinn_sm
+    [290] enddinn_sm4
+    [291] dinn_sm4
+    [292] porte
+    [293] porte1
+    [294] porte3
+    [295] porte5
+    [296] endporte5
+    [297] endporte6
+    [298] hotel
+    [299] endhotel
+    [300] endhotel2
+    [301] hotel1_1
+    [302] dinnbalaie
+    [303] batty
+    [304] demon
+    [305] demon2
+    [306] pic10
+    [307] endpic10
+    [308] endpic11
+    [309] thebird
+    [310] endsor_tow6
+    [311] sor_tow6
+    [312] relif
+    [313] bridge
+    [314] horse_intro
+    [315] intro_h
+    [316] brdg_out
+    [317] torture3
+    [318] endpic20
+    [319] endpic21
+    [320] pic20
+    [321] relic
+    [322] endwell
+    [323] sofa
+    [324] altar_f
+    [325] endaltar_f
+    [326] endaltar_g
+    [327] endread_l
+    [328] endsor6
+    [329] endsor_66
+    [330] Backgrounds1
+    [331] shop_roof
+    [332] tavern_roof
+    [333] drawroof1
+    [334] stable_roof
+    [335] ave2_l
+    [336] endave2_l
+    [337] endmonk_in
+    [338] ave_l
+    [339] endmonk_entrance
+    [340] endmonk_rep
+    [341] endmonk2_entrance
+    [342] endmonk2_rep
+    [343] enddooropen
+    [344] endave_r
+    [345] endave2_r
+    [346] ave_r
+    [347] touch
+    [348] r1
+    [349] r2
+    [350] r3
+    [351] r5
+    [352] h
+    [353] take_bal
+    [354] new
+    [355] barry
+    [356] brg_bird
+    [357] f_fff
+    [358] zest3
+    [359] zest6
+    [360] endzest6
+    [361] zest7
+    [362] endzest7
+    [363] endzest8
+    [364] zest5
+    [365] endzest5
+    [366] endzest11
+    [367] endzest10
+    [368] zest4
+    [369] endzest4
+    [370] end zest12
+    [371] endzest14
+    [372] zest16
+    [373] endzest16
+    [374] zest18
+    [375] yes1
+    [376] yes2
+    [377] zest11
+    [378] duringzest11
+    [379] duringzest10
+    [380] duringzest14
+    [381] endzest15
+    [382] yes3
+    [383] endyes5
+    [384] yes4
+    [385] endyes6
+    [386] endyes7
+    [387] yes5
+    [388] yes7
+    [389] ggg
+    [390] yes8
+    [391] endyes8
+    [392] endyes9
+    [393] yes9
+    [394] endyes10
+    [395] endyes11
+    [396] duringyes12
+    [397] endyes12
+    [398] yes14
+    [399] endyes14
+    [400] yes15
+    [401] endyes15
+    [402] yes16
+    [403] mino
+    [404] cher
+    [405] enddinndown
+    [406] travel
+    [407] endin_sarco
+    [408] duringin_sarco
+    [409] duringin_sarco2
+    [410] in_sarco
+    [411] little
+    [412] endhb_out
+    [413] endher_in2
+    [414] enddor_cl2
+    [415] enddor_cl3
+    [416] enddor_cl4
+    [417] flower
+    [418] dor_cl5
+    [419] enddor_cl5
+    [420] other
+    [421] were1000
+    [422] relax
+    [423] tt
+    [424] endrelax
+    [425] endrelax2
+    [426] endendrelax2
+    [427] ccc
+    [428] wer_litl
+    [429] endthree2
+    [430] endthree3
+    [431] duringthree3
+    [432] endthree7
+    [433] endthree6
+    [434] duringthree6
+    [435] endthree9
+    [436] duringthree9
+    [437] endthree10
+    [438] three10
+    [439] three20
+    [440] lit_pigy
+    [441] hom_pigy
+    [442] three24
+    [443] endthree24
+    [444] endthree21
+    [445] endthree23
+    [446] duringthree22
+    [447] endthree26
+    [448] three26
+    [449] endtrois1
+    [450] trois1
+    [451] endtrois2
+    [452] endthree25
+    [453] trois10
+    [454] trois13
+    [455] trois20
+    [456] trois11
+    [457] trois30
+    [458] endtrois30
+    [459] endtrois31
+    [460] duringtrois31
+    [461] endforge1
+    [462] trois40
+    [463] trois41
+    [464] endtrois50
+    [465] endtrois51
+    [466] trois50
+    [467] trois52
+    [468] endtrois52
+    [469] endtrois54
+    [470] trois55
+    [471] trois57
+    [472] endportex5
+    [473] trois60
+    [474] trois61
+    [475] trois70
+    [476] trois75
+    [477] endtrois75
+    [478] trois77
+    [479] trois80
+    [480] trois81
+    [481] endtrois82
+    [482] endtrois81
+    [483] endclimb_mo
+    [484] endfall_mo2
+    [485] endtri1
+    [486] endtri2
+    [487] tri1
+    [488] tri3
+    [489] endtri3
+    [490] endtri4
+    [491] endtri5
+    [492] endtri6
+    [493] tri
+    [494] tri8
+    [495] tri10
+    [496] tri11
+    [497] duringyohoh2
+    [498] endtri13
+    [499] endtri14
+    [500] tri13
+    [501] tri17
+    [502] tri19
+    [503] tri21
+    [504] tri22
+    [505] tri29
+    [506] endtri30
+    [507] tri30
+    [508] endh1
+    [509] endh2
+    [510] endh3
+    [511] endh4
+    [512] endh5
+    [513] endintro_h
+    [514] duringStartscene
+    [515] duringh2
+    [516] duringh3
+    [517] duringh4
+    [518] duringh5
+    [519] endhh1
+    [520] duringhh1
+    [521] endhh2
+    [522] duringhh2
+    [523] endhh3
+    [524] duringhh3
+    [525] endhh6
+    [526] endhh4
+    [527] endintro
+    [528] endaft_int
+    [529] endhhh5
+    [530] duringhhh5
+    [531] endhh5
+    [532] duringhh4
+    [533] endhhh4
+    [534] duringhhh4
+    [535] endyohoh33
+    [536] duringyohoh33
+    [537] tri55
+    [538] tri56
+    [539] tri57
+    [540] tri59
+    [541] start_fl
+    [542] endtria1
+    [543] tria1
+    [544] endmonk_pray1
+    [545] tria3
+    [546] endtria6
+    [547] endtria7
+    [548] endtria8
+    [549] endtria9
+    [550] endtria4
+    [551] endtria5
+    [552] tria4
+    [553] endtria5a
+    [554] duringtria5
+    [555] endtria10
+    [556] endtria13
+    [557] endtria12
+    [558] endtria14
+    [559] endtria11
+    [560] duringtria11
+    [561] endtria15
+    [562] tria18
+    [563] tria19
+    [564] tria20
+    [565] tria21
+    [566] tria180
+    [567] tria190
+    [568] tria200
+    [569] tria210
+    [570] tria21a
+    [571] tria30
+    [572] tria31
+    [573] tria33
+    [574] endtria33
+    [575] the_war
+    [576] hotel2_2
+    [577] endhotel3_3
+    [578] endhotel4_4
+    [579] tria41
+    [580] fd_pickup
+    [581] witchhit
+    [582] tria45
+    [583] sor_to_frog
+    [584] endtria45_r
+    [585] endtria46
+    [586] duringtria46
+    [587] endtria47
+    [588] endtria56
+    [589] duringtria56
+    [590] endtria55
+    [591] endtria57
+    [592] duringtria57
+    [593] endtria67
+    [594] endtria58
+    [595] duringtria58
+    [596] tria59
+    [597] endtria59
+    [598] duringtria59
+    [599] duringtria60
+    [600] endtria60
+    [601] endtria66
+    [602] endtria555
+    [603] endtria677
+    [604] endtria655
+    [605] endtr
+    [606] endtria3_6
+    [607] endtria600
+    [608] duringtria600
+    [609] endtria6000
+    [610] duringtria6000
+    [611] endtria61
+    [612] duringtria61
+    [613] tria63
+    [614] tria70
+    [615] endtria70
+    [616] endtria71
+    [617] duringtria71
+    [618] endtria73
+    [619] tria79
+    [620] endtria81
+    [621] endtria80
+    [622] duringtria80
+    [623] endtria82
+    [624] duringtria82
+    [625] duringtria70
+    [626] endtria87
+    [627] tria90
+    [628] tria90_a
+    [629] tria91
+    [630] tria93
+    [631] duringtria90
+    [632] endtria9000
+    [633] during9001
+    [634] endtria9100
+    [635] during9101
+    [636] endtria9300
+    [637] duringtria9301
+    [638] endtria9301
+    [639] tria96
+    [640] tria97
+    [641] tria98
+    [642] tria100
+    [643] endtria88
+    [644] endtria101
+    [645] tria87
+    [646] two1
+    [647] endtwo1
+    [648] endtwo2
+    [649] endtwo3
+    [650] endtwo4
+    [651] endtwo5
+    [652] endtwo6
+    [653] endtwo7
+    [654] endtwo8
+    [655] endf_teddy
+    [656] endtwo10
+    [657] two12
+    [658] endtwo13
+    [659] endtwo15
+    [660] extra1
+    [661] endtwo16
+    [662] endtwo17
+    [663] extra2
+    [664] a_troi30
+    [665] enda_troi30
+    [666] high_fly
+    [667] two23
+    [668] two24
+    [669] endtwo23
+    [670] endtwo25
+    [671] endtwo26
+    [672] endtwo27
+    [673] endknight
+    [674] endtwo29
+    [675] endtwo20
+    [676] two20
+    [677] her_d
+    [678] endtwo30
+    [679] witch_pickup
+    [680] sp_monk_1
+    [681] endstart
+    [682] set_flagfrog
+    [683] set_ff
+    [684] set_fh
+    [685] two40
+    [686] two41
+    [687] endtwo45
+    [688] endhit1
+    [689] endhit2
+    [690] endhit3
+    [691] endhit4
+    [692] endhit5
+    [693] endhit6
+    [694] endtwo46
+    [695] endtwo32
+    [696] two32
+    [697] two31
+    [698] two34
+    [699] two33
+    [700] sp_monk_2
+    [701] sp_monk_3
+    [702] sp_monk_4
+    [703] sp_monk_5
+    [704] sp_monk_6
+    [705] sp_dinn_1
+    [706] sp_dinn_2
+    [707] sp_dinn_3
+    [708] sp_dinn_4
+    [709] sp_dinn_5a
+    [710] sp_dinn_5b
+    [711] sp_dinn_5c
+    [712] sp_dinn_6a
+    [713] sp_dinn_6b
+    [714] sp_dinn_6c
+    [715] sp_dinn_7a
+    [716] clear_subs
+    [717] endf_hb_ou2
+    [718] endin_knit2
+    [719] tria50
+    [720] knit_not
+    [721] sp_dinn_7b
+    [722] sp_dinn_7c
+    [723] sp_dinn_7d
+    [724] sp_dinn_8a
+    [725] sp_dinn_8b
+    [726] sp_dinn_9a
+    [727] sp_dinn_9b
+    [728] sp_dinn_9c
+    [729] sp_dinn_9d
+    [730] sp_dinn_10a
+    [731] sp_dinn_10b
+    [732] sp_dinn_10c
+    [733] sp_dinn_11a
+    [734] sp_dinn_11b
+    [735] sp_dinn_11c
+    [736] sp_dinn_12
+    [737] sp_dinn_13
+    [738] sp_dinn_14
+    [739] sp_dinn_15
+    [740] sp_dinn_16
+    [741] sp_dinn_17
+    [742] sp_dinn_19
+    [743] sp_dinn_20
+    [744] sp-dinn_21
+    [745] sp_dinn_22
+    [746] sp_dinn_23
+    [747] sp_dinn_18
+    [748] endtria7000
+    [749] sp_dinn_25
+    [750] sp_dinn_24
+    [751] sp_monk_7
+    [752] sp_monk_8
+    [753] sp_monk8
+    [754] endspmonk8
+    [755] sp_monk_9
+    [756] endspmonk9
+    [757] sp_monk_10
+    [758] enspmonk10
+    [759] sp_monk_11
+    [760] endspmonk11
+    [761] sp_monk_12
+    [762] sp_monk_13
+    [763] sp_shop_1
+    [764] sp_shop_2
+    [765] sp_shop_3
+    [766] sp_shop_4
+    [767] jj
+    [768] sp_travel_1
+    [769] sp_travel_1a
+    [770] sp_monk_1b
+    [771] sp_travel_2
+    [772] sp_travel_3
+    [773] sp_travel_4
+    [774] sp_travel_5
+    [775] sp_travel_6
+    [776] sp_travel_7
+    [777] sp_travel_8
+    [778] sp_travel_9
+    [779] sp_travel_10
+    [780] sp_travel_11
+    [781] sp-travel_12
+    [782] sp_travel_13
+    [783] sp_travel_14
+    [784] sp_travel_15
+    [785] sp_travel_16
+    [786] sp_travel_17
+    [787] sp_travel_18
+    [788] sp_travel_19
+    [789] endskelton1
+    [790] x_skel2
+    [791] sp_3/4_1
+    [792] sp_3/4_2
+    [793] sp_3/4_3
+    [794] sp_3/4_4
+    [795] sp_3/4_5
+    [796] sp_lab_1
+    [797] sp_lab_2
+    [798] sp_lab_3
+    [799] sp_lab_4
+    [800] sp_lab_5
+    [801] sp_lab_6
+    [802] sp_lab_7
+    [803] sp_lab_8
+    [804] sp_lab_9
+    [805] sp_lab_10
+    [806] sp_lab_11
+    [807] sp_lab_11111111
+    [808] sp_lab_12
+    [809] sp_lab_25
+    [810] sp_lab_13
+    [811] sp_lab_14
+    [812] sp_lab_15
+    [813] sp_lab_16
+    [814] sp_lab_17
+    [815] sp_lab_18
+    [816] sp_lab_19
+    [817] sp_lab_26
+    [818] sp_lab_20
+    [819] sp_lab_21
+    [820] sp_lab_22
+    [821] sp_lab_23
+    [822] sp_lab_24
+    [823] sp_prist_1
+    [824] sp_prst_2
+    [825] sp_prst_3
+    [826] sp_prst_4
+    [827] sp_prst_5
+    [828] sp_prst_7
+    [829] sp_prst_8
+    [830] sp_prst_9
+    [831] sp_pen_1
+    [832] sp_pen_2
+    [833] sp_pen_7
+    [834] sp_pen_3
+    [835] sp_pen_5
+    [836] sp_pen_6
+    [837] sp_table1_1
+    [838] sp_table_2
+    [839] sp_sword_1
+    [840] sp_sword_2
+    [841] sp_sword_3
+    [842] sp_sword_4
+    [843] sp_sword_5
+    [844] sp_swoed_6
+    [845] sp_dol_1
+    [846] sp_dol_2
+    [847] sp_dol_3
+    [848] sp_dol_4
+    [849] x_bok7
+    [850] sp_dol_5
+    [851] sp_dol_6
+    [852] sp_dol_7
+    [853] sp_dol_8
+    [854] x_bok9
+    [855] x_bok10
+    [856] sp_dol_9
+    [857] sp_dol_10
+    [858] sp_dol_12
+    [859] sp_dol_13
+    [860] sp_girl_1
+    [861] sp_girl_2
+    [862] sp_girl_3
+    [863] sp_girl_4
+    [864] sp_girl_5
+    [865] sp_girl_6
+    [866] sp_girl_7
+    [867] sp_girl_8
+    [868] sp_girl_10
+    [869] sp_girl_11
+    [870] sp_girl_9
+    [871] pp
+    [872] sp_girl_12
+    [873] sp_girl_13
+    [874] sp_fol_1
+    [875] sp_fol_2
+    [876] sp_fol_3
+    [877] sp_fol_4
+    [878] sp_fol_5
+    [879] sp_fol_6
+    [880] sp_fol_7
+    [881] sp_pig_1
+    [882] sp_pig_2
+    [883] sp_pig_3
+    [884] sp_pig_4
+    [885] sp_pig_5
+    [886] sp_pig_6
+    [887] sp_witch_1
+    [888] sp_witch_2
+    [889] sp_witch_3
+    [890] sp_witch_4
+    [891] sp_witch_5
+    [892] sp_witch_6
+    [893] sp_witch_7
+    [894] sp_witch_8
+    [895] sp_war_1
+    [896] x_war1
+    [897] sp_war_2
+    [898] sp_war_3
+    [899] sp_king_1
+    [900] 55
+    [901] sp_king_2
+    [902] sp_king_3
+    [903] sp_king_4
+    [904] sp_king_6
+    [905] sp_king_5
+    [906] sp_lady_1
+    [907] sp_lady_2
+    [908] sp_lady_3
+    [909] sp_lady_4
+    [910] endwisard1
+    [911] endwisard2
+    [912] sp_sor_1
+    [913] sp_sor_2
+    [914] sp_sor_3
+    [915] sp_sor_4
+    [916] sp_sor_5
+    [917] sp_sor_6
+    [918] sp_sor_7
+    [919] sp_sor_8
+    [920] sp_sor_9
+    [921] sp_sor_10
+    [922] sp_sor_11
+    [923] sp_sor_12
+    [924] sp_sor_13
+    [925] sp_sor_14
+    [926] sp_sor_15
+    [927] sp_sor_16
+    [928] sp_sor_17
+    [929] sp_sor_18
+    [930] sp_dem_1
+    [931] SP_DM_2
+    [932] sp_dem_3
+    [933] sp_dem_4
+    [934] sp_dem_5
+    [935] sp_dem_6
+    [936] SPCL_7
+    [937] SP_DM_8
+    [938] sp_dem_9
+    [939] SP_DM_10
+    [940] SP_DM_11
+    [941] SP_DM_12
+    [942] sp_dem_13
+    [943] SP_DM_14
+    [944] SP_DM_15
+    [945] SP_DM_16
+    [946] SP_DM_17
+    [947] SP_DM_18
+    [948] SP_DM_19
+    [949] SP_DM_20
+    [950] SP_DM_22
+    [951] SP_DM_23
+    [952] sp_dem_21
+    [953] sp_dem_24
+    [954] SP_DM_25
+    [955] sp_dem_26
+    [956] duringlookout
+    [957] frog_fdinhe
+    [958] sp_din_27
+    [959] sp_din_28
+    [960] sp_din_29
+    [961] x_din1
+    [962] sp_knit_1
+    [963] sp_knit_2
+    [964] sp_knit_3
+    [965] sp_knit_4
+    [966] sp_knit_5
+    [967] sp_knit_6
+    [968] sp_knit_7
+    [969] sp_knit_8
+    [970] sp_knit_9
+    [971] sp_knit_10
+    [972] x_ratty2
+    [973] sp_din_30
+    [974] x_were
+    [975] nothing
+    [976] x_pipi
+    [977] x_pipi2
+    [978] endx_fount2
+    [979] x_fount3
+    [980] x_serp
+    [981] endin_sarc2
+    [982] dinn_armour
+    [983] sp_creep_1
+    [984] x_creep
+    [985] sp_creep_2
+    [986] sp_creep_3
+    [987] sp_creep_4
+    [988] sp_creep_5
+    [989] kk
+    [990] cc
+    [991] sp_king_7
+    [992] duringdinn_sm2
+    [993] x_bath
+    [994] x_mons
+    [995] x_mont
+    [996] d
+    [997] x_frog
+    [998] x_end
+    [999] sp_were_1
+    [1000] sp_were_2
+    [1001] sp_were_3
+    [1002] sp_were_4
+    [1003] sp_were_5
+    [1004] endx_zest7
+    [1005] f_pick_r
+    [1006] f_pick_l
+    [1007] duringx_arm3
+    [1008] endx_arm3
+    [1009] endx_arm2
+    [1010] endx_arm6
+    [1011] x_arm
+    [1012] endtria16
+    [1013] endtria17
+    [1014] x_arm5
+    [1015] x_fall2
+    [1016] set_nit
+    [1017] enddoorbk
+    [1018] endporte1
+    [1019] endx_tria70
+    [1020] enddoor_open
+    [1021] enddormon
+    [1022] endxzest7
+    [1023] bbb
+    [1024] endzest17
+    [1025] grille2
+    [1026] hitgril
+    [1027] hitgril2
+    [1028] endx_tria30
+    [1029] endyes4
+    [1030] sp_prst_10
+    [1031] priest
+    [1032] endx_wis2
+    [1033] endwis1
+    [1034] endx_wis3
+    [1035] sp_sor_44
+    [1036] endtravel
+    [1037] x_end1
+    [1038] endx_end
+    [1039] endx_end1
+    [1040] endtry
+    [1041] duringtry
+    [1042] sp_were_6
+    [1043] sp_were_7
+    [1044] sp_were_8
+    [1045] sp_were_9
+    [1046] SP9CL_7
+    [1047] SP_DM_8
+    [1048] SP9CL_2
+    [1049] SP_DM_10
+    [1050] SP_DM_11
+    [1051] SP_DM_12
+    [1052] SP_DM_14
+    [1053] SP_DM_15
+    [1054] SP_DM_16
+    [1055] SP_DM_17
+    [1056] SP_DM_18
+    [1057] SP_DM_19
+    [1058] SP_DM_20
+    [1059] SP_DM_22
+    [1060] sp_dem_2
+    [1061] sp_dem_7
+    [1062] sp_dem_8
+    [1063] sp_dem_10
+    [1064] sp_dem_11
+    [1065] sp_dem_12
+    [1066] sp_dem_14
+    [1067] sp_dem_15
+    [1068] sp_dem_16
+    [1069] sp_dem_17
+    [1070] sp_dem_18
+    [1071] sp_dem_19
+    [1072] sp_dem_20
+    [1073] SP8CL_23
+    [1074] sp_dem_23
+    [1075] sp_dem_22
+    [1076] SP8CL_25
+    [1077] sp_dem_25
+    [1078] sp_travel_12
+    [1079] title1
+    [1080] title2
+    [1081] title3
+    [1082] title4
+    [1083] title8
+    [1084] title5
+    [1085] title6
+    [1086] title7
+    [1087] clear2
+    [1088] clear6
+    [1089] clear7
+    [1090] dsdd
+    [1091] xdxxx
+    [1092] endfriend_o
+    [1093] sp_pig_7
+    [1094] sp_pig_8
+    [1095] ffriend
+    [1096] endx_door2
+    [1097] endx_fall
+    [1098] endx_barbar
+    [1099] endx_bard2
+    [1100] endx_fall1
+    [1101] endx_barb3
+    [1102] endx_barb4
+    [1103] endx_fall2
+    [1104] endx_fall3
+    [1105] endx_barb5
+    [1106] endx_barb6
+    [1107] endx_barb7
+    [1108] dddd
+    [1109] asearsgtar
+    [1110] sfj
+    [1111] flag_h1
+    [1112] flag_man
+    [1113] flag_flo
+    [1114] endtwo32_r
+    [1115] vvv
+    [1116] endx_tria82
+    [1117] duringx_tria82
+    [1118] endxtri82
+    [1119] sp_dinn_31
+    [1120] no_touch
+    [1121] no_touch1
+    [1122] skinny1
+    [1123] skinni2
+    [1124] roof13
+    [1125] roof2
+    [1126] roof4
+    [1127] roof6
+    [1128] roof7
+    [1129] roof5
+    [1130] roof8
+    [1131] roof14
+    [1132] roof12
+    [1133] roof11
+    [1134] roof9
+    [1135] witchroof
+    [1136] swap
+    [1137] endhb_out_l
+    [1138] a_swap
+    [1139] endread_r
+    [1140] endread_rr
+    [1141] temp
+    [1142] roof15
+    [1143] roof16
+    [1144] endz_t9000
+    [1145] endz_t9100
+    [1146] endz_t9300
+    [1147] z_put_l
+    [1148] f_put_r
+    [1149] fffff
+    [1150] relic_l
+    [1151] relic_r
+    [1152] relic_on
+    [1153] endz_demon
+    [1154] sp_dem_27
+    [1155] sp_dem_28
+    [1156] sp_dem_29
+    [1157] endx_fal
+    [1158] endx_barb2
+    [1159] endbarb2
+    [1160] endx_bab3
+    [1161] endx_end7
+    [1162] barb7
+    [1163] tune2
+    [1164] relic_hit
+    [1165] endfjhggsds
+    [1166] endwinner
+    [1167] f_win
+    [1168] end_altarg
+    [1169] rekjhjk
+    [1170] endyess6
+    [1171] endtwoo45
+    [1172] endtwoo46
+    [1173] ddddd
+    [1174] z_creep
+    [1175] dragon
+    [1176] sp_creep_6
+    [1177] z_creep5
+    [1178] sp_creep_7
+    [1179] sp_creep_8
+    [1180] endz_creep5
+    [1181] sdsafaS
+    [1182] endz_creep4
+    [1183] tune21
+    [1184] tune17
+    [1185] tune46
+    [1186] tune20
+    [1187] tune65
+    [1188] endupladder
+    [1189] tune40
+    [1190] tune52
+    [1191] tune34
+    [1192] tune73
+    [1193] tune 7
+    [1194] tune 3
+    [1195] tune446
+    [1196] tune43
+    [1197] tune44
+    [1198] Tune38
+    [1199] tune27
+    [1200] Tune21
+    [1201] tune29
+    [1202] tune 2
+    [1203] tune14
+    [1204] can't be hit
+    [1205] can be hit
+    [1206] tune11
+    [1207] teddy
+    [1208] endpubopen
+    [1209] tuyuy
+    [1210] mon
+    [1211] gggggg
+    [1212] m_p_1
+    [1213] roi2
+    [1214] endtrois70
+    [1215] duringw_board
+    [1216] visible
+    [1217] hidden
+    [1218] endwer_lit2
+    [1219] endx_din1
+    [1220] hide
+    [1221] endx_n_arm2
+    [1222] monkhit
+    [1223] monk2hit
+    [1224] roi
+    [1225] roi3
+    [1226] fadetune
+    [1227] endchurch5
+    [1228] tri4
+    [1229] endz_girl
+    [1230] pig_2
+    [1231] spispi
+    [1232] pig_22
+    [1233] endlady4
+    [1234] tune74
+    [1235] tune18
+    [1236] endz_dormir
+    [1237] z_sleep
+    [1238] z_sor
+    [1239] endwisard_a
+    [1240] endwisard_b
+    [1241] z_witch
+    [1242] endz_d_w
+    [1243] endz_d_w2
+    [1244] endz_d_w3
+    [1245] endtia17
+    [1246] balaie_n
+    [1247] f_put_bal
+    [1248] rep_bal
+    [1249] armur
+    [1250] gethit_w
+    [1251] were_god
+    [1252] viper2
+    [1253] z_were1
+    [1254] endz_were1
+    [1255] flag_relic
+    [1256] new_bal
+    [1257] endz_two6
+    [1258] endzz_two6
+    [1259] endz_two8
+    [1260] endx_two4
+    [1261] endwitch
+    [1262] ccccc
+    [1263] endz_witch
+    [1264] endz_nit2
+    [1265] endhovel4
+    [1266] endsp
+    [1267] endflower
+    [1268] dryr
+    [1269] duringt_9001
+    [1270] duringt_9101
+    [1271] endt9001
+    [1272] ddd
+    [1273] end9101
+    [1274] endtriaa93
+    [1275] endztria93
+    [1276] sndzt9300
+    [1277] endtria93301
+    [1278] endz
+    [1279] endx_frog
+    [1280] enddoor_wch
+    [1281] endx_sor1
+    [1282] forceswap
+    [1283] fadeout
+    [1284] werewolf hit
+    [1285] werewolf gethit
+    [1286] fdinhe_rep
+    [1287] endisi
+    [1288] endinv
+    [1289] endinvv
+    [1290] ensisii
+    [1291] werewolf_start
+    [1292] endtree6
+    [1293] endstophere
+    [1294] stophere
+    [1295] endl1
+    [1296] werewolf start
+    [1297] monk3gethit
+    [1298] monk3start
+    [1299] monk4start
+    [1300] blockdevil
+    [1301] dragonstart
+    [1302] dragonhit
+    [1303] armure
+    [1304] dragongethit
+    [1305] prieststart
+    [1306] meanotorstart
+    [1307] meanotorhit
+    [1308] sethitarm
+    [1309] minotorhit
+    [1310] minotorgethit
+    [1311] minotorstart
+    [1312] meanotorgethit
+    [1313] endbeatup
+    [1314] endtao1
+    [1315] tune75
+    [1316] endin_sarc3
+    [1317] relichit
+    [1318] dinettehit
+    [1319] dinetteghit
+    [1320] dinttstart
+    [1321] clearallgraphics
+    [1322] blockall
+    [1323] ggggg
+    [1324] f
+    [1325] eee
+    [1326] jjj
+    [1327] endoger
+    [1328] piggyhit
+    [1329] hitpiggy
+    [1330] hitpiggy1
+    [1331] hitpiggy2
+    [1332] hitpiggy3
+    [1333] hitpiggy4
+    [1334] hitviper
+    [1335] hitxxx1
+    [1336] hitxxx2
+    [1337] hitxxx3
+    [1338] hitxxx4
+    [1339] devil2
+    [1340] xxx5
+    [1341] rampantstart
+    [1342] endrampant
+    [1343] endtwo6two6
+    [1344] endtw6tw6
+    [1345] dragon hit
+    [1346] blockall+d
+    [1347] werezero
+    [1348] tri29a
+    [1349] stop_mon
+    [1350] monk3gt
+    [1351] skel7hit
+    [1352] skel7start
+    [1353] skeltonhit
+    [1354] skeltonstart
+    [1355] skel2hit
+    [1356] skel2start
+    [1357] skel3hit
+    [1358] skel3start
+    [1359] skel4hit
+    [1360] skel4start
+    [1361] n
+    [1362] sarco
+    [1363] sarc
+    [1364] endsarc
+    [1365] enddin
+    [1366] putrelic
+    [1367] endputputr
+    [1368] endputputl
+    [1369] endtwotwo5
+    [1370] penistart
+    [1371] endEndscn2
+    [1372] flag_m
+    [1373] endsp_mk8
+    [1374] ends2
+    [1375] ends22
+    [1376] ends3
+    [1377] tablestart
+    [1378] tablehit
+    [1379] demmy
+    [1380] demmy2
+    [1381] dddddd
+    [1382] dddddddd
+    [1383] w_a_1
+    [1384] w_a_3
+    [1385] endEnd1
+    [1386] endEnd2
+    [1387] setxarm2
+    [1388] doublestart
+    [1389] doublehit
+    [1390] doublegh
+    [1391] hhh
+    [1392] jjjj
+    [1393] cup
+    [1394] endbother
+    [1395] endbotherl
+    [1396] putcreeply
+    [1397] anger_l3
+    [1398] anger_l4
+    [1399] witcheck
+    [1400] putgold
+    [1401] endswappy
+    [1402] mmm
+    [1403] enddiary_r
+    [1404] diary_l
+    [1405] execute
+    [1406] endteddy
+    [1407] end1f
+    [1408] endend1f
+    [1409] endend2f
+    [1410] endEndscn2f
+    [1411] endgrill
+    [1412] endtria36
+    [1413] endfin
+    [1414] ends4
+    [1415] duringzest
+    [1416] endtria36f
+    [1417] endfinf
+    [1418] endtwo23f
+    [1419] endtwo25f
+    [1420] endtwo26f
+    [1421] endtwo27f
+    [1422] endtwo24
+    [1423] end33f
+    [1424] endactors
+    [1425] endtwo27a
+    [1426] endtwo27b
+    [1427] endtwo27c
+    [1428] theend
+    [1429] dododo
+    [1430] dodo2
+    [1431] endwitch_fr
+    [1432] yes55
+    [1433] hithit
+    [1434] hithit2
+    [1435] endfedup
+    [1436] vvvvvv
+    [1437] endtesters
+    [1438] cleartheend
+    [1439] testers
+    [1440] door_kn2
+    [1441] hotel1
+    [1442] bother
+    [1443] uuuu
+
+  repertoire names (137):
+    [  0] f_walk
+    [  1] cheval
+    [  2] warrior
+    [  3] little_g
+    [  4] devil1
+    [  5] bat
+    [  6] fdinette
+    [  7] book
+    [  8] f_run
+    [  9] f_stop
+    [ 10] skelton1
+    [ 11] k
+    [ 12] flame1
+    [ 13] werewolf
+    [ 14] witch
+    [ 15] f_bal_w
+    [ 16] frogdinn
+    [ 17] frog_w
+    [ 18] flame2
+    [ 19] sorcerer
+    [ 20] jester_w
+    [ 21] grille
+    [ 22] jester1
+    [ 23] minotor
+    [ 24] lady
+    [ 25] monk4
+    [ 26] monk3
+    [ 27] monk
+    [ 28] stand_monk
+    [ 29] tabledin
+    [ 30] old_knit
+    [ 31] roi
+    [ 32] cherub
+    [ 33] meanotor
+    [ 34] f_steal
+    [ 35] f_walk_s
+    [ 36] f_run_s
+    [ 37] f_stel_s
+    [ 38] penitent
+    [ 39] bird
+    [ 40] monk1
+    [ 41] monk1_s
+    [ 42] monk1_a
+    [ 43] f_bok_r
+    [ 44] f_reading
+    [ 45] f_bok_l
+    [ 46] dragon1
+    [ 47] bell
+    [ 48] priest
+    [ 49] f_up_w
+    [ 50] spider
+    [ 51] rat
+    [ 52] ratty
+    [ 53] girly2
+    [ 54] girly1
+    [ 55] f_fgt_w
+    [ 56] ogerdinn
+    [ 57] doubledi
+    [ 58] eunuque
+    [ 59] demon2
+    [ 60] monk2
+    [ 61] sword
+    [ 62] nothing
+    [ 63] dolmen
+    [ 64] monk222
+    [ 65] monk_r
+    [ 66] monk2_r
+    [ 67] hermine
+    [ 68] witch_f
+    [ 69] pigotor
+    [ 70] monk1_r
+    [ 71] lit_g_2
+    [ 72] foolish
+    [ 73] x_rat
+    [ 74] rampant
+    [ 75] serpentine
+    [ 76] x_creep
+    [ 77] roi2
+    [ 78] monster
+    [ 79] birdy
+    [ 80] invisi
+    [ 81] ogerdin1
+    [ 82] bird1
+    [ 83] pig_2
+    [ 84] dinnknit
+    [ 85] dinnit_s
+    [ 86] dinnit_d
+    [ 87] priest_2
+    [ 88] fool
+    [ 89] horse1
+    [ 90] monk_ent
+    [ 91] f_trd_w
+    [ 92] f_trd_r
+    [ 93] f_trd_s
+    [ 94] f_trd_ws
+    [ 95] f_trd_rs
+    [ 96] f_bal_r
+    [ 97] f_bal_rs
+    [ 98] barbar
+    [ 99] f_bitbops
+    [100] dragon
+    [101] f_holy_w
+    [102] relic
+    [103] f_holy_r
+    [104] f_holy_s
+    [105] z_creep
+    [106] demoness
+    [107] monk3_r
+    [108] monk4_r
+    [109] roi_on
+    [110] roi_off
+    [111] dmnss
+    [112] balaie
+    [113] were_out
+    [114] viper
+    [115] were_god
+    [116] f_trd_rl
+    [117] were
+    [118] monkpray
+    [119] mino
+    [120] mean
+    [121] meanscared
+    [122] devil2
+    [123] demon
+    [124] demon3
+    [125] mino_std
+    [126] stop_mon
+    [127] demmy
+    [128] no_pig
+    [129] were_w_s
+    [130] priest_r
+    [131] bougie1
+    [132] horse1_r
+    [133] cheval_r
+    [134] cheval1_r
+    [135] x_bird
+    [136] extra5
+
+  sound names (455):
+    [  0] bats
+    [  1] bell
+    [  2] bigcreak
+    [  3] birds
+    [  4] bone
+    [  5] cantor
+    [  6] club
+    [  7] doorbrk
+    [  8] fall
+    [  9] fallmt1
+    [ 10] grunt
+    [ 11] horstep1
+    [ 12] horstep2
+    [ 13] horswini
+    [ 14] monks
+    [ 15] piggyhit
+    [ 16] piggyvox
+    [ 17] punch1
+    [ 18] punch2
+    [ 19] punch3
+    [ 20] smlcreak
+    [ 21] step1
+    [ 22] step2
+    [ 23] sword
+    [ 24] thud
+    [ 25] thudsm1
+    [ 26] trot
+    [ 27] windloop
+    [ 28] wolf1
+    [ 29] wolf2
+    [ 30] Stone Block Sliding
+    [ 31] Metal Spike Thrusting
+    [ 32] Water Dripping
+    [ 33] Spider Walking
+    [ 34] Left Footstep
+    [ 35] Right Footstep
+    [ 36] Creaky Door
+    [ 37] Door Slam
+    [ 38] Portcullis moving
+    [ 39] Skeleton Bones
+    [ 40] Armour Clunking
+    [ 41] Drawn Sword
+    [ 42] Sucking Noise
+    [ 43] Bouncing Ball
+    [ 44] Cutlery Walking
+    [ 45] Electro Buzzing
+    [ 46] Teleport Shimmering
+    [ 47] Player is Hit
+    [ 48] Sliding Lever
+    [ 49] Button Press
+    [ 50] Popping Noise 1
+    [ 51] Popping Noise 2
+    [ 52] Rubbery Thud
+    [ 53] Shotgun Fire
+    [ 54] Ghost
+    [ 55] Slithering Octopus
+    [ 56] Winch in action
+    [ 57] Chest Opening
+    [ 58] Egg Hatching
+    [ 59] Object hits Floor
+    [ 60] Male Scream
+    [ 61] Female Scream
+    [ 62] Nicey Nice Spell
+    [ 63] Naughty Nasty Spell
+    [ 64] Cartoon Splat
+    [ 65] Weight Hits Ground
+    [ 66] Weight Hits Sand
+    [ 67] Baddie Hit
+    [ 68] Stars Around Head
+    [ 69] Rapid Recovery
+    [ 70] Player Jumping
+    [ 71] Player Falls
+    [ 72] Bat Screeching
+    [ 73] monk_ent
+    [ 74] tria46
+    [ 75] tria55
+    [ 76] tria67
+    [ 77] tria65
+    [ 78] nothing
+    [ 79] tria68
+    [ 80] tria70
+    [ 81] tria80
+    [ 82] tria57
+    [ 83] tria58
+    [ 84] tria59
+    [ 85] tria60
+    [ 86] tria61
+    [ 87] tria45
+    [ 88] tria56
+    [ 89] tria47
+    [ 90] x_fol1
+    [ 91] tria82
+    [ 92] hotel2_2
+    [ 93] hotel3_3
+    [ 94] ave_r_l
+    [ 95] ave_r_l2
+    [ 96] f_gethit
+    [ 97] x_bok2
+    [ 98] t_900
+    [ 99] t_9100
+    [100] t_91
+    [101] t_910
+    [102] t_9300
+    [103] t_93
+    [104] t_930
+    [105] tria12
+    [106] tria14
+    [107] x_dem1
+    [108] tria20
+    [109] tria19
+    [110] tria21
+    [111] tria23
+    [112] two23
+    [113] two26
+    [114] knight
+    [115] f_end
+    [116] shop1
+    [117] shop2
+    [118] x_bok4
+    [119] pig1
+    [120] pig2
+    [121] pig3
+    [122] pig4
+    [123] shop3
+    [124] x_bok5
+    [125] sword1
+    [126] sword2
+    [127] sword3
+    [128] sword4
+    [129] two13
+    [130] witch
+    [131] runtokissdinn
+    [132] witch_r
+    [133] witch_l
+    [134] g_h_wit
+    [135] witchdie
+    [136] bend2kis
+    [137] girly
+    [138] x_bok13
+    [139] p_std
+    [140] p_std3
+    [141] p_std2
+    [142] p_gethit
+    [143] p_gthit2
+    [144] p_end
+    [145] tri1
+    [146] priest1
+    [147] priest2
+    [148] tri2
+    [149] wisard1
+    [150] sor4
+    [151] sor7
+    [152] travel
+    [153] two1
+    [154] two2
+    [155] two6
+    [156] x_end
+    [157] x_end1
+    [158] x_creep
+    [159] f_panting
+    [160] f_pant
+    [161] x_creep1
+    [162] f_lac
+    [163] girl1
+    [164] girl2
+    [165] lit_g_gh
+    [166] fool3
+    [167] fool2
+    [168] hotel1_1
+    [169] tria6
+    [170] tria7
+    [171] tria10
+    [172] tria16
+    [173] mon_ghit
+    [174] mon_end
+    [175] two7
+    [176] hh6_1
+    [177] monk2_ent
+    [178] two4
+    [179] two3
+    [180] pig6
+    [181] pig7
+    [182] pig8
+    [183] zara
+    [184] f_teddy
+    [185] t_9000
+    [186] t_90
+    [187] m1_gthit
+    [188] m1_gthi1
+    [189] m1_end
+    [190] tria7000
+    [191] f_no
+    [192] z_demon
+    [193] sor1
+    [194] sor6
+    [195] sor6a
+    [196] sor5
+    [197] sor_tow6
+    [198] king_up
+    [199] x_king1
+    [200] z_creep5
+    [201] z_creep2
+    [202] z_creep3
+    [203] peni1
+    [204] peni2
+    [205] peni3
+    [206] peni4
+    [207] peni_gh
+    [208] peni_end
+    [209] x_war1
+    [210] x_bok7
+    [211] x_bok11
+    [212] war_hit1
+    [213] war_hit2
+    [214] knight2
+    [215] knight3
+    [216] nit4
+    [217] roi2
+    [218] two30
+    [219] x_bok2a
+    [220] roi1
+    [221] lady3
+    [222] f_yog
+    [223] two5
+    [224] two12
+    [225] two12b
+    [226] two8
+    [227] hh6_1a
+    [228] fgethit1
+    [229] two7a
+    [230] two7b
+    [231] two7c
+    [232] two1a
+    [233] two1b
+    [234] two6b
+    [235] two6c
+    [236] two6d
+    [237] two6a
+    [238] x_bok2aa
+    [239] wisard1a
+    [240] warrior
+    [241] runtokis
+    [242] grabfrog
+    [243] knight1
+    [244] knight4
+    [245] fallmtl
+    [246] ffgethit
+    [247] ff_end
+    [248] fgethit3
+    [249] fhotel33
+    [250] bodycrwl
+    [251] leaves
+    [252] step3
+    [253] drgnflap
+    [254] grunt2
+    [255] spidrstp
+    [256] stoncirc
+    [257] femscrm
+    [258] fgethit4
+    [259] step4
+    [260] drgnbrth
+    [261] portcdwn
+    [262] x_creep7
+    [263] t_90a
+    [264] t_90b
+    [265] t_90c
+    [266] t_90d
+    [267] paper
+    [268] t_91a
+    [269] t_91b
+    [270] t_91c
+    [271] t_9300a
+    [272] t_9300b
+    [273] t_9300c
+    [274] metlstep
+    [275] swordhit
+    [276] armrhit
+    [277] armrwalk
+    [278] froggy
+    [279] glug
+    [280] transfrm
+    [281] eeryvox
+    [282] ff_no
+    [283] fgethit2
+    [284] fnothing
+    [285] growlb
+    [286] stoncir6
+    [287] stoncir1
+    [288] stoncir9
+    [289] fntainlp
+    [290] x_bok2b
+    [291] x_bok2c
+    [292] horswin2
+    [293] stoncir8
+    [294] fool1
+    [295] portcull
+    [296] ctapult
+    [297] x_sor1
+    [298] x_sor1a
+    [299] x_sor1b
+    [300] ff_yog
+    [301] ff_yog2
+    [302] ff_yog3
+    [303] f_yog2
+    [304] f_yog3
+    [305] lady3a
+    [306] lady3b
+    [307] lady3c
+    [308] FGGETHIT
+    [309] FIGETHIT
+    [310] MOTOR
+    [311] FALL2
+    [312] SNAKE
+    [313] DRGNFAL2
+    [314] DOORSLM2
+    [315] DOORSLM3
+    [316] PIGGYVX2
+    [317] PIGGYVX3
+    [318] HVYSTEP3
+    [319] HVYSTEP4
+    [320] WOLF3
+    [321] pigvox
+    [322] piggyvx2
+    [323] cheers
+    [324] PENIEND2
+    [325] CHEERS2
+    [326] CHEERLP
+    [327] GRUNT3
+    [328] p_gethit2
+    [329] x_end2
+    [330] x_enda
+    [331] drgnfall
+    [332] stoncir7
+    [333] x_bok9
+    [334] hvystep1
+    [335] clothrsl
+    [336] KNIGHT1
+    [337] KNIGHT1A
+    [338] KNIGHT4
+    [339] KNIGHT5
+    [340] THUNDER1
+    [341] THUNDER5
+    [342] THUNDER6
+    [343] MINSNORT
+    [344] MINDIES
+    [345] ro1
+    [346] ro13
+    [347] ro12
+    [348] ftria45
+    [349] TRIA56A
+    [350] TRIA56B
+    [351] TRIA56C
+    [352] FTRIA56
+    [353] ftria47
+    [354] TRIA46A
+    [355] TRIA46B
+    [356] FTRIA46
+    [357] ftria55
+    [358] TRIA57A
+    [359] TRIA57B
+    [360] TRIA57C
+    [361] TRIA57D
+    [362] FTRIA57
+    [363] ftria67
+    [364] TRIA58A
+    [365] TRIA58B
+    [366] FTRIA58
+    [367] ftria65
+    [368] TRIA59
+    [369] TRIA59B
+    [370] TRIA59C
+    [371] FTRIA59
+    [372] ftria68
+    [373] FTRIA60
+    [374] TRIA60A
+    [375] TRIA60B
+    [376] TRIA61A
+    [377] TRIA61B
+    [378] FTRIA61
+    [379] ftria70
+    [380] potboil2
+    [381] two10d
+    [382] SP-GIRL5
+    [383] SP-GIRL4
+    [384] two10
+    [385] two10a
+    [386] two10c
+    [387] two10e
+    [388] litg_ghb
+    [389] fhh6_1
+    [390] fhh6_1a
+    [391] HH6-1V
+    [392] x_creepa
+    [393] x_creepb
+    [394] TRIA12B
+    [395] tria12a
+    [396] bottle
+    [397] tria14a
+    [398] tria16a
+    [399] tria16b
+    [400] tria16c
+    [401] tria16d
+    [402] tria16e
+    [403] x_king1a
+    [404] nit1
+    [405] nit2
+    [406] nit3
+    [407] nit5
+    [408] monkenta
+    [409] monkentb
+    [410] ave2_l_r
+    [411] monk2ent
+    [412] BOK2
+    [413] sor1a
+    [414] sor1b
+    [415] sor1c
+    [416] swordsw1
+    [417] botldrip
+    [418] FJGETHIT
+    [419] FHGETHIT
+    [420] growls
+    [421] ff_pant
+    [422] bathgirl
+    [423] bathgrl2
+    [424] two23a
+    [425] two23b
+    [426] G_H_WIT
+    [427] weaslvox
+    [428] windlp3
+    [429] ratscrch
+    [430] surprise
+    [431] x_creep6
+    [432] FOOL3
+    [433] FOOL2
+    [434] hvystep2
+    [435] m3_end
+    [436] m1_ghit
+    [437] m1_ghi1
+    [438] swordsw2
+    [439] potboil1
+    [440] fave_r_l
+    [441] ftria80
+    [442] ftria82
+    [443] FOOL4
+    [444] ftria700
+    [445] TRIA10
+    [446] RO12
+    [447] x_creep8
+    [448] fhotel22
+    [449] x_fol2
+    [450] x_fol3
+    [451] x_fol4
+    [452] ff_lac
+    [453] ff_lac1
+    [454] f_lac1
+
+  map_area names (74):
+    [  0] door_pub
+    [  1] grille
+    [  2] door_nit
+    [  3] dor_shop
+    [  4] barrel
+    [  5] barrel2
+    [  6] shelves
+    [  7] bar
+    [  8] sewer
+    [  9] demon
+    [ 10] dungeon
+    [ 11] king
+    [ 12] dungeon2
+    [ 13] dungeon3
+    [ 14] castle
+    [ 15] friend
+    [ 16] frd_chur
+    [ 17] nit_shop
+    [ 18] skinny
+    [ 19] table
+    [ 20] knight
+    [ 21] shop_wch
+    [ 22] monk
+    [ 23] lac
+    [ 24] lac2
+    [ 25] lac3
+    [ 26] door_mon
+    [ 27] dor_mon2
+    [ 28] crypte
+    [ 29] crypte2
+    [ 30] dungeon4
+    [ 31] x_zest7
+    [ 32] hitgril
+    [ 33] door_dem
+    [ 34] girly
+    [ 35] bath
+    [ 36] bath2
+    [ 37] dungeon5
+    [ 38] sarco
+    [ 39] sarco2
+    [ 40] jail
+    [ 41] dolmen
+    [ 42] dolmen2
+    [ 43] cross
+    [ 44] priest
+    [ 45] church
+    [ 46] travel
+    [ 47] stable1
+    [ 48] ladder_c
+    [ 49] shopman
+    [ 50] friend_o
+    [ 51] table2
+    [ 52] dungeon6
+    [ 53] pigy
+    [ 54] sewers
+    [ 55] pigies
+    [ 56] mon
+    [ 57] mon1
+    [ 58] new
+    [ 59] new2
+    [ 60] mon_mon
+    [ 61] brum1
+    [ 62] witch_c
+    [ 63] sorce1
+    [ 64] library
+    [ 65] backshop
+    [ 66] door_st
+    [ 67] chevalier
+    [ 68] friend1
+    [ 69] friend2
+    [ 70] werewolf
+    [ 71] relic_a
+    [ 72] sarco3
+    [ 73] chair1
+
+Event stream: 1678 events
+
+Event type distribution:
+  DEF_OFFSET          : 243
+  ROTATE              : 175
+  DEF_VECTOR2         : 134
+  T101                : 115
+  T97                 : 61
+  T110                : 56
+  T105                : 55
+  T116                : 40
+  T100                : 39
+  T102                : 36
+  T111                : 34
+  PSEUDO_SCENE        : 34
+  T73                 : 31
+  T108                : 29
+  T82                 : 26
+  N69                 : 25
+  T99                 : 24
+  T107                : 24
+  T114                : 24
+  VECTOR2             : 21
+  T115                : 21
+  T95                 : 21
+  DEF_COLOUR          : 21
+  T83                 : 18
+  T112                : 16
+  ADD_PART            : 16
+  T104                : 15
+  COLOUR              : 13
+  T78                 : 13
+  T109                : 12
+  N68                 : 12
+  T119                : 11
+  T240                : 11
+  T103                : 10
+  END_ACTION          : 10
+  T77                 : 10
+  N66                 : 9
+  REORIENT_THING      : 9
+  OFFSET              : 9
+  T98                 : 7
+  VECTOR3             : 7
+  T117                : 7
+  MOVE_THING          : 6
+  TYPE                : 6
+  BACKGROUND          : 6
+  T84                 : 6
+  T80                 : 6
+  N65                 : 6
+  ADD_THING           : 5
+  VECTOR1             : 5
+  HELD_OFFSET         : 5
+  T120                : 5
+  T121                : 5
+  COLOUR_TRIANGLE     : 5
+  NEXT_SCENE          : 5
+  THING_CODE_2        : 5
+  DEF_VECTOR1         : 4
+  T128                : 4
+  RAND_INFO           : 4
+  FLAGS               : 4
+  LOOSEN_JOINT        : 4
+  N67                 : 4
+  DEF_POSITION        : 4
+  HELD_ROT_LEFT       : 3
+  T79                 : 3
+  T163                : 3
+  POSITION            : 2
+  ACTOR_REP           : 2
+  OFFSET_POINT        : 2
+  ADD_POINT           : 2
+  TRI_TEXTURE3        : 2
+  TRI_SHADE_NAME      : 2
+  MOVE_ACT            : 2
+  DISP_PNT            : 2
+  PSEUDO_SCENE_2      : 2
+  T122                : 2
+  DEF_ROTATE          : 2
+  T208                : 1
+  T118                : 1
+  T127                : 1
+  HELD_ROTATE         : 1
+  T143                : 1
+  T91                 : 1
+  ANCHOR_PART         : 1
+  SHADE               : 1
+  CUT_PART            : 1
+  T253                : 1
+  T194                : 1
+  T158                : 1
+  T251                : 1
+  T125                : 1
+  ROTATE_THING        : 1
+  DEF_FLAGS           : 1
+  T92                 : 1
+  T231                : 1
+  ADD_PART_TO_THING   : 1
+  INTERACT            : 1
+  TRI_TEXTURE2        : 1
+  T88                 : 1
+  PART_TEXTURE        : 1
+  T90                 : 1
+  T241                : 1
+  T197                : 1
+  TRIANGLE_FLAGS      : 1
+  T228                : 1
+  FIX_PART            : 1
+  T238                : 1
+  T137                : 1
+  T138                : 1
+  T154                : 1
+  T85                 : 1
+  T86                 : 1
+  T76                 : 1
+  T249                : 1
+  SPAWN_ACTION        : 1
+  T254                : 1
+
+INTERACT events (1):
+  @ 44412 idx=  0 CheckPartHit         p2=  256 p3= 1312
+
+THING_CODE events (5):
+  @ 44740 THING_CODE_2 idx= 48 p1=    5 p2= 7680 p3=  768
+  @ 46092 THING_CODE_2 idx=  0 p1=21349 p2=29766 p3=30060
+  @ 46756 THING_CODE_2 idx=  0 p1=21349 p2=29766 p3=30060
+  @ 48004 THING_CODE_2 idx=  0 p1= 1137 p2=   12 p3=17043
+  @ 54092 THING_CODE_2 idx= 32 p1=12320 p2=14624 p3=14336
+
+PSEUDO_SCENE events (36):
+  @ 42404 PSEUDO_SCENE idx=108 p1=24935 p2=26469 p3=25632
+  @ 42580 PSEUDO_SCENE idx=  0 p1= 1401 p2=   12 p3=17159
+  @ 42980 PSEUDO_SCENE idx=111 p1=29283 p2=25925 p3=29539
+  @ 43540 PSEUDO_SCENE idx= 32 p1=18798 p2=19557 p3=26228
+  @ 44252 PSEUDO_SCENE idx=  0 p1=    0 p2=   32 p3= 8224
+  @ 44604 PSEUDO_SCENE idx=  0 p1=17740 p2=21317 p3= 8269
+  @ 44820 PSEUDO_SCENE idx= 32 p1=20047 p2=21536 p3=21093
+  @ 45268 PSEUDO_SCENE idx= 32 p1=17742 p2=17481 p3=17920
+  @ 45564 PSEUDO_SCENE idx=  0 p1= 1223 p2=    3 p3=   34
+  @ 46620 PSEUDO_SCENE idx= 32 p1=21093 p2=28745 p3=29472
+  @ 47356 PSEUDO_SCENE idx= 32 p1=21364 p2=24946 p3=29797
+  @ 47404 PSEUDO_SCENE idx=  0 p1= 1164 p2=   27 p3= 8441
+  @ 47588 PSEUDO_SCENE_2 idx=114 p1=24944 p2=26729 p3=25376
+  @ 47660 PSEUDO_SCENE_2 idx=114 p1=24944 p2=26729 p3=25376
+  @ 47852 PSEUDO_SCENE idx= 32 p1=16750 p2=31051 p3=25977
+  @ 49084 PSEUDO_SCENE idx= 32 p1=21093 p2=28745 p3=29472
+  @ 49380 PSEUDO_SCENE idx= 32 p1=21093 p2=28745 p3=29472
+  @ 49676 PSEUDO_SCENE idx= 32 p1=21093 p2=28745 p3=29472
+  @ 49964 PSEUDO_SCENE idx= 32 p1=21093 p2=28745 p3=29472
+  @ 50036 PSEUDO_SCENE idx= 32 p1=18798 p2=19557 p3=26228
+  @ 50076 PSEUDO_SCENE idx=108 p1=24935 p2=26469 p3=25632
+  @ 50148 PSEUDO_SCENE idx=111 p1=29283 p2=25921 p3=25460
+  @ 50380 PSEUDO_SCENE idx=111 p1=29283 p2=25921 p3=25460
+  @ 51396 PSEUDO_SCENE idx= 32 p1=21093 p2=28745 p3=29472
+  @ 51524 PSEUDO_SCENE idx= 32 p1=21093 p2=28745 p3=29472
+  @ 51692 PSEUDO_SCENE idx= 32 p1=21093 p2=28745 p3=29472
+  @ 51820 PSEUDO_SCENE idx= 32 p1=21093 p2=28745 p3=29472
+  @ 51988 PSEUDO_SCENE idx= 32 p1=21093 p2=28745 p3=29472
+  @ 52116 PSEUDO_SCENE idx= 32 p1=21093 p2=28745 p3=29472
+  @ 52548 PSEUDO_SCENE idx= 32 p1=18798 p2=21097 p3=26472
