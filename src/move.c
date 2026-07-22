@@ -2334,14 +2334,22 @@ void modify_part(event_t *event, actor_t *actor, int some_time, action_t *action
             if (part) check_part_hit(part);
             break;
         case 1: /* CheckPickUp */
+            DBG_LOG(1, "[INTERACT] CheckPickUp part=%p parent=%d param=%d\n",
+                    (void *)part, part ? part->parent_actor->name_index : -1, (int)event->param2);
             if (part) check_pick_up(part, event->param2);
             break;
         case 2: /* CheckPutDown */
+            DBG_LOG(1, "[INTERACT] CheckPutDown part=%p parent=%d held=%d\n",
+                    (void *)part, part ? part->parent_actor->name_index : -1,
+                    (part && part->actor_2_held) ? part->actor_2_held->name_index : -1);
             if (part) check_put_down(part, action ? (action->action_flags & 2) : 0);
             break;
         case 3: /* HoldThingWithPart */ {
             if (!part) break;
             actor_t *a = thing_tab[event->param2];
+            DBG_LOG(1, "[INTERACT] HoldThingWithPart part=%p parent=%d actor=%d '%s'\n",
+                    (void *)part, part->parent_actor->name_index, event->param2,
+                    (thing_names && event->param2 >= 0 && event->param2 < THING_TAB_SIZE) ? thing_names[event->param2].field_0 : "?");
             if (a) {
                 if (a->part_heap_link) {
                     ((part_t *)a->part_heap_link)->actor_2_held = NULL;
@@ -2754,8 +2762,21 @@ void see_if_anything_hit(part_t *part) {
             play_sound_ecstatica(hitter_actor, snd, 0, 0);
         }
 
-        /* Determine the effective hitter (holder if weapon, else part's owner) */
-        actor_t *effective_hitter = holder ? holder : hitter_actor;
+        /* Determine the effective hitter.
+         * If the hitter is a held puzzle-item (book, cross, etc.) with its own
+         * hit-code, use the item so the item's code fires on target.
+         * Otherwise use the holder (weapon/fist combat path). */
+        actor_t *effective_hitter;
+        if (holder && hitter_actor->actor_hit_code >= 0)
+            effective_hitter = hitter_actor;  /* puzzle item: use item's code */
+        else
+            effective_hitter = holder ? holder : hitter_actor;
+
+        DBG_LOG(1, "[HIT] hitter=%d holder=%d effective=%d target=%d\n",
+                hitter_actor->name_index,
+                holder ? holder->name_index : -1,
+                effective_hitter->name_index,
+                target->name_index);
 
         /* Check if hitter has a hit-code script */
         if (effective_hitter->actor_hit_code >= 0) {
@@ -3546,8 +3567,10 @@ void check_pick_up(part_t *part, int16_t param) {
     target->part_heap_link = part;
 
     if (game_version == GAME_VERSION_E1) {
+        DBG_LOG(1, "[PICKUP] E1 pickup actor=%d param=%d hand_part=%p\n",
+                target->name_index, (int)param, (void *)part);
         if (param && param < CODE_TAB_SIZE && code_tab[param])
-            execute_code(code_tab[param], NULL);
+            execute_code_with_part(code_tab[param], target, part);
     } else {
         int16_t code_id = target->picked_up_code;
         if (code_id && code_id < CODE_TAB_SIZE && code_tab[code_id])
@@ -3559,6 +3582,11 @@ void check_pick_up(part_t *part, int16_t param) {
         if (f == 0)      part->parent_actor->action_state = 3;
         else if (f == 1) part->parent_actor->action_state = 4;
         else if (f == 2) part->parent_actor->action_state = 5;
+        else             DBG_LOG(1, "[PICKUP] WARN: action_state=%d (not 0/1/2) no transition (actor=%d)\n",
+                                 (int)f, target ? target->name_index : -1);
+        DBG_LOG(1, "[PICKUP] action_state: %d → %d (actor=%d part=%p)\n",
+                (int)f, (int)part->parent_actor->action_state,
+                target ? target->name_index : -1, (void *)part);
         update_game_icons();
     }
 }

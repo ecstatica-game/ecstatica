@@ -9,6 +9,7 @@
  */
 
 #include "win.h"
+#include "debug_overlay.h"
 #include "display.h"
 #include "init.h"
 #include "platform.h"
@@ -171,6 +172,10 @@ void window_proc(void) {
         if (platform_key_pressed(g_platform, fn_pk[i]))
             extra_keys_were_pressed[fn_vk[i]] = 1;
 
+    /* Cmd+D: toggle debug overlay */
+    if (platform_key_down(g_platform, PKEY_LCMD) &&
+        platform_key_pressed(g_platform, PKEY_D))
+        debug_overlay_active ^= 1;
 
     /* mouse */
     int mx, my;

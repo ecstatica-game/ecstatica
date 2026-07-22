@@ -159,6 +159,7 @@ static int macos_vk_to_pkey(unsigned short vk) {
     self.platform->key_state[PKEY_LCTRL]  = (flags & NSEventModifierFlagControl) != 0;
     self.platform->key_state[PKEY_LALT]   = (flags & NSEventModifierFlagOption)  != 0;
     self.platform->key_state[PKEY_LSHIFT] = (flags & NSEventModifierFlagShift)   != 0;
+    self.platform->key_state[PKEY_LCMD]   = (flags & NSEventModifierFlagCommand) != 0;
 }
 
 - (void)updateMouseWithEvent:(NSEvent *)event {

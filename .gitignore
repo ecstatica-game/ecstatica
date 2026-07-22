@@ -5,6 +5,11 @@ data/e2/**
 
 decomp/ida/ECSTATIC.EXE
 decomp/ida/E2WIN95.EXE
+*.id0
+*.id1
+*.id2
+*.nam
+*.til
 
 *.ppm
 
