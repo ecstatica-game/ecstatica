@@ -1109,21 +1109,37 @@ void behaviour(actor_t *actor, int game_time_arg) {
         int key_up = extra_keys_pressed[72];
 
         if (game_version == GAME_VERSION_E1) {
-            /* E1 BH_JOYSTICK (from IDA 0x429452): standard move_types 0-7.
-             * F-key speed modes handled in get_joystick() via script codes
-             * that modify action_slots for sneak/walk/run animations.
-             * NUM1=left hand pick up/drop, NUM3=right hand pick up/drop,
-             * NUM7=upper cut/left swing, NUM9=straight punch/right swing. */
+            /* E1 BH_JOYSTICK (IDA 0x429452): key check order matches original.
+             * No velocity pre-checks (E2-only). Diagonal turn uses
+             * move_direction not game_time_arg. */
             next_move = 1000;
 
-            if (actor->actor_velocity.Y > 0) {
-                if (actor->move_type != 4) next_move = 24;
-                goto center_function;
-            }
-            if (actor->actor_velocity.Y < 0) {
-                next_move = 4;
+            if (key_left && key_up) {
+                next_move = 1;
+                turn_actor(actor, -(actor->move_direction << 4));
+            } else if (key_right && key_up) {
+                next_move = 1;
+                turn_actor(actor, actor->move_direction << 4);
+            } else if (extra_keys_pressed[71]) {
+                next_move = 0;
+            } else if (key_up) {
+                next_move = 1;
+            } else if (extra_keys_pressed[73]) {
+                next_move = 2;
+            } else if (key_left) {
+                next_move = 3;
+            } else if (key_right) {
+                next_move = 5;
+            } else if (extra_keys_pressed[56]) {
+                if (actor->_PartTab->field_0[1] && actor->_PartTab->field_0[1]->actor_2_held)
+                    next_move = 40;
+                else if (actor->_PartTab->field_0[0] && actor->_PartTab->field_0[0]->actor_2_held)
+                    next_move = 45;
+                else
+                    next_move = 39;
+            } else if (keys_pressed[42]) {
+                next_move = key_up ? 2 : 0;
             } else if (extra_keys_pressed[79]) {
-                /* NUM1 — right hand pick up / drop (E1 hand = part index 1) */
                 e1_pick_up_hand = 1;
                 next_move = actor->move_type;
                 if (next_move < 36 || next_move > 40 || (actor->flags & 0x40)) {
@@ -1133,8 +1149,9 @@ void behaviour(actor_t *actor, int game_time_arg) {
                     else
                         next_move = look_for_pick_up(actor) + 36;
                 }
+            } else if (key_down) {
+                next_move = 7;
             } else if (extra_keys_pressed[81]) {
-                /* NUM3 — left hand pick up / drop (E1 hand = part index 0) */
                 e1_pick_up_hand = 0;
                 next_move = actor->move_type;
                 if (next_move < 41 || next_move > 45 || (actor->flags & 0x40)) {
@@ -1154,32 +1171,6 @@ void behaviour(actor_t *actor, int game_time_arg) {
                     else
                         next_move = look_for_pick_up(actor) + 36;
                 }
-            } else if (extra_keys_pressed[71]) {
-                /* NUM7 — upper cut / left swing */
-                next_move = 0;
-            } else if (extra_keys_pressed[73]) {
-                /* NUM9 — straight punch / right swing */
-                next_move = 2;
-            } else if (extra_keys_pressed[56]) {
-                if (actor->_PartTab->field_0[1] && actor->_PartTab->field_0[1]->actor_2_held)
-                    next_move = 40;
-                else if (actor->_PartTab->field_0[0] && actor->_PartTab->field_0[0]->actor_2_held)
-                    next_move = 45;
-                else
-                    next_move = 39;
-            } else if (keys_pressed[42]) {
-                next_move = key_up ? 2 : 0;
-            } else {
-                if (key_left && key_up) {
-                    next_move = 1;
-                    turn_actor(actor, -(game_time_arg << 9));
-                } else if (key_right && key_up) {
-                    next_move = 1;
-                    turn_actor(actor, game_time_arg << 9);
-                } else if (key_up) next_move = 1;
-                else if (key_down) next_move = 7;
-                else if (key_left) next_move = 3;
-                else if (key_right) next_move = 5;
             }
         } else {
             /* E2: ctrl toggles run (uses different direction slots) */
