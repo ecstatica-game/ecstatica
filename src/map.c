@@ -146,8 +146,10 @@ void check_hot_spots(void) {
         hero_material = map_elements[map_elem_idx].material;
     }
 
-    if (code_idx > 0 && code_tab[code_idx - 1])
+    if (code_idx > 0 && code_tab[code_idx - 1]) {
+        DBG_LOG(1, "[HOTSPOT] cell code=%d\n", code_idx - 1);
         execute_thing_code(selected_thing, code_idx - 1);
+    }
 }
 
 /* map_check_camera  E1: 0x441560 | E2: 0x44C174 */

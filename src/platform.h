@@ -59,6 +59,7 @@ enum {
     PKEY_NUM7   = 0x47,
     PKEY_NUM8   = 0x48,
     PKEY_NUM9   = 0x49,
+    PKEY_LCMD   = 0x5B,  /* macOS Command key */
 };
 
 /* ── mouse button flags ── */

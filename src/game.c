@@ -270,6 +270,7 @@ int execute_boolean(int16_t **pp, actor_t *actor) {
     }
 
     int16_t token = *tp;
+    DBG_LOG(1, "[BOOL] token=%d%s\n", token, inverted ? " (NOT)" : "");
 
     /* ── Scene-related conditions ── */
     if (token == CT_STARTED || token == CT_NOT_STARTED ||
@@ -396,40 +397,64 @@ int execute_boolean(int16_t **pp, actor_t *actor) {
     /* ── Hand checks ── */
     else if (token == CT_IN_RIGHT_HAND) {
         int16_t actor_index = get_value_from_token(tp[1]);
+        /* E1: right hand = part[1]; E2: right hand = part[8] */
+        int rh_idx = (game_version == GAME_VERSION_E1) ? 1 : 8;
         result = false;
         if (actor_index < THING_TAB_SIZE && selected_thing) {
-            part_t *part = selected_thing->_PartTab->field_0[8];
+            part_t *part = selected_thing->_PartTab->field_0[rh_idx];
             if (part) {
                 actor_t *held = part->actor_2_held;
                 if (held && actor_index == held->name_index)
                     result = true;
+                DBG_LOG(1, "[BOOL] IN_RIGHT_HAND want=%d(%s) held=%d -> %d\n",
+                        actor_index,
+                        (thing_names && actor_index < THING_TAB_SIZE) ? thing_names[actor_index].field_0 : "?",
+                        held ? held->name_index : -1, result);
+            } else {
+                DBG_LOG(1, "[BOOL] IN_RIGHT_HAND want=%d(%s) part[%d]=NULL -> 0\n",
+                        actor_index,
+                        (thing_names && actor_index < THING_TAB_SIZE) ? thing_names[actor_index].field_0 : "?",
+                        rh_idx);
             }
         }
         tp += 2;
     }
     else if (token == CT_IN_LEFT_HAND) {
         int16_t actor_index = get_value_from_token(tp[1]);
+        /* E1: left hand = part[0]; E2: left hand = part[7] */
+        int lh_idx = (game_version == GAME_VERSION_E1) ? 0 : 7;
         result = false;
         if (actor_index < THING_TAB_SIZE && selected_thing) {
-            part_t *part = selected_thing->_PartTab->field_0[7];
+            part_t *part = selected_thing->_PartTab->field_0[lh_idx];
             if (part) {
                 actor_t *held = part->actor_2_held;
                 if (held && actor_index == held->name_index)
                     result = true;
+                DBG_LOG(1, "[BOOL] IN_LEFT_HAND want=%d(%s) held=%d -> %d\n",
+                        actor_index,
+                        (thing_names && actor_index < THING_TAB_SIZE) ? thing_names[actor_index].field_0 : "?",
+                        held ? held->name_index : -1, result);
+            } else {
+                DBG_LOG(1, "[BOOL] IN_LEFT_HAND want=%d(%s) part[%d]=NULL -> 0\n",
+                        actor_index,
+                        (thing_names && actor_index < THING_TAB_SIZE) ? thing_names[actor_index].field_0 : "?",
+                        lh_idx);
             }
         }
         tp += 2;
     }
     else if (token == CT_LEFT_HAND_FREE) {
+        int lh_idx = (game_version == GAME_VERSION_E1) ? 0 : 7;
         result = true;
-        if (selected_thing && selected_thing->_PartTab->field_0[7])
-            result = selected_thing->_PartTab->field_0[7]->actor_2_held == NULL;
+        if (selected_thing && selected_thing->_PartTab->field_0[lh_idx])
+            result = selected_thing->_PartTab->field_0[lh_idx]->actor_2_held == NULL;
         tp++;
     }
     else if (token == CT_RIGHT_HAND_FREE) {
+        int rh_idx = (game_version == GAME_VERSION_E1) ? 1 : 8;
         result = false;
         if (selected_thing) {
-            part_t *part = selected_thing->_PartTab->field_0[8];
+            part_t *part = selected_thing->_PartTab->field_0[rh_idx];
             if (part)
                 result = part->actor_2_held == NULL;
         }
@@ -463,16 +488,13 @@ int execute_boolean(int16_t **pp, actor_t *actor) {
     /* ── Actor checks ── */
     else if (token == CT_CHECK_ACTOR) {
         int16_t actor_index = get_value_from_token(tp[1]);
-        result = true;
-        if (actor_index < THING_TAB_SIZE) {
-            actor_t *a = thing_tab[actor_index];
-            if (a && ((a->flags & 1) || game_time - a->time_actor < 1400))
-                result = false;
-        }
-        for (actor_t *a = root_thing; a; a = a->next_in_display_list) {
-            if (a->flags & 2)
-                result = false;
-        }
+        result = (actor_index >= THING_TAB_SIZE || thing_tab[actor_index] == NULL);
+        const char *aname = (actor_index >= 0 && actor_index < THING_TAB_SIZE && thing_names)
+                            ? thing_names[actor_index].field_0 : "?";
+        DBG_LOG(1, "[BOOL] CHECK_ACTOR actor=%d name='%s' in_tab=%d -> %d\n",
+                actor_index, aname,
+                (actor_index < THING_TAB_SIZE && thing_tab[actor_index] != NULL),
+                result);
         tp += 2;
     }
     else if (token == CT_ACTOR_IS_DEAD) {
@@ -536,13 +558,32 @@ int execute_boolean(int16_t **pp, actor_t *actor) {
     }
     /* ── Part/Object is ── */
     else if (token == CT_PART_IS) {
-        (void)get_value_from_token(tp[1]);
-        result = false; /* simplified: no part actor available */
+        int16_t actor_index = get_value_from_token(tp[1]);
+        if (g_execute_part != NULL) {
+            result = g_execute_part->actor_2_held != NULL
+                     && g_execute_part->actor_2_held->name_index == actor_index;
+        } else if (selected_thing && selected_thing->_PartTab) {
+            /* Hotspot context: check both player hands */
+            int rh = (game_version == GAME_VERSION_E1) ? 1 : 8;
+            int lh = (game_version == GAME_VERSION_E1) ? 0 : 7;
+            part_t *p;
+            result = false;
+            p = selected_thing->_PartTab->field_0[rh];
+            if (p && p->actor_2_held && p->actor_2_held->name_index == actor_index)
+                result = true;
+            if (!result) {
+                p = selected_thing->_PartTab->field_0[lh];
+                if (p && p->actor_2_held && p->actor_2_held->name_index == actor_index)
+                    result = true;
+            }
+        } else {
+            result = false;
+        }
         tp += 2;
     }
     else if (token == CT_OBJECT_IS) {
-        (void)get_value_from_token(tp[1]);
-        result = false; /* simplified: no sub-object actor available */
+        int16_t actor_index = get_value_from_token(tp[1]);
+        result = (actor != NULL && actor->name_index == actor_index);
         tp += 2;
     }
     /* ── Random ── */
@@ -955,8 +996,12 @@ void do_execute_code(code_t *code, actor_t *actor) {
 
         case CT_SET_SCENE_FLAG: {
             int16_t scene_index = get_value_from_token(tokens[pc++]);
-            if (scene_index < SCENE_TAB_SIZE)
+            if (scene_index < SCENE_TAB_SIZE) {
                 scene_name_flags[scene_index] |= 8;
+                DBG_LOG(1, "[FLAG] SET_SCENE_FLAG scene=%d code=%d actor=%d\n",
+                        scene_index, code->index_code,
+                        actor ? actor->name_index : -1);
+            }
             break;
         }
 
@@ -1055,8 +1100,14 @@ void do_execute_code(code_t *code, actor_t *actor) {
 
         case CT_SWAP_HANDS:
             if (selected_thing && selected_thing->_PartTab) {
-                part_t *rh = selected_thing->_PartTab->field_0[8];
-                part_t *lh = selected_thing->_PartTab->field_0[7];
+                int rhi = (game_version == GAME_VERSION_E1) ? 1 : 8;
+                int lhi = (game_version == GAME_VERSION_E1) ? 0 : 7;
+                part_t *rh = selected_thing->_PartTab->field_0[rhi];
+                part_t *lh = selected_thing->_PartTab->field_0[lhi];
+                DBG_LOG(1, "[SWAP] CT_SWAP_HANDS: rh_held=%d lh_held=%d from code=%d\n",
+                        rh && rh->actor_2_held ? rh->actor_2_held->name_index : -1,
+                        lh && lh->actor_2_held ? lh->actor_2_held->name_index : -1,
+                        code ? code->index_code : -1);
                 if (rh && lh) {
                     actor_t *tmp = rh->actor_2_held;
                     rh->actor_2_held = lh->actor_2_held;
@@ -1338,12 +1389,21 @@ void do_execute_code(code_t *code, actor_t *actor) {
             break;
 
         case CT_REMOVE_THIS_ACTOR:
-            if (actor)
+            if (actor) {
+                DBG_LOG(1, "[REMOVE] CT_REMOVE_THIS_ACTOR: actor=%d hand=%p\n",
+                        actor->name_index, (void *)actor->part_heap_link);
                 remove_actor_from_world(actor);
+            }
             break;
 
         case CT_REMOVE_ACTOR: {
             int16_t actor_index = get_value_from_token(tokens[pc++]);
+            DBG_LOG(1, "[REMOVE] CT_REMOVE_ACTOR idx=%d '%s' in_world=%d hand=%p from code=%d\n",
+                    actor_index,
+                    (thing_names && actor_index >= 0 && actor_index < THING_TAB_SIZE) ? thing_names[actor_index].field_0 : "?",
+                    (actor_index >= 0 && actor_index < THING_TAB_SIZE && thing_tab[actor_index]) ? 1 : 0,
+                    (actor_index >= 0 && actor_index < THING_TAB_SIZE && thing_tab[actor_index]) ? (void *)thing_tab[actor_index]->part_heap_link : NULL,
+                    code ? code->index_code : -1);
             if (actor_index < THING_TAB_SIZE) {
                 if (thing_tab[actor_index])
                     remove_actor_from_world(thing_tab[actor_index]);
@@ -2944,7 +3004,8 @@ void update_game_icons(void) {
 
     /* ── Weapon / hand icon ── */
     part_tab_t *pt = hero->_PartTab;
-    part_t *right_hand = (pt && pt->field_0[8]) ? pt->field_0[8] : NULL;
+    int rh_slot = (game_version == GAME_VERSION_E1) ? 1 : 8;
+    part_t *right_hand = (pt && pt->field_0[rh_slot]) ? pt->field_0[rh_slot] : NULL;
     if (!right_hand) return;
 
     actor_t *held = right_hand->actor_2_held;
@@ -4028,6 +4089,10 @@ void check_actor_loaded_by_index(int16_t actor_index) {
     }
     actor = thing_tab[actor_index];
     if (actor) {
+        DBG_LOG(1, "[LOAD] check_actor_loaded_by_index actor=%d name='%s'\n",
+                actor_index,
+                (actor_index >= 0 && actor_index < THING_TAB_SIZE && thing_names)
+                ? thing_names[actor_index].field_0 : "?");
         if (actor_rep_name[actor_index] != -2)
             actor->actor_rep_index = actor_rep_name[actor_index];
         add_to_display_list(actor);
@@ -4187,6 +4252,16 @@ void execute_part_code(part_t *part, int16_t code_index) {
     part_t *prev = g_execute_part;
     g_execute_part = part;
     do_execute_code(code, part->parent_actor);
+    g_execute_part = prev;
+}
+
+/* Like execute_code but sets g_execute_part so CT_PART_IS resolves correctly.
+ * Used by E1 check_pick_up where both the arm part and the picked-up actor matter. */
+void execute_code_with_part(code_t *code, actor_t *actor, part_t *part) {
+    if (!code) return;
+    part_t *prev = g_execute_part;
+    g_execute_part = part;
+    do_execute_code(code, actor);
     g_execute_part = prev;
 }
 

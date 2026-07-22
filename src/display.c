@@ -8,6 +8,7 @@
 
 #include "display.h"
 #include "asm_f.h"
+#include "debug_overlay.h"
 #include "edit.h"
 #include "ellipse.h"
 #include "file.h"
@@ -725,6 +726,7 @@ void show_parts(void) {
 
     /* Flip double buffer */
     db = 1 - db;
+    draw_debug_overlay();
     flip_win95();
     game_up_and_running = 1;
 }

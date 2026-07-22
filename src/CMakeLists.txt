@@ -8,6 +8,7 @@ set(C_SRCS
     init.c
     asm_f.c
     display.c
+    debug_overlay.c
     edit.c
     game.c
     file.c
