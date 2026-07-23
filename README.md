@@ -18,6 +18,9 @@ The goal is a single native executable that runs both games on modern systems (m
 * Native platform builds via thin platform layer (macOS, Linux, Windows)
 * Optional: retarget DOS build with Open Watcom (`wcl386`)
 
+## Community
+* Discord: https://discord.gg/msQB6yBP9
+
 ## Status
 
 * Build system: CMake + Makefile wrapper

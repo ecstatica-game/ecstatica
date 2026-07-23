@@ -461,19 +461,6 @@ void do_update_position(actor_t *actor, vector_t *increment) {
             adj_x = projected * d_cos >> 14;
             adj_z = d_sin * projected >> 14;
 
-            /* Re-probe deflected direction to catch corners */
-            int16_t adj_dir;
-            int16_t adj_dist;
-            find_direction_and_distance(&adj_dir, &adj_dist, adj_x, adj_z);
-            probe_pos.X = start_x + (actor_bbox * cosn_table[adj_dir] >> 14);
-            probe_pos.Z = start_z + (actor_bbox * sine_table[adj_dir] >> 14);
-            h = find_height_now_material(&probe_pos, actor, 0);
-            if (PROBE_BLOCKED(h, probe_pos.Y)) {
-                adj_x = 0;
-                adj_z = 0;
-                actor->state_flags |= 4;
-            }
-
 #undef PROBE_BLOCKED
 
             if (!(actor->state_flags & 2)) {

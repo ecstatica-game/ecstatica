@@ -186,7 +186,7 @@ actor_t *add_thing(void) {
     new_thing->actor_parts_list = NULL;
     new_thing->holding_actor = NULL;
     new_thing->move_type = -1;
-    new_thing->actor_box_size = 256;
+    new_thing->actor_box_size = 200;
     new_thing->polygone_tri_list = NULL;
     new_thing->default_repert = -1;
     new_thing->actor_hit_code = -1;
