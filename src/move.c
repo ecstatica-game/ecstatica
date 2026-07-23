@@ -1846,18 +1846,18 @@ void find_direction_and_distance_zx(int16_t *dir, int16_t *dist, int16_t dz, int
  *  Actor State — turn, death, smart bomb
  * ══════════════════════════════════════════════════════════════ */
 
-/* move_turn_actor_428618
- * Original rebuilds matrix33_2 from Rotate alone, but update_thing zeros
- * Rotate when setting up an action — so the rebuild loses the world-facing
- * direction (rotate_vector) that was baked into matrix33_2.  Apply the turn
- * incrementally to both matrix33_2 (movement) and rotate_vector (visual). */
+/* move_turn_actor_42490C — rebuild matrix33_2 from rotate_vector */
 void turn_actor(actor_t *actor, int16_t angle) {
     if (!actor) return;
-    actor->Rotate.Y += angle;
     actor->rotate_vector.Y += angle;
     actor->state_flags |= 2;
-    if (angle)
-        rotate_about_y(&actor->matrix33_2, angle);
+    make_identity(&actor->matrix33_2);
+    if (actor->rotate_vector.Y)
+        rotate_about_y(&actor->matrix33_2, actor->rotate_vector.Y);
+    if (actor->rotate_vector.X)
+        rotate_about_x(&actor->matrix33_2, actor->rotate_vector.X);
+    if (actor->rotate_vector.Z)
+        rotate_about_z(&actor->matrix33_2, actor->rotate_vector.Z);
 }
 
 /* move_make_dead  E1: 0x4236AC | E2: 0x42739C */
