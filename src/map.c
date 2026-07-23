@@ -139,7 +139,7 @@ void check_hot_spots(void) {
     int map_elem_idx = find_map_element(&selected_thing->position_vector);
     int code_idx = 0;
 
-    if (map_elem_idx > 0 &&
+    if (map_elem_idx >= 0 &&
         ((-(selected_thing->position_vector.Y) >> height_shift) + 0x80 -
          map_elements[map_elem_idx].def_height) < 8) {
         code_idx = map_elements[map_elem_idx].code_index_p1 & 0x3FFF;

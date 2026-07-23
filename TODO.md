@@ -3,7 +3,7 @@
 ## Engine
 ### Bugs
 [ ] Collisions - player gets stuck on walls when moving diagonally
-[ ] Collisions - player go through view objects and can walk outside map bounds
+[x] Collisions - player go through view objects and can walk outside map bounds
 [ ] Collisions - player go on top of map blocks that are too high
 
 ## Ecstatica 1
