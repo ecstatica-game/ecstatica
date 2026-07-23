@@ -82,7 +82,11 @@ void init_profile_heights(void) {
 int find_map_element(vector_t *position) {
     int result_idx = -1;
     signed int test_height = -1;
-    int map_elem_idx = new_map[(position->Z >> 9) + 64][(position->X >> 9) + 64];
+    int col = (position->X >> 9) + 64;
+    int row = (position->Z >> 9) + 64;
+    if (col < 0 || col >= 128 || row < 0 || row >= 128)
+        return -1;
+    int map_elem_idx = new_map[row][col];
     int norm_x = (position->X & 0x1FF) - 256;
     int norm_z = (position->Z & 0x1FF) - 256;
     int height_pos = 128 + ((-position->Y) >> height_shift);
@@ -142,7 +146,11 @@ int find_map_element(vector_t *position) {
 signed int find_map_element_vis(vector_t *position) {
     int result_idx = -1;
     signed int test_height = -1;
-    uint16_t map_elem_idx = new_map[(position->Z >> 9) + 64][(position->X >> 9) + 64];
+    int col = (position->X >> 9) + 64;
+    int row = (position->Z >> 9) + 64;
+    if (col < 0 || col >= 128 || row < 0 || row >= 128)
+        return -1;
+    uint16_t map_elem_idx = new_map[row][col];
     int norm_x = (position->X & 0x1FF) - 256;
     int norm_z = (position->Z & 0x1FF) - 256;
     int height_pos = 128 + ((-position->Y) >> height_shift);
@@ -304,7 +312,6 @@ void update_position(actor_t *actor, vector_t *increment) {
  * sliding when blocked.
  */
 void do_update_position(actor_t *actor, vector_t *increment) {
-    int forward_drop = 0;
     int16_t direction;
     int16_t distance;
     int16_t blocked_dirs[50];
@@ -357,81 +364,55 @@ void do_update_position(actor_t *actor, vector_t *increment) {
         }
     }
 
-    /* Probe terrain in 5 directions around movement */
+    /* Probe terrain in 5 directions around movement. */
     find_direction_and_distance(&direction, &distance, inc_x, inc_z);
+
+#define PROBE_BLOCKED(h, py) ((h) == 0x7FFF || (h) == (int16_t)-0x8000 || \
+    ((int16_t)((py) - (h)) > 256) || ((int16_t)((h) - (py)) > 256))
 
     /* Forward probe */
     probe_pos.X = start_x + (actor_bbox * cosn_table[direction] >> 14);
     probe_pos.Z = start_z + (actor_bbox * sine_table[direction] >> 14);
     int16_t h = find_height_now_material(&probe_pos, actor, 0);
-    int16_t height_diff = probe_pos.Y - h;
-
-    if (height_diff < -256) forward_drop = 1;
-    if (height_diff > 256 && num_blocked < 50) {
+    if (PROBE_BLOCKED(h, probe_pos.Y) && num_blocked < 50) {
         blocked_dirs[num_blocked++] = direction;
     }
 
-    /* Right probe (+4096 = +90 degrees) */
+    /* +22.5 degree probe */
     int16_t probe_dir_right = (int16_t)(direction + 4096);
     probe_pos.X = start_x + (actor_bbox * cosn_table[probe_dir_right] >> 14);
     probe_pos.Z = start_z + (actor_bbox * sine_table[probe_dir_right] >> 14);
     h = find_height_now_material(&probe_pos, actor, 0);
-    if (probe_pos.Y - h > 256 && num_blocked < 50) {
+    if (PROBE_BLOCKED(h, probe_pos.Y) && num_blocked < 50) {
         blocked_dirs[num_blocked++] = probe_dir_right;
     }
 
-    /* Left probe (-4096 = -90 degrees) */
+    /* -22.5 degree probe */
     int16_t probe_dir_left = (int16_t)(direction - 4096);
     probe_pos.X = start_x + (actor_bbox * cosn_table[probe_dir_left] >> 14);
     probe_pos.Z = start_z + (actor_bbox * sine_table[probe_dir_left] >> 14);
     h = find_height_now_material(&probe_pos, actor, 0);
-    if (probe_pos.Y - h > 256 && num_blocked < 50) {
+    if (PROBE_BLOCKED(h, probe_pos.Y) && num_blocked < 50) {
         blocked_dirs[num_blocked++] = probe_dir_left;
     }
 
-    /* Rear-right probe (+12288 = +270 degrees) */
+    /* +67.5 degree probe */
     int16_t probe_dir_rear_right = (int16_t)(direction + 12288);
     probe_pos.X = start_x + (actor_bbox * cosn_table[probe_dir_rear_right] >> 14);
     probe_pos.Z = start_z + (actor_bbox * sine_table[probe_dir_rear_right] >> 14);
     h = find_height_now_material(&probe_pos, actor, 0);
-    height_diff = probe_pos.Y - h;
-    if (height_diff >= -256 || forward_drop) {
-        if (height_diff > 256 && num_blocked < 50)
-            blocked_dirs[num_blocked++] = probe_dir_rear_right;
-    } else {
-        if (num_blocked < 50)
-            blocked_dirs[num_blocked++] = probe_dir_rear_right;
+    if (PROBE_BLOCKED(h, probe_pos.Y) && num_blocked < 50) {
+        blocked_dirs[num_blocked++] = probe_dir_rear_right;
     }
 
-    /* Rear-left probe (-12288 = -270 degrees) */
+    /* -67.5 degree probe */
     int16_t probe_dir_rear_left = (int16_t)(direction - 0x3000);
     probe_pos.X = start_x + (actor_bbox * cosn_table[probe_dir_rear_left] >> 14);
     probe_pos.Z = start_z + (actor_bbox * sine_table[probe_dir_rear_left] >> 14);
     h = find_height_now_material(&probe_pos, actor, 0);
-    height_diff = probe_pos.Y - h;
-    if (height_diff >= -256 || forward_drop) {
-        if (height_diff > 256 && num_blocked < 50)
-            blocked_dirs[num_blocked++] = probe_dir_rear_left;
-    } else {
-        if (num_blocked < 50)
-            blocked_dirs[num_blocked++] = probe_dir_rear_left;
+    if (PROBE_BLOCKED(h, probe_pos.Y) && num_blocked < 50) {
+        blocked_dirs[num_blocked++] = probe_dir_rear_left;
     }
-
-    /* Forward-right diagonal probe (+2048 = +45 degrees) */
-    int16_t probe_dir_fwd_right = (int16_t)(direction + 2048);
-    probe_pos.X = start_x + (actor_bbox * cosn_table[probe_dir_fwd_right] >> 14);
-    probe_pos.Z = start_z + (actor_bbox * sine_table[probe_dir_fwd_right] >> 14);
-    h = find_height_now_material(&probe_pos, actor, 0);
-    if (probe_pos.Y - h > 256 && num_blocked < 50)
-        blocked_dirs[num_blocked++] = probe_dir_fwd_right;
-
-    /* Forward-left diagonal probe (-2048 = -45 degrees) */
-    int16_t probe_dir_fwd_left = (int16_t)(direction - 2048);
-    probe_pos.X = start_x + (actor_bbox * cosn_table[probe_dir_fwd_left] >> 14);
-    probe_pos.Z = start_z + (actor_bbox * sine_table[probe_dir_fwd_left] >> 14);
-    h = find_height_now_material(&probe_pos, actor, 0);
-    if (probe_pos.Y - h > 256 && num_blocked < 50)
-        blocked_dirs[num_blocked++] = probe_dir_fwd_left;
 
     /* Apply wall deflection if any obstacles found */
     int adj_x = inc_x;
@@ -487,11 +468,13 @@ void do_update_position(actor_t *actor, vector_t *increment) {
             probe_pos.X = start_x + (actor_bbox * cosn_table[adj_dir] >> 14);
             probe_pos.Z = start_z + (actor_bbox * sine_table[adj_dir] >> 14);
             h = find_height_now_material(&probe_pos, actor, 0);
-            if (probe_pos.Y - h > 256) {
+            if (PROBE_BLOCKED(h, probe_pos.Y)) {
                 adj_x = 0;
                 adj_z = 0;
                 actor->state_flags |= 4;
             }
+
+#undef PROBE_BLOCKED
 
             if (!(actor->state_flags & 2)) {
                 int16_t move_type = actor->move_type;
@@ -513,8 +496,10 @@ apply_movement:
     new_pos.X = adj_x + actor->position_vector.X;
     new_pos.Z = adj_z + actor->position_vector.Z;
     new_pos.Y = actor->position_vector.Y;
-    new_pos.Y = find_height_now_material(&new_pos, 0, 0);
     new_pos.Y = find_height_now_material(&new_pos, 0, &ground_material);
+
+    if (new_pos.Y == 0x7FFF || new_pos.Y == (int16_t)-0x8000)
+        return;
 
     /* Water/lava material check */
     if (ground_material == 7 && !(actor->flags & 0x0100)) {
@@ -526,12 +511,16 @@ apply_movement:
         }
     }
 
-    if (actor->position_vector.Y - new_pos.Y <= 256) {
+    int16_t ydiff = actor->position_vector.Y - new_pos.Y;
+    if (ydiff < 0) ydiff = -ydiff;
+    if (ydiff <= 256) {
         actor->position_vector.X = new_pos.X;
-        int16_t vy = actor->actor_velocity.Y;
         actor->position_vector.Z = new_pos.Z;
-        if (!vy && actor->position_vector.Y - new_pos.Y >= -256) {
+        if (game_version == GAME_VERSION_E1) {
             actor->position_vector.Y = new_pos.Y;
+        } else {
+            if (!actor->actor_velocity.Y)
+                actor->position_vector.Y = new_pos.Y;
         }
     }
 }
