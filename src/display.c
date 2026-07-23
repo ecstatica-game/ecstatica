@@ -112,7 +112,11 @@ int16_t fps = 0;
 
 /* ── Misc display ── */
 bool making_background = false;
-int16_t level_of_detail = 0;
+/* Max detail: draw all triangles including detail LOD tiers (0x2/0x4).
+ * The original sets this per-actor by distance in DrawDetail (0x47A6E8);
+ * pending that, default to max so triangle geometry (e.g. dress meshes)
+ * is never culled. Values >2 would drop ALL triangles — 2 is the ceiling. */
+int16_t level_of_detail = 2;
 int16_t set_palette_flag = 0;
 
 /* ── Blocked parts list (deferred point-to-point IK) ── */

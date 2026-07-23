@@ -2068,11 +2068,14 @@ void modify_part(event_t *event, actor_t *actor, int some_time, action_t *action
             }
         }
     } else if (et_flags & 0x20) {
-        /* Triangle-targeted event */
+        /* Triangle-targeted event. ADD_TRIANGLE is the creation event —
+         * its target does not exist yet, so let it fall through to the
+         * handler (which creates the triangle and registers it in
+         * _TriangleTab). All other triangle events modify an existing one. */
         if (event->event_index < 0) return;
         if (actor->_TriangleTab)
             triangle = actor->_TriangleTab->field_0[event->event_index];
-        if (!triangle) return;
+        if (!triangle && event->event_type != ADD_TRIANGLE) return;
     } else if (et_flags & 0x40) {
         /* Point-targeted event */
         if (event->event_index < 0) return;
@@ -2495,6 +2498,30 @@ void modify_part(event_t *event, actor_t *actor, int some_time, action_t *action
     case TRI_SHADE_NAME:
         if (triangle)
             triangle->tri_shade_name = event->param1;
+        break;
+    case TRI_TEX_NAME:
+        if (triangle)
+            triangle->texture_name_index = event->param1;
+        break;
+    case TRI_TEXTURE1:
+        if (triangle) {
+            triangle->tex1_u1 = event->param1;
+            triangle->tex1_v1 = event->param2;
+            triangle->tex1_u2 = event->param3;
+        }
+        break;
+    case TRI_TEXTURE2:
+        if (triangle) {
+            triangle->tex2_u1 = event->param1;
+            triangle->tex2_v1 = event->param2;
+            triangle->tex2_u2 = event->param3;
+        }
+        break;
+    case TRI_TEXTURE3:
+        if (triangle) {
+            triangle->tex3_u1 = event->param1;
+            triangle->tex3_v1 = event->param2;
+        }
         break;
     case PART_TEXTURE:
         /* Textures not used in the shipped game */
