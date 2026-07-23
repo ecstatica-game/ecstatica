@@ -923,7 +923,7 @@ void init_event_type_flags(void) {
     event_type_flags[N69]             = 0x200 | EVENT_FLAGS_PART;
 
     /* Triangle-targeted events */
-    event_type_flags[ADD_TRIANGLE]    = EVENT_FLAGS_TRIANGLE;
+    event_type_flags[ADD_TRIANGLE]    = EVENT_FLAGS_TRIANGLE | 4;
     event_type_flags[COLOUR_TRIANGLE] = EVENT_FLAGS_TRIANGLE | 4;
     event_type_flags[TRIANGLE_FLAGS]  = EVENT_FLAGS_TRIANGLE | 4;
     event_type_flags[TRI_SHADE_NAME]  = EVENT_FLAGS_TRIANGLE | 4;
@@ -933,8 +933,10 @@ void init_event_type_flags(void) {
     event_type_flags[TRI_TEXTURE2]    = EVENT_FLAGS_TRIANGLE | 4;
     event_type_flags[TRI_TEXTURE3]    = EVENT_FLAGS_TRIANGLE | 4;
 
-    /* Point-targeted events */
-    event_type_flags[ADD_POINT]       = EVENT_FLAGS_POINT;
+    /* Point events: ADD_POINT is part-targeted (resolves the part to add
+     * the point to; original flag 0x14 = PART|4), OFFSET_POINT is
+     * point-targeted (modifies an existing point). */
+    event_type_flags[ADD_POINT]       = EVENT_FLAGS_PART | 4;
     event_type_flags[OFFSET_POINT]    = EVENT_FLAGS_POINT;
 
     /* Actor-level events (no part/tri/point lookup) */

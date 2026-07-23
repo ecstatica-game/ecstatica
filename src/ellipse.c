@@ -334,7 +334,7 @@ void draw_triangle_ell(tri_t *tri, int plane, tri_t *shade) {
     if (tri->tri_use_flag & 0x10) {
         pixel_color = (unsigned char)shade_tab[tri_color][127][shade_idx];
     } else {
-        pixel_color = shade_tab[tri_color][shade_band][shade_idx];
+        pixel_color = (unsigned char)shade_tab[tri_color][shade_band][shade_idx];
     }
 
     /* Sort vertices by X for left-to-right rasterization */

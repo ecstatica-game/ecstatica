@@ -13,7 +13,177 @@
 #include "init.h"
 #include "game.h"
 #include "topo.h"
+#include "asm_f.h"
 #include <string.h>
+#include <stdint.h>
+
+/* ══════════════════════════════════════════════════════════════
+ *  Near-plane clipping
+ *
+ *  view_transform() zeroes screen_coord.Z for any vertex that falls
+ *  behind the near plane (view-Z < 128) OR overflows the perspective
+ *  projection laterally. The column rasterizers then drop the *entire*
+ *  triangle if any vertex has Z==0, so triangles that merely straddle
+ *  the near plane vanish (intro close-ups, etc.).
+ *
+ *  raster_triangle() below reconstructs each vertex's view-space
+ *  position from its retained world_position, clips the triangle
+ *  against the near plane (Sutherland-Hodgman), re-projects the
+ *  resulting 3- or 4-vertex polygon, and rasterizes the fan. Pristine
+ *  triangles (all vertices projected fine) skip all of this and take
+ *  the original, bit-identical path.
+ * ══════════════════════════════════════════════════════════════ */
+
+#define NEAR_Z 128
+
+typedef struct {
+    int x, y, z;       /* view-space (pre-perspective) coords     */
+    int u, v;          /* texture coordinates                     */
+    point_t *orig;     /* source vertex, or NULL for intersections */
+    int inside;        /* z >= NEAR_Z (i.e. in front of near plane) */
+} clip_vtx_t;
+
+/* Recompute the view-space coordinates of a vertex from its world
+ * position, mirroring view_transform() before the perspective divide. */
+static void reconstruct_view(point_t *p, clip_vtx_t *cv) {
+    vector_t rel, vs;
+    rel.X = p->world_position.X - view_pos.X;
+    rel.Y = p->world_position.Y - view_pos.Y;
+    rel.Z = p->world_position.Z - view_pos.Z;
+    matrix_vector(&rel, &vs, &view_matrix);
+    cv->x = vs.X;
+    cv->y = vs.Y;
+    cv->z = vs.Z;
+}
+
+/* Project a clip vertex to screen coordinates (1/16-pixel units).
+ * Original vertices with a valid existing projection reuse it exactly;
+ * everything else (intersections and laterally-overflowed originals) is
+ * re-projected from view space with clamping instead of being dropped. */
+static void project_clip_vtx(const clip_vtx_t *cv, vector_t *sc) {
+    if (cv->orig && cv->orig->screen_coord.Z != 0) {
+        *sc = cv->orig->screen_coord;
+        return;
+    }
+
+    int vz = cv->z < 1 ? 1 : cv->z;
+    int32_t coeff_x = zoom_factor / vz;
+    int32_t coeff_y = coeff_x - (coeff_x >> 3);          /* 7/8 */
+    coeff_x = coeff_x * screen_width / 320;
+    coeff_y = coeff_y * screen_height / 200;
+
+    int32_t px = (coeff_x * (int32_t)cv->x) >> 10;
+    int32_t py = (coeff_y * (int32_t)cv->y) >> 10;
+
+    if (px >  30000) px =  30000;
+    if (px < -30000) px = -30000;
+    if (py >  30000) py =  30000;
+    if (py < -30000) py = -30000;
+
+    sc->X = (int16_t)px;
+    sc->Y = (int16_t)py;
+    sc->Z = (int16_t)(vz > 32767 ? 32767 : vz);
+}
+
+/* Rasterize a fully-projected triangle through the flat or textured path. */
+static void raster_triangle(tri_t *tri, int plane, tri_t *shade) {
+    if (tri->texture_name_index >= 0)
+        draw_new_tex_tri(tri, plane, shade);
+    else
+        draw_triangle_ell(tri, plane, shade);
+}
+
+/* Linear interpolation of a clip vertex where edge a→b crosses the
+ * near plane (z == NEAR_Z). */
+static void intersect_near(const clip_vtx_t *a, const clip_vtx_t *b, clip_vtx_t *out) {
+    int64_t den = (int64_t)b->z - a->z;
+    int64_t num = (int64_t)NEAR_Z - a->z;
+    out->x = a->x + (int)(((int64_t)(b->x - a->x) * num) / den);
+    out->y = a->y + (int)(((int64_t)(b->y - a->y) * num) / den);
+    out->u = a->u + (int)(((int64_t)(b->u - a->u) * num) / den);
+    out->v = a->v + (int)(((int64_t)(b->v - a->v) * num) / den);
+    out->z = NEAR_Z;
+    out->orig = NULL;
+    out->inside = 1;
+}
+
+/* Draw a single clipped sub-triangle from three clip vertices, copying
+ * texture/colour/flags from the template and mapping UVs to the layout
+ * the rasterizers expect. */
+static void draw_clipped_subtri(tri_t *tmpl, int plane, tri_t *shade,
+                                const clip_vtx_t *a, const clip_vtx_t *b,
+                                const clip_vtx_t *c) {
+    point_t vtx[3];
+    memset(vtx, 0, sizeof(vtx));
+    project_clip_vtx(a, &vtx[0].screen_coord);
+    project_clip_vtx(b, &vtx[1].screen_coord);
+    project_clip_vtx(c, &vtx[2].screen_coord);
+
+    if (!vtx[0].screen_coord.Z || !vtx[1].screen_coord.Z || !vtx[2].screen_coord.Z)
+        return;
+
+    tri_t sub = *tmpl;
+    sub.point1 = &vtx[0];
+    sub.point2 = &vtx[1];
+    sub.point3 = &vtx[2];
+    sub.quad_point4 = NULL;
+
+    /* UV layout: p1=(tex1_u1,tex1_v1) p2=(tex1_u2,tex2_u1) p3=(tex2_v1,tex2_u2) */
+    sub.tex1_u1 = (int16_t)a->u; sub.tex1_v1 = (int16_t)a->v;
+    sub.tex1_u2 = (int16_t)b->u; sub.tex2_u1 = (int16_t)b->v;
+    sub.tex2_v1 = (int16_t)c->u; sub.tex2_u2 = (int16_t)c->v;
+
+    raster_triangle(&sub, plane, shade);
+}
+
+/* Near-plane clip a triangle, then rasterize. Triangles fully in front
+ * of the near plane are drawn directly (unchanged fast path). */
+static void clip_and_raster(tri_t *tri, int plane, tri_t *shade) {
+    point_t *p1 = tri->point1, *p2 = tri->point2, *p3 = tri->point3;
+    if (!p1 || !p2 || !p3) return;
+
+    /* Fast path: every vertex already has a valid projection. */
+    if (p1->screen_coord.Z && p2->screen_coord.Z && p3->screen_coord.Z) {
+        raster_triangle(tri, plane, shade);
+        return;
+    }
+
+    clip_vtx_t in[3];
+    point_t *pts[3] = { p1, p2, p3 };
+    int uu[3] = { tri->tex1_u1, tri->tex1_u2, tri->tex2_v1 };
+    int vv[3] = { tri->tex1_v1, tri->tex2_u1, tri->tex2_u2 };
+
+    int inside_count = 0;
+    for (int i = 0; i < 3; i++) {
+        reconstruct_view(pts[i], &in[i]);
+        in[i].u = uu[i];
+        in[i].v = vv[i];
+        in[i].orig = pts[i];
+        /* A vertex counts as in-front if its view-Z is past the near
+         * plane, or if it already carries a valid projection (guards
+         * against int16 saturation of very distant view-Z). */
+        in[i].inside = (in[i].z >= NEAR_Z) || (pts[i]->screen_coord.Z != 0);
+        if (in[i].inside) inside_count++;
+    }
+
+    if (inside_count == 0) return;         /* wholly behind near plane */
+
+    /* Sutherland-Hodgman against the single near plane. */
+    clip_vtx_t out[4];
+    int oc = 0;
+    for (int i = 0; i < 3; i++) {
+        const clip_vtx_t *cur = &in[i];
+        const clip_vtx_t *nxt = &in[(i + 1) % 3];
+        if (cur->inside)
+            out[oc++] = *cur;
+        if (cur->inside != nxt->inside && oc < 4)
+            intersect_near(cur, nxt, &out[oc++]);
+    }
+    if (oc < 3) return;
+
+    for (int i = 1; i < oc - 1; i++)
+        draw_clipped_subtri(tri, plane, shade, &out[0], &out[i], &out[i + 1]);
+}
 
 /* ══════════════════════════════════════════════════════════════
  *  Polygon Rendering
@@ -24,18 +194,15 @@
  *   tri 1: point1-point2-point3 (original)
  *   tri 2: point3-quad_point4 with adjusted texture coords.
  *
- * Dispatch: if texture_name_index >= 0, calls draw_new_tex_tri;
- * otherwise calls draw_triangle_ell (flat shaded).
+ * Each triangle is near-plane clipped before rasterization
+ * (see clip_and_raster).
  */
 void draw_polygon(tri_t *triangle, int plane, tri_t *shade) {
     tri_t saved_tri;
 
     if (triangle->quad_point4) {
         /* First triangle: p1-p2-p3 */
-        if (triangle->texture_name_index >= 0)
-            draw_new_tex_tri(triangle, plane, shade);
-        else
-            draw_triangle_ell(triangle, plane, shade);
+        clip_and_raster(triangle, plane, shade);
 
         /* Save original state */
         memcpy(&saved_tri, triangle, sizeof(tri_t));
@@ -55,19 +222,13 @@ void draw_polygon(tri_t *triangle, int plane, tri_t *shade) {
             triangle->tri_use_flag |= 0x0100;
 
         /* Second triangle */
-        if (triangle->texture_name_index >= 0)
-            draw_new_tex_tri(triangle, plane, shade);
-        else
-            draw_triangle_ell(triangle, plane, shade);
+        clip_and_raster(triangle, plane, shade);
 
         /* Restore original state */
         memcpy(triangle, &saved_tri, sizeof(tri_t));
     } else {
         /* Simple triangle */
-        if (triangle->texture_name_index >= 0)
-            draw_new_tex_tri(triangle, plane, shade);
-        else
-            draw_triangle_ell(triangle, plane, shade);
+        clip_and_raster(triangle, plane, shade);
     }
 }
 
