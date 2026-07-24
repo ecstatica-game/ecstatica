@@ -1114,7 +1114,12 @@ void behaviour(actor_t *actor, int game_time_arg) {
              * move_direction not game_time_arg. */
             next_move = 1000;
 
-            if (key_left && key_up) {
+            if (ctrl_pressed && (key_up || key_down || key_left || key_right)) {
+                if (key_up) next_move = 0;
+                else if (key_left) next_move = 0;
+                else if (key_right) next_move = 2;
+                else if (key_down) next_move = 4;
+            } else if (key_left && key_up) {
                 next_move = 1;
                 turn_actor(actor, -(actor->move_direction << 4));
             } else if (key_right && key_up) {
@@ -1586,7 +1591,7 @@ label_917:
     if (actor->actor_act.act_action) {
         if (!(actor->actor_act.flags & 1) && actor->actor_act.key_progress == 0xFFFF) {
             actor->flags |= 0x40;
-            if (actor->actor_act.flags & 0x10) {
+            if (actor->actor_act.flags & 0x1000) {
                 remove_from_display_list(actor);
                 thing_name_flags[actor->name_index] &= 0xFFFD;
             }
@@ -3591,7 +3596,7 @@ void check_pick_up(part_t *part, int16_t param) {
             execute_code_with_part(code_tab[param], target, part);
     } else {
         int16_t code_id = target->picked_up_code;
-        if (code_id && code_id < CODE_TAB_SIZE && code_tab[code_id])
+        if (code_id >= 0 && code_id < CODE_TAB_SIZE && code_tab[code_id])
             execute_code(code_tab[code_id], target);
     }
 

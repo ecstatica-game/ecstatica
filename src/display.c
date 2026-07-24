@@ -636,23 +636,6 @@ void draw_parts(void) {
      * so ellipse renderer read NULL and never wrote the bbox back.
      * Result: dirty rect always empty → no clear next frame → trails. */
 
-    /* Diagnostic: log hero visibility state every 60 ticks */
-    {
-        static int t = 0;
-        t++;
-        if (t % 60 == 0 && selected_thing) {
-            bool found_in_list = false;
-            for (actor_t *a = root_thing; a; a = a->next_in_display_list) {
-                if (a == selected_thing) { found_in_list = true; break; }
-            }
-            DBG_LOG(1, "[HRENDER] flags=0x%x state=0x%x in_list=%d moving_cam=%d pos=(%d,%d,%d) rep=%p\n",
-                selected_thing->flags, selected_thing->state_flags, found_in_list,
-                moving_camera,
-                selected_thing->position_vector.X, selected_thing->position_vector.Y, selected_thing->position_vector.Z,
-                (void*)selected_thing->actor_reperture);
-        }
-    }
-
     /* Pass 1: assign area_to_clear + init bbox + find_view_positions. */
     for (actor_t *actor = root_thing; actor; actor = actor->next_in_display_list) {
         if (!(actor->flags & 0x08)) continue;

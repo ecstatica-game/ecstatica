@@ -6,12 +6,12 @@
 
 | Key | Action |
 |-----|--------|
-| Numpad 8 / Arrow Up | Walk forward (speed depends on movement mode) |
-| Numpad 2 / Arrow Down | Walk backward (speed depends on movement mode) |
-| Numpad 4 / Arrow Left | Turn left (speed depends on movement mode) |
-| Numpad 6 / Arrow Right | Turn right (speed depends on movement mode) |
-| Arrow Up+Left | Walk forward + turn left |
-| Arrow Up+Right | Walk forward + turn right |
+| Numpad 8 / Arrow Up / W | Walk forward (speed depends on movement mode) |
+| Numpad 2 / Arrow Down / S | Walk backward (speed depends on movement mode) |
+| Numpad 4 / Arrow Left / A | Turn left (speed depends on movement mode) |
+| Numpad 6 / Arrow Right / D | Turn right (speed depends on movement mode) |
+| Up+Left / W+A | Walk forward + turn left |
+| Up+Right / W+D | Walk forward + turn right |
 
 ### Combat
 
@@ -35,10 +35,22 @@
 |-----|--------|
 | Left Shift | Jump (hold + Up for running jump) |
 
+### Combat (Ctrl held)
+
+| Key | Action |
+|-----|--------|
+| Ctrl + Up/W | Attack forward (upper cut) |
+| Ctrl + Left/A | Attack left (left swing) |
+| Ctrl + Right/D | Attack right (right swing) |
+| Ctrl + Down/S | Attack low |
+
 ### Speed Modes
 
 | Key | Action |
 |-----|--------|
+| 1 | Sneak mode |
+| 2 | Walk mode (default) |
+| 3 | Running mode |
 | F1-F4 | Sneak mode |
 | F5-F8 | Walk mode (default) |
 | F9-F12 | Running mode |
@@ -66,21 +78,21 @@
 
 | Key | Action |
 |-----|--------|
-| Arrow Up / Numpad 8 | Walk forward |
-| Arrow Down / Numpad 2 | Walk backward |
-| Arrow Left / Numpad 4 | Turn left |
-| Arrow Right / Numpad 6 | Turn right |
-| Arrow Up+Left | Walk forward + turn left |
-| Arrow Up+Right | Walk forward + turn right |
+| Arrow Up / Numpad 8 / W | Walk forward |
+| Arrow Down / Numpad 2 / S | Walk backward |
+| Arrow Left / Numpad 4 / A | Turn left |
+| Arrow Right / Numpad 6 / D | Turn right |
+| Up+Left / W+A | Walk forward + turn left |
+| Up+Right / W+D | Walk forward + turn right |
 
 ### Movement (Run)
 
 | Key | Action |
 |-----|--------|
-| Ctrl + Arrow Up | Run forward |
-| Ctrl + Arrow Down | Run backward |
-| Ctrl + Arrow Left | Run left |
-| Ctrl + Arrow Right | Run right |
+| Ctrl + Up/W | Run forward |
+| Ctrl + Down/S | Run backward |
+| Ctrl + Left/A | Run left |
+| Ctrl + Right/D | Run right |
 
 ### Actions
 
@@ -94,28 +106,28 @@
 
 | Key | Action |
 |-----|--------|
-| Ctrl + Arrow Up | Attack forward |
-| Ctrl + Arrow Down | Attack backward |
-| Ctrl + Arrow Left | Attack left |
-| Ctrl + Arrow Right | Attack right |
+| Ctrl + Up/W | Attack forward |
+| Ctrl + Down/S | Attack backward |
+| Ctrl + Left/A | Attack left |
+| Ctrl + Right/D | Attack right |
 
 ### Combat (Alt held)
 
 | Key | Action |
 |-----|--------|
-| Alt + Arrow Up | Magic/special forward |
-| Alt + Arrow Down | Magic/special backward |
-| Alt + Arrow Left | Magic/special left |
-| Alt + Arrow Right | Magic/special right |
+| Alt + Up/W | Magic/special forward |
+| Alt + Down/S | Magic/special backward |
+| Alt + Left/A | Magic/special left |
+| Alt + Right/D | Magic/special right |
 
 ### Combat (Ctrl + Alt held)
 
 | Key | Action |
 |-----|--------|
-| Ctrl+Alt + Arrow Up | Aimed attack up/down (target-dependent) |
-| Ctrl+Alt + Arrow Down | Aimed attack up/down (target-dependent) |
-| Ctrl+Alt + Arrow Left | Aimed attack left (target-dependent) |
-| Ctrl+Alt + Arrow Right | Aimed attack right (target-dependent) |
+| Ctrl+Alt + Up/W | Aimed attack up/down (target-dependent) |
+| Ctrl+Alt + Down/S | Aimed attack up/down (target-dependent) |
+| Ctrl+Alt + Left/A | Aimed attack left (target-dependent) |
+| Ctrl+Alt + Right/D | Aimed attack right (target-dependent) |
 
 ### System
 
