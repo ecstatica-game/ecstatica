@@ -79,6 +79,7 @@ void present_delay(int ms) {
     for (int i = 0; i < frames; i++) {
         flip_win95();
         window_proc();
+        if (space_pressed || key_esc_was_pressed) break;
         platform_delay(50);
     }
 }
