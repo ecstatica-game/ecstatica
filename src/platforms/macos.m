@@ -159,10 +159,21 @@ static int macos_vk_to_pkey(unsigned short vk) {
 
 - (void)flagsChanged:(NSEvent *)event {
     NSEventModifierFlags flags = event.modifierFlags;
+    bool cmd_was = self.platform->key_state[PKEY_LCMD];
+    bool cmd_now = (flags & NSEventModifierFlagCommand) != 0;
     self.platform->key_state[PKEY_LCTRL]  = (flags & NSEventModifierFlagControl) != 0;
     self.platform->key_state[PKEY_LALT]   = (flags & NSEventModifierFlagOption)  != 0;
     self.platform->key_state[PKEY_LSHIFT] = (flags & NSEventModifierFlagShift)   != 0;
-    self.platform->key_state[PKEY_LCMD]   = (flags & NSEventModifierFlagCommand) != 0;
+    self.platform->key_state[PKEY_LCMD]   = cmd_now;
+    /* macOS swallows keyUp events for keys released while Cmd is held.
+       Clear all non-modifier keys when Cmd is released to prevent stuck keys. */
+    if (cmd_was && !cmd_now) {
+        for (int i = 0; i < MAX_KEYS; i++) {
+            if (i == PKEY_LCTRL || i == PKEY_LALT || i == PKEY_LSHIFT || i == PKEY_LCMD)
+                continue;
+            self.platform->key_state[i] = false;
+        }
+    }
 }
 
 - (void)updateMouseWithEvent:(NSEvent *)event {

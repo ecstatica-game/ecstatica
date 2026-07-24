@@ -27,12 +27,22 @@ int16_t debug_overlay_active = 0;
 #define ZONE_COL_CAMERA  253  /* blue   — camera zone     */
 #define ZONE_COL_BOTH    254  /* yellow — action + camera */
 #define ZONE_COL_SPAWN   255  /* green  — wanderer spawn  */
+#define ZONE_COL_BLOCK   251  /* magenta — blocked cell     */
+#define ZONE_COL_MATBLK  250  /* cyan — material-blocked    */
+#define ZONE_COL_TERRAIN 249  /* dim grey — terrain cell    */
+#define ZONE_COL_TRI     248  /* orange — triangle split    */
+#define ZONE_COL_QUAD    247  /* light blue — quadrant split */
 
 static void inject_debug_palette(void) {
     view_cmap[ZONE_COL_ACTION].R = 63; view_cmap[ZONE_COL_ACTION].G =  0; view_cmap[ZONE_COL_ACTION].B =  0;
     view_cmap[ZONE_COL_CAMERA].R =  0; view_cmap[ZONE_COL_CAMERA].G =  0; view_cmap[ZONE_COL_CAMERA].B = 63;
     view_cmap[ZONE_COL_BOTH].R  = 63; view_cmap[ZONE_COL_BOTH].G  = 63; view_cmap[ZONE_COL_BOTH].B  =  0;
     view_cmap[ZONE_COL_SPAWN].R  =  0; view_cmap[ZONE_COL_SPAWN].G  = 63; view_cmap[ZONE_COL_SPAWN].B  =  0;
+    view_cmap[ZONE_COL_BLOCK].R  = 63; view_cmap[ZONE_COL_BLOCK].G  =  0; view_cmap[ZONE_COL_BLOCK].B  = 63;
+    view_cmap[ZONE_COL_MATBLK].R =  0; view_cmap[ZONE_COL_MATBLK].G = 63; view_cmap[ZONE_COL_MATBLK].B = 63;
+    view_cmap[ZONE_COL_TERRAIN].R = 30; view_cmap[ZONE_COL_TERRAIN].G = 30; view_cmap[ZONE_COL_TERRAIN].B = 30;
+    view_cmap[ZONE_COL_TRI].R    = 63; view_cmap[ZONE_COL_TRI].G    = 40; view_cmap[ZONE_COL_TRI].B    =  0;
+    view_cmap[ZONE_COL_QUAD].R   = 30; view_cmap[ZONE_COL_QUAD].G   = 50; view_cmap[ZONE_COL_QUAD].B   = 63;
 }
 
 /* ── Low-level draw helpers ── */
@@ -54,6 +64,9 @@ static void draw_line(int x0, int y0, int x1, int y1, uint8_t color) {
         if (e2 <  dx) { err += dx; y0 += sy; }
     }
 }
+
+static int cell_has_block_token(int map_elem_idx);
+static int cell_has_blocking_material(int map_elem_idx);
 
 /* Project a world point to screen. Returns 1 on success, 0 if near-clipped. */
 static int proj(int16_t wx, int16_t wy, int16_t wz, int *sx, int *sy) {
@@ -106,9 +119,19 @@ static void draw_player_hud(void) {
     if (elem_idx > 0) {
         int code_idx = map_elements[elem_idx].code_index_p1 & 0x3FFF;
         int cam_idx  = map_elements[elem_idx].camera_index;
-        snprintf(buf, sizeof(buf), "Zone:%d Code:%d NextCAM:%d",
-                 elem_idx, code_idx, cam_idx);
+        int blk_cfg  = map_elements[elem_idx].block_config;
+        int mat      = map_elements[elem_idx].material;
+        snprintf(buf, sizeof(buf), "Zone:%d Code:%d CAM:%d BC:%d Mat:%d",
+                 elem_idx, code_idx, cam_idx, blk_cfg, mat);
         overlay_text_at(4, 4 + tx_h + 1, buf);
+
+        int has_bt = cell_has_block_token(elem_idx);
+        int has_bm = cell_has_blocking_material(elem_idx);
+        if (has_bt || has_bm) {
+            snprintf(buf, sizeof(buf), "BLOCKED: %s%s",
+                     has_bt ? "TOKEN " : "", has_bm ? "MAT" : "");
+            overlay_text_at(4, 4 + (tx_h + 1) * 2, buf);
+        }
     }
 }
 
@@ -209,6 +232,169 @@ static void draw_trigger_zones(void) {
     }
 }
 
+/* ── Feature 6: terrain block_config visualization ── */
+
+static int cell_has_block_token(int map_elem_idx) {
+    int16_t code_idx = map_elements[map_elem_idx].code_index_p1 & 0x3FFF;
+    if (code_idx <= 0) return 0;
+    code_t *code = code_tab[code_idx - 1];
+    if (!code) return 0;
+    int token_idx = code->token_store_index;
+    if (!token_idx || !token_store) return 0;
+    int16_t *token = &token_store[token_idx];
+    while (*token) {
+        if (*token == CT_BLOCK_ACTOR || *token == CT_BLOCK_WANDERERS ||
+            *token == CT_BLOCK_ALL || *token == CT_BLOCK_AQUATIC)
+            return 1;
+        ++token;
+    }
+    return 0;
+}
+
+static int cell_has_blocking_material(int map_elem_idx) {
+    int mat = map_elements[map_elem_idx].material;
+    if (mat < 0 || mat >= 30) return 0;
+    return (material_flags[mat] & 4) != 0;
+}
+
+static void draw_cell_subdivision(int gx, int gz, int16_t gy, int block_config,
+                                  uint8_t outline_col) {
+    int16_t x0 = (int16_t)((gx - 64) * 512);
+    int16_t x1 = (int16_t)((gx - 63) * 512);
+    int16_t z0 = (int16_t)((gz - 64) * 512);
+    int16_t z1 = (int16_t)((gz - 63) * 512);
+    int16_t mx = (int16_t)(x0 + 256);
+    int16_t mz = (int16_t)(z0 + 256);
+
+    int cx[6], cy[6], ok[6];
+    ok[0] = proj(x0, gy, z0, &cx[0], &cy[0]);
+    ok[1] = proj(x1, gy, z0, &cx[1], &cy[1]);
+    ok[2] = proj(x1, gy, z1, &cx[2], &cy[2]);
+    ok[3] = proj(x0, gy, z1, &cx[3], &cy[3]);
+    ok[4] = proj(mx, gy, mz, &cx[4], &cy[4]);
+    ok[5] = 0;
+
+    if (block_config == 1) {
+        for (int i = 0; i < 4; i++) {
+            int j = (i + 1) & 3;
+            if (ok[i] && ok[j])
+                draw_line(cx[i], cy[i], cx[j], cy[j], outline_col);
+        }
+        return;
+    }
+
+    if (block_config >= 2 && block_config <= 5) {
+        for (int i = 0; i < 4; i++) {
+            int j = (i + 1) & 3;
+            if (ok[i] && ok[j])
+                draw_line(cx[i], cy[i], cx[j], cy[j], ZONE_COL_TERRAIN);
+        }
+        /* bc2: norm_x >= norm_z → diagonal (x0,z0)-(x1,z1), active = (x0z0,x1z0,x1z1)
+         * bc3: norm_x <= -norm_z → diagonal (x1,z0)-(x0,z1), active = (x0z0,x1z0,x0z1)
+         * bc4: norm_x > -norm_z → same diagonal as 3, active = (x1z0,x1z1,x0z1)
+         * bc5: norm_x < norm_z → same diagonal as 2, active = (x0z0,x0z1,x1z1) */
+        int d0, d1;
+        if (block_config == 2 || block_config == 5) {
+            d0 = 0; d1 = 2; /* diagonal corner0-corner2: (x0,z0)-(x1,z1) */
+        } else {
+            d0 = 1; d1 = 3; /* diagonal corner1-corner3: (x1,z0)-(x0,z1) */
+        }
+        if (ok[d0] && ok[d1])
+            draw_line(cx[d0], cy[d0], cx[d1], cy[d1], ZONE_COL_TRI);
+
+        /* Draw active triangle edges in highlight color */
+        int t[3];
+        switch (block_config) {
+            case 2: t[0]=0; t[1]=1; t[2]=2; break; /* x0z0, x1z0, x1z1 */
+            case 3: t[0]=0; t[1]=1; t[2]=3; break; /* x0z0, x1z0, x0z1 */
+            case 4: t[0]=1; t[1]=2; t[2]=3; break; /* x1z0, x1z1, x0z1 */
+            case 5: t[0]=0; t[1]=3; t[2]=2; break; /* x0z0, x0z1, x1z1 */
+            default: return;
+        }
+        for (int i = 0; i < 3; i++) {
+            int j = (i + 1) % 3;
+            if (ok[t[i]] && ok[t[j]])
+                draw_line(cx[t[i]], cy[t[i]], cx[t[j]], cy[t[j]], ZONE_COL_TRI);
+        }
+        return;
+    }
+
+    if (block_config >= 6) {
+        for (int i = 0; i < 4; i++) {
+            int j = (i + 1) & 3;
+            if (ok[i] && ok[j])
+                draw_line(cx[i], cy[i], cx[j], cy[j], ZONE_COL_TERRAIN);
+        }
+        /* Draw cross through center */
+        int smx, smy;
+        ok[4] = proj(mx, gy, mz, &smx, &smy);
+        int emx[4], emy[4], eok[4];
+        eok[0] = proj(mx, gy, z0, &emx[0], &emy[0]); /* top edge mid */
+        eok[1] = proj(x1, gy, mz, &emx[1], &emy[1]); /* right edge mid */
+        eok[2] = proj(mx, gy, z1, &emx[2], &emy[2]); /* bottom edge mid */
+        eok[3] = proj(x0, gy, mz, &emx[3], &emy[3]); /* left edge mid */
+
+        if (eok[0] && eok[2])
+            draw_line(emx[0], emy[0], emx[2], emy[2], ZONE_COL_QUAD);
+        if (eok[1] && eok[3])
+            draw_line(emx[1], emy[1], emx[3], emy[3], ZONE_COL_QUAD);
+
+        /* Highlight active quadrants: bit1=+x-z, bit2=-x-z, bit4=+x+z, bit8=-x+z */
+        struct { int bits; int c0; int c1; } quads[4] = {
+            {1, 1, 0}, /* +x,-z: corner1(x1,z0) → edge mids top,right */
+            {2, 0, 0}, /* -x,-z: corner0(x0,z0) → edge mids left,top  */
+            {4, 2, 1}, /* +x,+z: corner2(x1,z1) → edge mids right,bot */
+            {8, 3, 3}, /* -x,+z: corner3(x0,z1) → edge mids bot,left  */
+        };
+        int qedge[4][2] = {{0,1},{3,0},{1,2},{2,3}}; /* edge mid pairs per quadrant */
+        for (int q = 0; q < 4; q++) {
+            if (!(block_config & quads[q].bits)) continue;
+            int ci = quads[q].c0;
+            int e0 = qedge[q][0], e1 = qedge[q][1];
+            if (ok[ci] && eok[e0])
+                draw_line(cx[ci], cy[ci], emx[e0], emy[e0], ZONE_COL_QUAD);
+            if (ok[ci] && eok[e1])
+                draw_line(cx[ci], cy[ci], emx[e1], emy[e1], ZONE_COL_QUAD);
+        }
+        return;
+    }
+}
+
+static void draw_terrain_cells(void) {
+    if (!selected_thing) return;
+
+    int pgx = (selected_thing->position_vector.X >> 9) + 64;
+    int pgz = (selected_thing->position_vector.Z >> 9) + 64;
+
+    for (int gz = pgz - 10; gz <= pgz + 10; gz++) {
+        for (int gx = pgx - 10; gx <= pgx + 10; gx++) {
+            if (gz < 0 || gz >= 128 || gx < 0 || gx >= 128) continue;
+            uint16_t start = new_map[gz][gx];
+            if (start == 0xFFFF || start == 0) continue;
+
+            uint16_t idx = start;
+            for (;;) {
+                if ((int)idx >= top_of_map_elements) break;
+                map_area_element_t *e = &map_elements[idx];
+                int16_t gy = (int16_t)((128 - (int)e->def_height) << height_shift);
+                int bc = e->block_config;
+
+                uint8_t col = ZONE_COL_TERRAIN;
+                if (cell_has_block_token(idx))
+                    col = ZONE_COL_BLOCK;
+                else if (cell_has_blocking_material(idx))
+                    col = ZONE_COL_MATBLK;
+
+                if (bc > 0)
+                    draw_cell_subdivision(gx, gz, gy, bc, col);
+
+                if ((uint16_t)e->code_index_p1 & 0x8000) break;
+                idx++;
+            }
+        }
+    }
+}
+
 void draw_debug_overlay(void) {
     if (!debug_overlay_active || !bitmap[db]) return;
     inject_debug_palette();
@@ -216,4 +402,5 @@ void draw_debug_overlay(void) {
     draw_active_scene_flags();
     draw_actor_labels();
     draw_trigger_zones();
+    draw_terrain_cells();
 }

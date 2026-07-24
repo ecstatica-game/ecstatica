@@ -361,17 +361,19 @@ void do_update_position(actor_t *actor, vector_t *increment) {
     /* Probe terrain in 5 directions around movement. */
     find_direction_and_distance(&direction, &distance, inc_x, inc_z);
 
-#define PROBE_IS_DROP(h, py) ((int16_t)((py) - (h)) > 256)
-#define PROBE_IS_WALL(h, py) ((int16_t)((h) - (py)) > 256)
+#define PROBE_IS_DROP(h, py) (((int)(py) - (int)(h)) > 256)
+#define PROBE_IS_WALL(h, py) (((int)(h) - (int)(py)) > 256)
 
     int forward_wall_detected = 0;
 
-    /* Forward probe — only block for drops, flag walls */
+    /* Forward probe — E1: block drops AND walls; E2: block drops, flag walls */
     probe_pos.X = start_x + (actor_bbox * cosn_table[(uint16_t)direction] >> 14);
     probe_pos.Z = start_z + (actor_bbox * sine_table[(uint16_t)direction] >> 14);
     int16_t h = find_height_now_material(&probe_pos, actor, 0);
     if (PROBE_IS_WALL(h, probe_pos.Y)) {
         forward_wall_detected = 1;
+        if (game_version == GAME_VERSION_E1 && num_blocked < 50)
+            blocked_dirs[num_blocked++] = direction;
     }
     if (PROBE_IS_DROP(h, probe_pos.Y) && num_blocked < 50) {
         blocked_dirs[num_blocked++] = direction;
@@ -501,16 +503,19 @@ apply_movement:
     }
 
     int height_diff = (int)actor->position_vector.Y - (int)new_pos.Y;
-    if (height_diff > 256)
-        return;
-
-    actor->position_vector.X = new_pos.X;
-    actor->position_vector.Z = new_pos.Z;
 
     if (game_version == GAME_VERSION_E1) {
-        if (height_diff >= -256)
-            actor->position_vector.Y = new_pos.Y;
+        /* E1: block if abs(height_diff) > 256 — reject both drops AND walls */
+        if (abs(height_diff) > 256)
+            return;
+        actor->position_vector.X = new_pos.X;
+        actor->position_vector.Z = new_pos.Z;
+        actor->position_vector.Y = new_pos.Y;
     } else {
+        if (height_diff > 256)
+            return;
+        actor->position_vector.X = new_pos.X;
+        actor->position_vector.Z = new_pos.Z;
         if (!actor->actor_velocity.Y && height_diff >= -256)
             actor->position_vector.Y = new_pos.Y;
     }
