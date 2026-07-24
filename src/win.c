@@ -122,6 +122,9 @@ void window_proc(void) {
     ctrl_pressed        = platform_key_down(g_platform, PKEY_LCTRL);
     alt_pressed         = platform_key_down(g_platform, PKEY_LALT);
 
+    keys_were_pressed_codes[0x31] = platform_key_pressed(g_platform, PKEY_1);
+    keys_were_pressed_codes[0x32] = platform_key_pressed(g_platform, PKEY_2);
+    keys_were_pressed_codes[0x33] = platform_key_pressed(g_platform, PKEY_3);
     keys_were_pressed_codes[0x41] = platform_key_pressed(g_platform, PKEY_A);
     keys_were_pressed_codes[0x43] = platform_key_pressed(g_platform, PKEY_C);
     keys_were_pressed_codes[0x44] = platform_key_pressed(g_platform, PKEY_D);
@@ -131,10 +134,10 @@ void window_proc(void) {
     keys_were_pressed_codes[0x57] = platform_key_pressed(g_platform, PKEY_W);
     keys_pressed[0x5A]            = platform_key_down(g_platform,    PKEY_Z);
 
-    int arrow_up    = platform_key_down(g_platform, PKEY_UP);
-    int arrow_down  = platform_key_down(g_platform, PKEY_DOWN);
-    int arrow_left  = platform_key_down(g_platform, PKEY_LEFT);
-    int arrow_right = platform_key_down(g_platform, PKEY_RIGHT);
+    int arrow_up    = platform_key_down(g_platform, PKEY_UP)    || platform_key_down(g_platform, PKEY_W);
+    int arrow_down  = platform_key_down(g_platform, PKEY_DOWN)  || platform_key_down(g_platform, PKEY_S);
+    int arrow_left  = platform_key_down(g_platform, PKEY_LEFT)  || platform_key_down(g_platform, PKEY_A);
+    int arrow_right = platform_key_down(g_platform, PKEY_RIGHT) || platform_key_down(g_platform, PKEY_D);
 
     key7_pressed = platform_key_down(g_platform, PKEY_NUM7) || (arrow_up && arrow_left);
     key9_pressed = platform_key_down(g_platform, PKEY_NUM9) || (arrow_up && arrow_right);
@@ -150,10 +153,10 @@ void window_proc(void) {
      * and keys_pressed[42] for Left Shift jump. Accept arrow keys OR numpad
      * for movement. Scancodes: 72=NUM8/up, 75=NUM4/left, 77=NUM6/right,
      * 80=NUM2/down. Alt at scancode 56, space at 57. */
-    extra_keys_pressed[72] = platform_key_down(g_platform, PKEY_UP)    || platform_key_down(g_platform, PKEY_NUM8);
-    extra_keys_pressed[75] = platform_key_down(g_platform, PKEY_LEFT)  || platform_key_down(g_platform, PKEY_NUM4);
-    extra_keys_pressed[77] = platform_key_down(g_platform, PKEY_RIGHT) || platform_key_down(g_platform, PKEY_NUM6);
-    extra_keys_pressed[80] = platform_key_down(g_platform, PKEY_DOWN)  || platform_key_down(g_platform, PKEY_NUM2);
+    extra_keys_pressed[72] = platform_key_down(g_platform, PKEY_UP)    || platform_key_down(g_platform, PKEY_NUM8) || platform_key_down(g_platform, PKEY_W);
+    extra_keys_pressed[75] = platform_key_down(g_platform, PKEY_LEFT)  || platform_key_down(g_platform, PKEY_NUM4) || platform_key_down(g_platform, PKEY_A);
+    extra_keys_pressed[77] = platform_key_down(g_platform, PKEY_RIGHT) || platform_key_down(g_platform, PKEY_NUM6) || platform_key_down(g_platform, PKEY_D);
+    extra_keys_pressed[80] = platform_key_down(g_platform, PKEY_DOWN)  || platform_key_down(g_platform, PKEY_NUM2) || platform_key_down(g_platform, PKEY_S);
     extra_keys_pressed[56] = platform_key_down(g_platform, PKEY_LALT);
     extra_keys_pressed[57] = platform_key_down(g_platform, PKEY_SPACE);
     extra_keys_pressed[71] = platform_key_down(g_platform, PKEY_NUM7) || platform_key_down(g_platform, PKEY_Q);

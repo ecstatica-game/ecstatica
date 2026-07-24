@@ -119,6 +119,9 @@ static int macos_vk_to_pkey(unsigned short vk) {
         case 6:   return PKEY_Z;
         case 59:  return PKEY_LCTRL;
         case 58:  return PKEY_LALT;
+        case 18:  return PKEY_1;
+        case 19:  return PKEY_2;
+        case 20:  return PKEY_3;
         case 83:  return PKEY_NUM1;
         case 84:  return PKEY_NUM2;
         case 85:  return PKEY_NUM3;

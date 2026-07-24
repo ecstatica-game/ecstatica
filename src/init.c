@@ -763,6 +763,17 @@ void get_joystick(void) {
                 }
             }
         }
+
+        for (int g = 0; g < 3; g++) {
+            if (keys_were_pressed_codes[0x31 + g] && selected_thing) {
+                keys_were_pressed_codes[0x31 + g] = 0;
+                int16_t ci = key_f_code_idx[g];
+                if (ci >= 0 && code_tab[ci])
+                    execute_thing_code(selected_thing, ci);
+                else
+                    movement_speed_mode = (int16_t)(g * 4);
+            }
+        }
     }
 
     /* Return key — show inventory/icon page (binary: byte_4C39AC → show_icon_page) */
