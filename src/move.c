@@ -1470,7 +1470,7 @@ center_function:
                         }
                     }
                     actor->action_index = (int16_t)action_idx_rand;
-                    int idle_base = (game_version == GAME_VERSION_E1) ? 17 : 20;
+                    int idle_base = (game_version == GAME_VERSION_E1) ? 17 : 18;
                     int16_t actor_action = actor->actor_reperture->action_slots[idle_base + action_idx_rand];
                     if (actor_action >= 0) {
                         check_action_loaded(actor_action);
