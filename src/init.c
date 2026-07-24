@@ -794,7 +794,7 @@ void get_joystick(void) {
     }
 
     /* Handle special keys */
-    if ((key_esc_was_pressed || key_esc_was_forced) && game_up_and_running) {
+    if ((key_esc_was_pressed || key_esc_was_forced) && game_up_and_running && !intro_flag) {
         stop_the_clock = true;
         if (key_esc_was_forced) {
             menu_no_continue = true;
