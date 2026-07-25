@@ -199,7 +199,8 @@ void window_proc(void) {
  * Now delegates to platform_init().
  */
 void do_init(void) {
-    g_platform = platform_init("Ecstatica", 640, 480, 1);
+    const char *title = (game_version == GAME_VERSION_E2) ? "Ecstatica II" : "Ecstatica";
+    g_platform = platform_init(title, 640, 480, 1);
     if (!g_platform) {
         quit("Platform initialization failed");
     }
