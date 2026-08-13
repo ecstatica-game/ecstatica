@@ -4733,18 +4733,28 @@ void load_word(int16_t *val, FILE *f) {
 int check_saved_game(int slot) {
     if (slot >= 11)
         quit("load game no. out of range");
-    char filename[] = "saved\\XXXX.ecs";
-    int n = slot;
-    for (int i = 9; i >= 6; i--) {
-        filename[i] = '0' + (n % 10);
-        n /= 10;
-    }
+    char filename[32];
+    snprintf(filename, sizeof(filename), "saved/%04d.ecs", slot);
     FILE *f = fopen(filename, "rb");
     if (f) {
         fclose(f);
         return 1;
     }
     return 0;
+}
+
+/* game_save_matrix  E1: 0x44929C | E2: 0x454E70 */
+void save_matrix(matrix3x3_t *m, FILE *f) {
+    int16_t *p = (int16_t *)m;
+    for (int i = 0; i < 9; i++)
+        putwLoHi(p[i], f);
+}
+
+/* game_load_matrix  E1: 0x4492C4 | E2: 0x454EC0 */
+void load_matrix(matrix3x3_t *m, FILE *f) {
+    int16_t *p = (int16_t *)m;
+    for (int i = 0; i < 9; i++)
+        p[i] = getwLoHi(f);
 }
 
 /* game_remove_all_sounds  E1: 0x449678 | E2: 0x4552B0 */
