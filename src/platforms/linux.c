@@ -15,7 +15,11 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
+#include <dlfcn.h>
+#include <dirent.h>
+#include <strings.h>
 #include "platform.h"
+#include "types.h"
 
 #define MAX_KEYS 256
 
@@ -548,6 +552,8 @@ static volatile bool s_audio_running = false;
 static float s_master_sfx_volume = 0.9f;
 static float s_master_music_volume = 0.8f;
 
+static void midi_teardown(void);
+
 static void *audio_thread_func(void *arg) {
     (void)arg;
 
@@ -610,7 +616,11 @@ void platform_audio_init(void) {
     if (s_pcm) return;
 
     int err = snd_pcm_open(&s_pcm, "default", SND_PCM_STREAM_PLAYBACK, 0);
-    if (err < 0) return;
+    if (err < 0) {
+        DBG_LOG(1, "[AUDIO] snd_pcm_open(default) failed: %s\n", snd_strerror(err));
+        s_pcm = NULL;
+        return;
+    }
 
     snd_pcm_hw_params_t *params;
     snd_pcm_hw_params_alloca(&params);
@@ -630,6 +640,7 @@ void platform_audio_init(void) {
 
     err = snd_pcm_hw_params(s_pcm, params);
     if (err < 0) {
+        DBG_LOG(1, "[AUDIO] snd_pcm_hw_params failed: %s\n", snd_strerror(err));
         snd_pcm_close(s_pcm);
         s_pcm = NULL;
         return;
@@ -678,6 +689,8 @@ void platform_audio_stop_all(void) {
 }
 
 void platform_audio_shutdown(void) {
+    midi_teardown();
+
     if (!s_pcm) return;
 
     s_audio_running = false;
@@ -688,13 +701,255 @@ void platform_audio_shutdown(void) {
     s_pcm = NULL;
 }
 
-/* MIDI: requires FluidSynth or external synth */
+/* MIDI music playback via FluidSynth + a system General MIDI soundfont.
+ *
+ * Mirrors the macOS AVMIDIPlayer path: hand the whole SMF to a player that
+ * owns its synth, its sequencer and its own output stream, running parallel
+ * to the PCM mixer above. Unlike CoreAudio there is no OS-supplied GM bank,
+ * so a .sf2 has to be located on disk. libfluidsynth is dlopen'd rather than
+ * linked so that neither it nor a soundfont is a build- or run-time
+ * requirement — without them the game runs with music silent. */
+
+typedef void fluid_settings_t;
+typedef void fluid_synth_t;
+typedef void fluid_audio_driver_t;
+typedef void fluid_player_t;
+
+static void *s_fluid_lib = NULL;
+static fluid_settings_t     *s_fl_settings = NULL;
+static fluid_synth_t        *s_fl_synth    = NULL;
+static fluid_audio_driver_t *s_fl_driver   = NULL;
+static fluid_player_t       *s_fl_player   = NULL;
+static bool s_midi_ready  = false;
+static bool s_midi_failed = false;
+
+static fluid_settings_t *(*fl_new_settings)(void);
+static void  (*fl_delete_settings)(fluid_settings_t *);
+static int   (*fl_settings_setnum)(fluid_settings_t *, const char *, double);
+static int   (*fl_settings_setint)(fluid_settings_t *, const char *, int);
+static fluid_synth_t *(*fl_new_synth)(fluid_settings_t *);
+static void  (*fl_delete_synth)(fluid_synth_t *);
+static int   (*fl_synth_sfload)(fluid_synth_t *, const char *, int);
+static void  (*fl_synth_set_gain)(fluid_synth_t *, float);
+static int   (*fl_synth_system_reset)(fluid_synth_t *);
+static fluid_audio_driver_t *(*fl_new_audio_driver)(fluid_settings_t *,
+                                                    fluid_synth_t *);
+static void  (*fl_delete_audio_driver)(fluid_audio_driver_t *);
+static fluid_player_t *(*fl_new_player)(fluid_synth_t *);
+static void  (*fl_delete_player)(fluid_player_t *);
+static int   (*fl_player_add_mem)(fluid_player_t *, const void *, size_t);
+static int   (*fl_player_set_loop)(fluid_player_t *, int);
+static int   (*fl_player_play)(fluid_player_t *);
+static int   (*fl_player_stop)(fluid_player_t *);
+static int   (*fl_player_join)(fluid_player_t *);
+
+static bool midi_path_readable(const char *p) {
+    return p && p[0] && access(p, R_OK) == 0;
+}
+
+static bool midi_join_path(char *out, size_t outlen,
+                           const char *dir, const char *name) {
+    int len = snprintf(out, outlen, "%s/%s", dir, name);
+    return len > 0 && (size_t)len < outlen;
+}
+
+/* Preferred banks first, then any soundfont in the directory. */
+static bool midi_scan_dir(const char *dir, char *out, size_t outlen) {
+    static const char *preferred[] = {
+        "default.sf2", "FluidR3_GM.sf2", "FluidR3_GM2-2.sf2",
+        "default-GM.sf2", "GeneralUser.sf2", "GeneralUser_GS.sf2",
+        "TimGM6mb.sf2", NULL
+    };
+    char path[1024];
+
+    for (int i = 0; preferred[i]; ++i) {
+        if (midi_join_path(path, sizeof(path), dir, preferred[i]) &&
+            midi_path_readable(path)) {
+            snprintf(out, outlen, "%s", path);
+            return true;
+        }
+    }
+
+    DIR *d = opendir(dir);
+    if (!d) return false;
+
+    bool found = false;
+    struct dirent *e;
+    while ((e = readdir(d)) != NULL) {
+        size_t n = strlen(e->d_name);
+        if (n < 5) continue;
+        if (strcasecmp(e->d_name + n - 4, ".sf2") != 0 &&
+            strcasecmp(e->d_name + n - 4, ".sf3") != 0) continue;
+        if (!midi_join_path(path, sizeof(path), dir, e->d_name)) continue;
+        if (!midi_path_readable(path)) continue;
+        snprintf(out, outlen, "%s", path);
+        found = true;
+        break;
+    }
+    closedir(d);
+    return found;
+}
+
+static bool midi_find_soundfont(char *out, size_t outlen) {
+    const char *env = getenv("ECSTATICA_SOUNDFONT");
+    if (midi_path_readable(env)) {
+        snprintf(out, outlen, "%s", env);
+        return true;
+    }
+
+    /* Game data directory (cwd), so a bank can ship alongside the data. */
+    if (midi_scan_dir(".", out, outlen)) return true;
+
+    const char *home = getenv("HOME");
+    if (home && home[0]) {
+        char dir[1024];
+        if (midi_join_path(dir, sizeof(dir), home, ".local/share/soundfonts") &&
+            midi_scan_dir(dir, out, outlen))
+            return true;
+    }
+
+    static const char *sys_dirs[] = {
+        "/usr/share/soundfonts",
+        "/usr/local/share/soundfonts",
+        "/usr/share/sounds/sf2",
+        "/usr/share/sounds/sf3",
+        NULL
+    };
+    for (int i = 0; sys_dirs[i]; ++i)
+        if (midi_scan_dir(sys_dirs[i], out, outlen)) return true;
+
+    return false;
+}
+
+static void midi_teardown(void) {
+    if (s_fl_player) {
+        fl_player_stop(s_fl_player);
+        fl_player_join(s_fl_player);
+        fl_delete_player(s_fl_player);
+        s_fl_player = NULL;
+    }
+    if (s_fl_driver)   { fl_delete_audio_driver(s_fl_driver); s_fl_driver = NULL; }
+    if (s_fl_synth)    { fl_delete_synth(s_fl_synth);         s_fl_synth = NULL; }
+    if (s_fl_settings) { fl_delete_settings(s_fl_settings);   s_fl_settings = NULL; }
+    if (s_fluid_lib)   { dlclose(s_fluid_lib);                s_fluid_lib = NULL; }
+    s_midi_ready = false;
+}
+
+#define FL_SYM(var, name) do {                                  \
+        *(void **)(&(var)) = dlsym(s_fluid_lib, (name));        \
+        if (!(var)) {                                           \
+            DBG_LOG(1, "[MIDI] libfluidsynth missing %s\n", (name)); \
+            goto fail;                                          \
+        }                                                       \
+    } while (0)
+
+static bool midi_init(void) {
+    if (s_midi_ready)  return true;
+    if (s_midi_failed) return false;
+    s_midi_failed = true;   /* probe once; stay silent thereafter */
+
+    static const char *libs[] = {
+        "libfluidsynth.so.3", "libfluidsynth.so.2", "libfluidsynth.so", NULL
+    };
+    for (int i = 0; libs[i] && !s_fluid_lib; ++i)
+        s_fluid_lib = dlopen(libs[i], RTLD_LAZY | RTLD_LOCAL);
+
+    if (!s_fluid_lib) {
+        DBG_LOG(1, "[MIDI] libfluidsynth not found — music disabled\n");
+        return false;
+    }
+
+    FL_SYM(fl_new_settings,        "new_fluid_settings");
+    FL_SYM(fl_delete_settings,     "delete_fluid_settings");
+    FL_SYM(fl_settings_setnum,     "fluid_settings_setnum");
+    FL_SYM(fl_settings_setint,     "fluid_settings_setint");
+    FL_SYM(fl_new_synth,           "new_fluid_synth");
+    FL_SYM(fl_delete_synth,        "delete_fluid_synth");
+    FL_SYM(fl_synth_sfload,        "fluid_synth_sfload");
+    FL_SYM(fl_synth_set_gain,      "fluid_synth_set_gain");
+    FL_SYM(fl_new_audio_driver,    "new_fluid_audio_driver");
+    FL_SYM(fl_delete_audio_driver, "delete_fluid_audio_driver");
+    FL_SYM(fl_new_player,          "new_fluid_player");
+    FL_SYM(fl_delete_player,       "delete_fluid_player");
+    FL_SYM(fl_player_add_mem,      "fluid_player_add_mem");
+    FL_SYM(fl_player_set_loop,     "fluid_player_set_loop");
+    FL_SYM(fl_player_play,         "fluid_player_play");
+    FL_SYM(fl_player_stop,         "fluid_player_stop");
+    FL_SYM(fl_player_join,         "fluid_player_join");
+
+    /* Optional — only used to clear hanging notes between tunes. */
+    *(void **)(&fl_synth_system_reset) =
+        dlsym(s_fluid_lib, "fluid_synth_system_reset");
+
+    char sf[1024];
+    if (!midi_find_soundfont(sf, sizeof(sf))) {
+        DBG_LOG(1, "[MIDI] no soundfont found — music disabled "
+                   "(set ECSTATICA_SOUNDFONT=/path/to/bank.sf2)\n");
+        goto fail;
+    }
+
+    s_fl_settings = fl_new_settings();
+    if (!s_fl_settings) goto fail;
+    fl_settings_setnum(s_fl_settings, "synth.sample-rate", (double)AUDIO_OUT_RATE);
+    fl_settings_setint(s_fl_settings, "synth.midi-channels", 16);
+
+    s_fl_synth = fl_new_synth(s_fl_settings);
+    if (!s_fl_synth) goto fail;
+
+    if (fl_synth_sfload(s_fl_synth, sf, 1) == -1) {
+        DBG_LOG(1, "[MIDI] could not load soundfont %s\n", sf);
+        goto fail;
+    }
+    fl_synth_set_gain(s_fl_synth, s_master_music_volume * 0.5f);
+
+    s_fl_driver = fl_new_audio_driver(s_fl_settings, s_fl_synth);
+    if (!s_fl_driver) {
+        DBG_LOG(1, "[MIDI] could not open fluidsynth audio driver\n");
+        goto fail;
+    }
+
+    DBG_LOG(1, "[MIDI] fluidsynth ready, soundfont: %s\n", sf);
+    s_midi_ready  = true;
+    s_midi_failed = false;
+    return true;
+
+fail:
+    midi_teardown();
+    return false;
+}
+
+#undef FL_SYM
+
 int platform_midi_play(const void *smf_data, int length, bool loop) {
-    (void)smf_data; (void)length; (void)loop;
-    return -1;
+    if (!smf_data || length <= 0) return -1;
+    if (!midi_init()) return -1;
+
+    platform_midi_stop();
+
+    s_fl_player = fl_new_player(s_fl_synth);
+    if (!s_fl_player) return -1;
+
+    if (fl_player_add_mem(s_fl_player, smf_data, (size_t)length) != 0) {
+        DBG_LOG(1, "[MIDI] player rejected %d-byte SMF\n", length);
+        fl_delete_player(s_fl_player);
+        s_fl_player = NULL;
+        return -1;
+    }
+
+    fl_player_set_loop(s_fl_player, loop ? -1 : 1);
+    fl_player_play(s_fl_player);
+    return 0;
 }
 
 void platform_midi_stop(void) {
+    if (!s_fl_player) return;
+
+    fl_player_stop(s_fl_player);
+    fl_player_join(s_fl_player);
+    fl_delete_player(s_fl_player);
+    s_fl_player = NULL;
+
+    if (fl_synth_system_reset) fl_synth_system_reset(s_fl_synth);
 }
 
 void platform_set_sfx_volume(float vol) {
@@ -707,6 +962,7 @@ void platform_set_music_volume(float vol) {
     if (vol < 0.0f) vol = 0.0f;
     if (vol > 1.0f) vol = 1.0f;
     s_master_music_volume = vol;
+    if (s_midi_ready) fl_synth_set_gain(s_fl_synth, vol * 0.5f);
 }
 
 #endif /* __linux__ */

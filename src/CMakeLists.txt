@@ -92,6 +92,7 @@ elseif(UNIX)
     target_link_libraries(ecstatica PRIVATE
         ${X11_LIBRARIES}
         ${ALSA_LIB}
+        ${CMAKE_DL_LIBS}
         pthread
         m
     )
