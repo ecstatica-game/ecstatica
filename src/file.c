@@ -1054,7 +1054,6 @@ void file_read_code(FILE *f) {
         top_of_tokens += token_count;
     }
     code_tab[name_index] = code;
-    if (name_index == 135)
     code->next_code = code_list;
     code_list = code;
 }
@@ -2896,7 +2895,6 @@ void merge_sought_file(FILE *f, int quiet) {
             name_count = 0;
             while (read_name_from_stream(f, name_buf, 50)) {
                 new_code_name[name_count] = add_code_name(name_buf);
-                if (new_code_name[name_count] == 135 || name_count == 135)
                 ++name_count;
             }
         }

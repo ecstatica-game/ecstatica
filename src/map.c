@@ -287,12 +287,10 @@ void check_visibility(actor_t *actor) {
         if (actor->flags & 8) {
             if (actor != selected_thing && !position_is_visible(position) &&
                 !actor->actor_velocity.Y) {
-                if (actor->name_index == 32)
                 actor->flags &= 0xFFF7;
             }
         } else {
             if (actor == selected_thing || position_is_visible(position)) {
-                if (actor->name_index == 32)
                 actor->flags |= 8;
             }
         }

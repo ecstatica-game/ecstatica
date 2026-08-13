@@ -1086,7 +1086,6 @@ void update_act(act_t *act, actor_t *actor, int some_time) {
     }
     if (act->act_action->action_flags & 2) {
         int some_duration = act->key_progress + some_time;
-        if (actor->name_index == 33)
         if (some_duration > act->duration) {
             complete_act(act, actor);
             act->key_progress = act->duration;
