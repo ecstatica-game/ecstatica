@@ -65,6 +65,7 @@ if(APPLE)
     find_library(AUDIOTOOLBOX_FRAMEWORK AudioToolbox REQUIRED)
     find_library(COREAUDIO_FRAMEWORK CoreAudio REQUIRED)
     find_library(AVFOUNDATION_FRAMEWORK AVFoundation REQUIRED)
+    find_library(GAMECONTROLLER_FRAMEWORK GameController REQUIRED)
 
     target_link_libraries(ecstatica PRIVATE
         ${COCOA_FRAMEWORK}
@@ -73,6 +74,7 @@ if(APPLE)
         ${AUDIOTOOLBOX_FRAMEWORK}
         ${COREAUDIO_FRAMEWORK}
         ${AVFOUNDATION_FRAMEWORK}
+        ${GAMECONTROLLER_FRAMEWORK}
         m
     )
 elseif(WIN32)
@@ -80,6 +82,7 @@ elseif(WIN32)
         gdi32
         user32
         winmm
+        xinput
     )
 elseif(UNIX)
     find_package(X11 REQUIRED)

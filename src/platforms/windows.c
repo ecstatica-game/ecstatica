@@ -4,6 +4,7 @@
 #define NOMINMAX
 #include <windows.h>
 #include <mmsystem.h>
+#include <xinput.h>
 #include <math.h>
 #include <string.h>
 #include <stdlib.h>
@@ -12,6 +13,7 @@
 #include "platform.h"
 
 #pragma comment(lib, "winmm.lib")
+#pragma comment(lib, "xinput.lib")
 
 #define MAX_KEYS 256
 
@@ -327,9 +329,43 @@ void platform_set_title(platform_t *p, const char *title) {
     SetWindowTextA(p->hwnd, title);
 }
 
-/* ================================================================
- *  Audio backend -- waveOut + software mixer
- * ================================================================ */
+/* Gamepad — XInput */
+
+void platform_gamepad_poll(platform_t *p, platform_gamepad_state_t *state) {
+    memset(state, 0, sizeof(*state));
+    (void)p;
+
+    XINPUT_STATE xs;
+    if (XInputGetState(0, &xs) != ERROR_SUCCESS) return;
+
+    state->connected = true;
+    WORD b = xs.Gamepad.wButtons;
+
+    state->dpad_up    = (b & XINPUT_GAMEPAD_DPAD_UP) != 0;
+    state->dpad_down  = (b & XINPUT_GAMEPAD_DPAD_DOWN) != 0;
+    state->dpad_left  = (b & XINPUT_GAMEPAD_DPAD_LEFT) != 0;
+    state->dpad_right = (b & XINPUT_GAMEPAD_DPAD_RIGHT) != 0;
+
+    state->left_x  = xs.Gamepad.sThumbLX;
+    state->left_y  = xs.Gamepad.sThumbLY;
+    state->right_x = xs.Gamepad.sThumbRX;
+    state->right_y = xs.Gamepad.sThumbRY;
+
+    state->btn_south  = (b & XINPUT_GAMEPAD_A) != 0;
+    state->btn_east   = (b & XINPUT_GAMEPAD_B) != 0;
+    state->btn_west   = (b & XINPUT_GAMEPAD_X) != 0;
+    state->btn_north  = (b & XINPUT_GAMEPAD_Y) != 0;
+    state->btn_lb     = (b & XINPUT_GAMEPAD_LEFT_SHOULDER) != 0;
+    state->btn_rb     = (b & XINPUT_GAMEPAD_RIGHT_SHOULDER) != 0;
+    state->btn_lt     = xs.Gamepad.bLeftTrigger > 76;
+    state->btn_rt     = xs.Gamepad.bRightTrigger > 76;
+    state->btn_start  = (b & XINPUT_GAMEPAD_START) != 0;
+    state->btn_select = (b & XINPUT_GAMEPAD_BACK) != 0;
+    state->btn_lstick = (b & XINPUT_GAMEPAD_LEFT_THUMB) != 0;
+    state->btn_rstick = (b & XINPUT_GAMEPAD_RIGHT_THUMB) != 0;
+}
+
+/* Audio backend -- waveOut + software mixer */
 
 #define AUDIO_MAX_VOICES 16
 #define AUDIO_OUT_RATE   44100

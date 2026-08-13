@@ -54,6 +54,7 @@ src/
 
 Framebuffer: 8-bit indexed palette. `platform_blit` does palette expansion + scale.
 Game version detected at runtime via `game_version` (E1=1, E2=2).
+Gamepad: `platform_gamepad_poll()` per platform, mapped to key globals in `window_proc()`.
 
 ## Decompilation Workflow (IDA MCP)
 

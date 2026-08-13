@@ -156,6 +156,29 @@ void platform_delay(uint32_t ms);
  */
 void platform_shutdown(platform_t *p);
 
+#define GAMEPAD_STICK_DEADZONE 8000
+
+typedef struct {
+    bool connected;
+    bool dpad_up, dpad_down, dpad_left, dpad_right;
+    int16_t left_x, left_y;
+    int16_t right_x, right_y;
+    bool btn_south;     /* A / Cross */
+    bool btn_east;      /* B / Circle */
+    bool btn_west;      /* X / Square */
+    bool btn_north;     /* Y / Triangle */
+    bool btn_lb, btn_rb;
+    bool btn_lt, btn_rt;
+    bool btn_start, btn_select;
+    bool btn_lstick, btn_rstick;
+} platform_gamepad_state_t;
+
+/**
+ * Poll the first connected gamepad. Fills `state` with current values.
+ * If no gamepad is connected, state->connected is false and all fields zero.
+ */
+void platform_gamepad_poll(platform_t *p, platform_gamepad_state_t *state);
+
 /**
  * Set the window title.
  */
