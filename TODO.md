@@ -13,5 +13,5 @@
 
 ## Ecstatica 2
 ### Bugs
-[ ] - Polygon Rasterization issue - intro scene flying gargoyle winds are not rendered correctly
+[x] - Polygon Rasterization issue - intro scene flying gargoyle winds are not rendered correctly
 

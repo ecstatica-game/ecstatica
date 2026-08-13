@@ -216,24 +216,33 @@ void window_proc(void) {
         extra_keys_pressed[75] |= gp_left;
         extra_keys_pressed[77] |= gp_right;
 
-        /* A → Space (interact / pick up) */
+        /* A → Space (interact / pick up) — level + edge */
         space_pressed |= gp.btn_south;
-        if (gp.btn_south) space_was_pressed = true;
+        static bool btn_south_was_pressed = false;
+        if (gp.btn_south && !btn_south_was_pressed) space_was_pressed = true;
+        btn_south_was_pressed = gp.btn_south;
         extra_keys_pressed[57] |= gp.btn_south;
 
-        /* B / Start → Escape (menu) */
-        if (gp.btn_east || gp.btn_start) key_esc_was_pressed = true;
+        /* B / Start → Escape (menu) — edge-triggered */
+        static bool btn_east_was_pressed = false;
+        static bool btn_start_was_pressed = false;
+        if (gp.btn_east && !btn_east_was_pressed) key_esc_was_pressed = true;
+        if (gp.btn_start && !btn_start_was_pressed) key_esc_was_pressed = true;
+        btn_east_was_pressed = gp.btn_east;
+        btn_start_was_pressed = gp.btn_start;
 
         /* X / LT → Left Alt (use item / magic) */
         alt_pressed |= gp.btn_west || gp.btn_lt;
         extra_keys_pressed[56] |= gp.btn_west || gp.btn_lt;
 
-        /* Y → Enter (inventory) */
+        /* Y → Enter (inventory) — edge-triggered */
         enter_pressed |= gp.btn_north;
-        if (gp.btn_north) {
+        static bool btn_north_was_pressed = false;
+        if (gp.btn_north && !btn_north_was_pressed) {
             enter_was_pressed = true;
             key_return_was_pressed = true;
         }
+        btn_north_was_pressed = gp.btn_north;
 
         /* LB → Left Shift (jump) */
         keys_pressed[42] |= gp.btn_lb;
@@ -241,8 +250,10 @@ void window_proc(void) {
         /* RB / RT → Left Ctrl (run / attack modifier) */
         ctrl_pressed |= gp.btn_rb || gp.btn_rt;
 
-        /* Select → I (toggle HUD) */
-        if (gp.btn_select) key_i_was_pressed = true;
+        /* Select → I (toggle HUD) — edge-triggered */
+        static bool btn_select_was_pressed = false;
+        if (gp.btn_select && !btn_select_was_pressed) key_i_was_pressed = true;
+        btn_select_was_pressed = gp.btn_select;
 
         /* E1 combat: Q/E mapped to numpad7/numpad9.
          * Right stick horizontal maps to combat swings. */
