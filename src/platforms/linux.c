@@ -3,6 +3,7 @@
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/keysym.h>
+#include <X11/XKBlib.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
@@ -411,16 +412,21 @@ uint32_t platform_ticks(platform_t *p) {
 
     struct timespec now;
     clock_gettime(CLOCK_MONOTONIC, &now);
-    uint64_t elapsed_ms = (uint64_t)(now.tv_sec - ref->tv_sec) * 1000
-                        + (uint64_t)(now.tv_nsec - ref->tv_nsec) / 1000000;
+    /* Signed arithmetic throughout: tv_nsec difference is negative whenever
+     * now.tv_nsec < ref->tv_nsec, and an unsigned cast would wrap it. */
+    int64_t elapsed_ms = (int64_t)(now.tv_sec - ref->tv_sec) * 1000
+                       + ((int64_t)now.tv_nsec - (int64_t)ref->tv_nsec) / 1000000;
+    if (elapsed_ms < 0) elapsed_ms = 0;
     return (uint32_t)elapsed_ms;
 }
 
 void platform_delay(uint32_t ms) {
-    struct timespec ts;
+    struct timespec ts, rem;
     ts.tv_sec  = ms / 1000;
     ts.tv_nsec = (ms % 1000) * 1000000L;
-    nanosleep(&ts, NULL);
+    /* Resume the remaining interval if a signal cuts the sleep short. */
+    while (nanosleep(&ts, &rem) == -1 && errno == EINTR)
+        ts = rem;
 }
 
 void platform_shutdown(platform_t *p) {

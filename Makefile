@@ -35,21 +35,25 @@ run: e2
 
 e2: $(BUILT)
 	cp $(BUILT) $(E2_DIR)/
+	chmod +x $(E2_DIR)/$(TARGET)
 	cd $(E2_DIR) && ./$(TARGET)
 
 e1: $(BUILT)
 	mkdir -p $(E1_DIR)
 	cp $(BUILT) $(E1_DIR)/
+	chmod +x $(E1_DIR)/$(TARGET)
 	cd $(E1_DIR) && ./$(TARGET)
 
 e1-dos-bundle: $(BUILT)
 	mkdir -p $(E1_DIR_DOS)
 	cp $(BUILT) $(E1_DIR_DOS)/
+	chmod +x $(E1_DIR_DOS)/$(TARGET)
 	cd $(E1_DIR_DOS) && ./$(TARGET)
 
 e1-dos: $(BUILT)
 	mkdir -p $(E1_DIR_ORIG)
 	cp $(BUILT) $(E1_DIR_ORIG)/
+	chmod +x $(E1_DIR_ORIG)/$(TARGET)
 	cd $(E1_DIR_ORIG) && ./$(TARGET)
 
 clean:

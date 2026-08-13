@@ -11,6 +11,7 @@
 #include "win.h"
 #include "debug_overlay.h"
 #include "display.h"
+#include "file.h"
 #include "init.h"
 #include "platform.h"
 #include <string.h>
@@ -298,6 +299,9 @@ void change_screen_mode_win95(void) {
  * Original WinMain entry point. Now called from main.c.
  */
 void win_main_game(void) {
+    /* Resolve the version before do_init(), which picks the window title.
+     * init() detects again later; the probe is idempotent. */
+    detect_game_version();
     do_init();
     // if_editor_show_cursor();
     setup();
