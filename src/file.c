@@ -454,7 +454,7 @@ void make_dir_if_not_exists(const char *dirname) {
 }
 
 /* file_write_event  E2: 0x4412F0 — write event fields via putw_be */
-static void file_write_event(event_t *event, FILE *f) {
+void file_write_event(event_t *event, FILE *f) {
     putw_be(event->event_type, f);
     putw_be(event->event_index, f);
     putw_be(event->param1, f);
@@ -1295,88 +1295,616 @@ void load_a_repertoire(int rep_index) {
 }
 
 /* ══════════════════════════════════════════════════════════════
- *  Save / Load Game
+ *  Save / Load Game — E2-compatible format (saved/XXXX.ecs)
+ *
+ *  Format:
+ *    save name (26 bytes), version (2), thumbnail (4800),
+ *    actor events (terminated by NO_EVENT), repertoire list (-1),
+ *    scene list (-1), per-thing state (-1), per-actor arrays,
+ *    map areas (-1), globals, cameras (150), ambients, settings,
+ *    sentinel 0x1234.
  * ══════════════════════════════════════════════════════════════ */
 
-/* file_save_game  E1: ? | E2P: 0x4267D8 */
-void save_game(int slot) {
-    char filename[256];
-    snprintf(filename, sizeof(filename), "save%d.dat", slot);
-    FILE *f = fopen(filename, "wb");
-    if (!f) return;
+#define SAVE_VERSION 4
+#define SAVE_MAX_SLOTS 11
+#define SAVE_NAME_LEN 26
+#define THUMB_W 80
+#define THUMB_H 60
 
-    /* Write game state */
-    putl(game_time, f);
-    putl(game_timer, f);
+static uint8_t pre_menu_thumbnail[THUMB_W * THUMB_H];
 
-    /* Write hero position */
-    putw_be(actor_position[0].X, f);
-    putw_be(actor_position[0].Y, f);
-    putw_be(actor_position[0].Z, f);
-    putw_be(actor_orientation[0].Y, f);
+void capture_save_thumbnail(void) {
+    for (int ty = 0; ty < THUMB_H; ty++) {
+        int sy = mode_svga ? ty * 8 : ty * screen_height / THUMB_H;
+        for (int tx = 0; tx < THUMB_W; tx++) {
+            int sx = mode_svga ? tx * 8 : tx * screen_width / THUMB_W;
+            if (sy < screen_height && sx < screen_width)
+                pre_menu_thumbnail[ty * THUMB_W + tx] = bitmap[1 - db][sy * screen_width + sx];
+            else
+                pre_menu_thumbnail[ty * THUMB_W + tx] = 0;
+        }
+    }
+}
 
-    /* Write active actors */
-    for (int i = 0; i < ACTOR_POOL_SIZE; i++) {
-        putw_be(actor_flags[i], f);
-        if (actor_flags[i] & 0x8) {
-            putw_be(actor_rep_name[i], f);
-            putw_be(actor_position[i].X, f);
-            putw_be(actor_position[i].Y, f);
-            putw_be(actor_position[i].Z, f);
-            putw_be(actor_orientation[i].X, f);
-            putw_be(actor_orientation[i].Y, f);
-            putw_be(actor_orientation[i].Z, f);
-            putw_be(actor_hit_points[i], f);
+static void make_save_filename(char *buf, int bufsz, int slot) {
+    snprintf(buf, bufsz, "saved/%04d.ecs", slot);
+}
+
+/* file_save_game_parts  E2: 0x443D3C
+ * Takes a parent (actor or part) and writes events for all its children.
+ * Actor_t and part_t share the first 80 bytes of layout, so casting is safe. */
+void save_game_parts(void *parent_v, FILE *f) {
+    if (!parent_v || !f) return;
+    part_t *parent = (part_t *)parent_v;
+    part_t *child = parent->actor_parts_list;
+    if (!child) return;
+
+    for (; child; child = child->next) {
+        int16_t cidx = child->name_index;
+
+        if (parent->type == 7)
+            file_write_event(&(event_t){0, ADD_PART_TO_THING,
+                cidx, child->flags, (int16_t)child->type, NULL}, f);
+        else
+            file_write_event(&(event_t){parent->name_index, ADD_PART,
+                cidx, child->flags, (int16_t)child->type, NULL}, f);
+
+        file_write_event(&(event_t){cidx, OFFSET,
+            child->Offset.X, child->Offset.Y, child->Offset.Z, NULL}, f);
+        file_write_event(&(event_t){cidx, POSITION,
+            child->AbsPosition.X, child->AbsPosition.Y, child->AbsPosition.Z, NULL}, f);
+        file_write_event(&(event_t){cidx, ROTATE,
+            child->Rotate.X, child->Rotate.Y, child->Rotate.Z, NULL}, f);
+        file_write_event(&(event_t){cidx, VECTOR1,
+            child->VECTOR_Squash.X, child->VECTOR_Squash.Y, child->VECTOR_Squash.Z, NULL}, f);
+        file_write_event(&(event_t){cidx, VECTOR2,
+            child->VECTOR_RelCentre.X, child->VECTOR_RelCentre.Y, child->VECTOR_RelCentre.Z, NULL}, f);
+        file_write_event(&(event_t){cidx, COLOUR,
+            child->color, child->color_shade, child->max_squash, NULL}, f);
+        file_write_event(&(event_t){cidx, FLAGS,
+            child->flags, -1, 0, NULL}, f);
+        file_write_event(&(event_t){cidx, SHADE,
+            child->color_shade, 0, 0, NULL}, f);
+        file_write_event(&(event_t){cidx, DEF_OFFSET,
+            child->def_offset.X, child->def_offset.Y, child->def_offset.Z, NULL}, f);
+        file_write_event(&(event_t){cidx, DEF_POSITION,
+            child->def_position.X, child->def_position.Y, child->def_position.Z, NULL}, f);
+        file_write_event(&(event_t){cidx, DEF_ROTATE,
+            child->def_rotate.X, child->def_rotate.Y, child->def_rotate.Z, NULL}, f);
+        file_write_event(&(event_t){cidx, DEF_VECTOR1,
+            child->def_Squash.X, child->def_Squash.Y, child->def_Squash.Z, NULL}, f);
+        file_write_event(&(event_t){cidx, DEF_VECTOR2,
+            child->def_RelCentre.X, child->def_RelCentre.Y, child->def_RelCentre.Z, NULL}, f);
+        file_write_event(&(event_t){cidx, DEF_COLOUR,
+            child->default_color, child->work_color, (int16_t)child->default_flags, NULL}, f);
+        file_write_event(&(event_t){cidx, DEF_FLAGS,
+            (int16_t)child->default_flags, -1, 0, NULL}, f);
+
+        for (point_t *pt = child->points_list; pt; pt = pt->next) {
+            file_write_event(&(event_t){cidx, ADD_POINT,
+                pt->point_index, pt->point_use_flag, pt->offset_point.X, NULL}, f);
+            file_write_event(&(event_t){pt->point_index, OFFSET_POINT,
+                pt->offset_point.X, pt->offset_point.Y, pt->offset_point.Z, NULL}, f);
+        }
+
+        save_game_parts(child, f);
+    }
+}
+
+/* file_save_game_thing  E2: 0x443770 */
+void save_game_thing(actor_t *actor, FILE *f) {
+    if (!actor || !f) return;
+
+    file_write_event(&(event_t){0, ADD_THING,
+        actor->name_index, (int16_t)actor->flags, actor->type, NULL}, f);
+    file_write_event(&(event_t){0, START_POSITION,
+        actor->start_position.X, actor->start_position.Y, actor->start_position.Z, NULL}, f);
+    file_write_event(&(event_t){0, THING_FLAGS,
+        (int16_t)actor->flags, actor->state_flags, -1, NULL}, f);
+    file_write_event(&(event_t){0, HELD_OFFSET,
+        actor->held_offset.X, actor->held_offset.Y, actor->held_offset.Z, NULL}, f);
+    file_write_event(&(event_t){0, HELD_ROTATE,
+        actor->held_rotate.X, actor->held_rotate.Y, actor->held_rotate.Z, NULL}, f);
+    file_write_event(&(event_t){0, HELD_OFF_LEFT,
+        actor->held_off_left.X, actor->held_off_left.Y, actor->held_off_left.Z, NULL}, f);
+    file_write_event(&(event_t){0, HELD_ROT_LEFT,
+        actor->held_rot_left.X, actor->held_rot_left.Y, actor->held_rot_left.Z, NULL}, f);
+    file_write_event(&(event_t){0, ACTOR_REP,
+        actor->actor_rep_index, 1, actor->default_repert, NULL}, f);
+    file_write_event(&(event_t){0, THING_CODE,
+        (int16_t)(actor->code_at_hp_change + 1),
+        (int16_t)(actor->actor_hit_code + 1),
+        (int16_t)(actor->actor_init_code + 1), NULL}, f);
+    file_write_event(&(event_t){0, THING_CODE_2,
+        (int16_t)(actor->picked_up_code + 1),
+        (int16_t)(actor->dead_code_index + 1), 0, NULL}, f);
+
+    save_game_parts(actor, f);
+
+    /* POINT_TO_POINT links for parts in display list */
+    for (part_t *pt = (part_t *)actor->actor_parts_list; pt;
+         pt = pt->next_in_display_list) {
+        if (pt->field_12E_point_to_point) {
+            file_write_event(&(event_t){pt->name_index, POINT_TO_POINT,
+                pt->field_12E_point_to_point->point_index, 0, 0, NULL}, f);
         }
     }
 
-    fclose(f);
+    /* Triangle/polygon geometry */
+    for (tri_t *tri = actor->polygone_tri_list; tri; tri = tri->next) {
+        file_write_event(&(event_t){tri->tri_index, ADD_TRIANGLE,
+            tri->point1->point_index, tri->point2->point_index,
+            tri->point3->point_index, NULL}, f);
+
+        if (tri->quad_point4)
+            file_write_event(&(event_t){tri->tri_index, MAKE_QUAD,
+                tri->quad_point4->point_index, 0, 0, NULL}, f);
+
+        file_write_event(&(event_t){tri->tri_index, COLOUR_TRIANGLE,
+            tri->tri_color_3, tri->tri_color_4, 0, NULL}, f);
+        file_write_event(&(event_t){tri->tri_index, TRIANGLE_FLAGS,
+            (int16_t)tri->tri_use_flag, -1, 0, NULL}, f);
+        file_write_event(&(event_t){tri->tri_index, TRI_SHADE_NAME,
+            tri->tri_shade_name, 0, 0, NULL}, f);
+
+        if (tri->texture_name_index >= 0) {
+            file_write_event(&(event_t){tri->tri_index, TRI_TEX_NAME,
+                tri->texture_name_index, 0, 0, NULL}, f);
+            file_write_event(&(event_t){tri->tri_index, TRI_TEXTURE1,
+                tri->tex1_u1, tri->tex1_v1, tri->tex1_u2, NULL}, f);
+            file_write_event(&(event_t){tri->tri_index, TRI_TEXTURE2,
+                tri->tex2_u1, tri->tex2_v1, tri->tex2_u2, NULL}, f);
+            file_write_event(&(event_t){tri->tri_index, TRI_TEXTURE3,
+                tri->tex3_u1, tri->tex3_v1, 0, NULL}, f);
+        }
+    }
 }
 
-/* file_load_game  E1: ? | E2P: 0x426848 */
+/* game_save_game  E1: 0x448968 | E2: 0x4537B8 */
+void save_game(int slot) {
+    if (slot < 0 || slot >= SAVE_MAX_SLOTS) return;
+
+    make_dir_if_not_exists("saved");
+
+    char filename[32];
+    make_save_filename(filename, sizeof(filename), slot);
+    FILE *f = fopen(filename, "wb");
+    if (!f) {
+        do_info_req("Can't create save file");
+        return;
+    }
+
+    /* 1. Save name (26 bytes) */
+    char save_name[SAVE_NAME_LEN];
+    memset(save_name, 0, SAVE_NAME_LEN);
+    snprintf(save_name, SAVE_NAME_LEN - 1, "Slot %d", slot + 1);
+    fwrite(save_name, 1, SAVE_NAME_LEN, f);
+
+    /* 2. Version */
+    putwLoHi(SAVE_VERSION, f);
+
+    /* 3. Thumbnail (pre-captured before menu) */
+    fwrite(pre_menu_thumbnail, 1, THUMB_W * THUMB_H, f);
+
+    /* 4. Actor hierarchy as events */
+    for (actor_t *actor = root_thing; actor; actor = actor->next_in_display_list)
+        save_game_thing(actor, f);
+    file_write_event(&(event_t){0, NO_EVENT, 0, 0, 0, NULL}, f);
+
+    /* 5. Repertoire list (only reps with use_flag & 2) */
+    for (rephead_t *rep = repertoire_list; rep; rep = rep->next_rep) {
+        if (rep->rep_use_flag & 2)
+            putwLoHi(rep->rep_index, f);
+    }
+    putwLoHi(-1, f);
+
+    /* 6. Scene list */
+    for (scene_t *sc = root_scene; sc; sc = sc->next_scene)
+        putwLoHi(sc->scene_index, f);
+    putwLoHi(-1, f);
+
+    /* 7. Per-thing runtime state */
+    for (actor_t *actor = root_thing; actor; actor = actor->next_in_display_list) {
+        int16_t idx = actor->name_index;
+        putwLoHi(idx, f);
+        putwLoHi(actor->actor_behavior, f);
+        save_vector((int16_t *)&actor->position_vector, f);
+        save_vector((int16_t *)&actor->actor_center, f);
+        save_vector((int16_t *)&actor->rotate_vector, f);
+        save_vector((int16_t *)&actor->start_position, f);
+        putwLoHi(actor->move_type, f);
+        putwLoHi(actor->wander_direction, f);
+        putwLoHi(actor->action_delay, f);
+        putwLoHi(actor->range_threshold, f);
+        putwLoHi(actor->actor_hitpoints, f);
+        putwLoHi(actor->full_actor_hp, f);
+        putwLoHi(actor->action_state, f);
+        putwLoHi((int16_t)actor->flags, f);
+        putwLoHi(actor->state_flags, f);
+        putwLoHi(actor->extra_action_index, f);
+        save_matrix(&actor->matrix33_2, f);
+        putwLoHi(actor->actor_strength_factor, f);
+        putwLoHi(actor->actor_magic_factor, f);
+        putwLoHi(actor->actor_magic, f);
+        putwLoHi(actor->actor_hit_factor, f);
+        putwLoHi(actor->actor_rep_index, f);
+        putwLoHi(actor->default_repert, f);
+        putwLoHi((int16_t)(actor->code_at_hp_change + 1), f);
+        putwLoHi((int16_t)(actor->actor_hit_code + 1), f);
+        putwLoHi((int16_t)(actor->actor_init_code + 1), f);
+        putwLoHi((int16_t)(actor->picked_up_code + 1), f);
+        putwLoHi((int16_t)(actor->dead_code_index + 1), f);
+        save_vector((int16_t *)&actor->held_offset, f);
+        save_vector((int16_t *)&actor->held_rotate, f);
+        save_vector((int16_t *)&actor->held_off_left, f);
+        save_vector((int16_t *)&actor->held_rot_left, f);
+        int16_t fa_idx = actor->force_action_to_execute ?
+            actor->force_action_to_execute->action_index : -1;
+        putwLoHi(fa_idx, f);
+        int16_t qa_idx = actor->queued_action ?
+            actor->queued_action->action_index : -1;
+        putwLoHi(qa_idx, f);
+        /* Timed actions */
+        int16_t ta_count = 0;
+        for (taction_t *ta = actor->tactions_list; ta; ta = ta->next) ta_count++;
+        putwLoHi(ta_count, f);
+        for (taction_t *ta = actor->tactions_list; ta; ta = ta->next) {
+            putwLoHi(ta->taction_index, f);
+            putl(ta->taction_time - game_time, f);
+        }
+        /* Held-by link */
+        int16_t hba = (actor->part_heap_link && actor->part_heap_link->parent_actor)
+            ? actor->part_heap_link->parent_actor->name_index : -1;
+        putwLoHi(hba, f);
+    }
+    putwLoHi(-1, f);
+
+    /* 8. Sync actor runtime state to per-actor arrays */
+    for (actor_t *actor = root_thing; actor; actor = actor->next_in_display_list) {
+        int idx = actor->name_index;
+        if (idx >= 0 && idx < THING_TAB_SIZE) {
+            actor_position[idx] = actor->position_vector;
+            actor_orientation[idx] = actor->rotate_vector;
+            actor_hit_points[idx] = actor->actor_hitpoints;
+            actor_magic[idx] = actor->actor_magic;
+        }
+    }
+
+    /* 9. Per-actor arrays (THING_TAB_SIZE entries) */
+    for (int i = 0; i < THING_TAB_SIZE; i++) {
+        putwLoHi(thing_name_flags[i], f);
+        putwLoHi(actor_flags[i], f);
+        putwLoHi(actor_rep_name[i], f);
+        save_vector((int16_t *)&actor_position[i], f);
+        save_vector((int16_t *)&actor_orientation[i], f);
+        putwLoHi(actor_hit_points[i], f);
+        putwLoHi(actor_magic[i], f);
+    }
+
+    /* 10. Map areas */
+    for (map_area_t *area = map_area_list; area; area = area->next) {
+        putwLoHi((int16_t)area->map_area_index, f);
+        for (int j = 0; j < 10; j++)
+            putwLoHi((int16_t)area->map_area_element_num[j], f);
+    }
+    putwLoHi(-1, f);
+
+    /* 11. Globals */
+    putwLoHi(current_tune, f);
+    putwLoHi(armour_factor, f);
+    putwLoHi(kill_count, f);
+    putwLoHi(treasure_count, f);
+    putwLoHi((int16_t)poison_time, f);
+    putwLoHi(difficulty, f);
+    putl(game_timer, f);
+    putl(game_timer_start, f);
+
+    /* 12. Cameras viewed (150 entries) */
+    for (int i = 0; i < 150; i++)
+        fputc((uint8_t)cameras_viewed[i], f);
+
+    /* 13. Ambient sounds */
+    putwLoHi(num_ambients, f);
+    for (int i = 0; i < num_ambients; i++) {
+        putwLoHi((int16_t)ambiant_name[i], f);
+        putwLoHi(ambiant_freq[i], f);
+        putwLoHi(ambiant_rand[i], f);
+        putwLoHi(ambiant_vol[i], f);
+    }
+
+    /* 14. Settings */
+    putwLoHi(music_on ? 1 : 0, f);
+    putwLoHi(sound_fx_on ? 1 : 0, f);
+    putwLoHi(subtitles_on ? 1 : 0, f);
+    putwLoHi((int16_t)chosen_svga, f);
+
+    /* 15. Sentinel */
+    putwLoHi(0x1234, f);
+
+    fclose(f);
+    DBG_LOG(1, "[SAVE] Saved game to %s\n", filename);
+}
+
+/* game_load_game  E1: 0x448B0C | E2: 0x45433C */
 void load_game(int slot) {
-    char filename[256];
-    snprintf(filename, sizeof(filename), "save%d.dat", slot);
+    if (slot < 0 || slot >= SAVE_MAX_SLOTS) return;
+
+    char filename[32];
+    make_save_filename(filename, sizeof(filename), slot);
     FILE *f = fopen(filename, "rb");
     if (!f) return;
 
-    /* Clear current game state */
+    /* 1. Skip save name */
+    fseek(f, SAVE_NAME_LEN, SEEK_CUR);
+
+    /* 2. Check version */
+    int16_t version = getwLoHi(f);
+    if (version < SAVE_VERSION) {
+        fclose(f);
+        do_info_req("Game was saved in old version");
+        return;
+    }
+
+    /* 3. Reset game state */
     new_game();
+    free_all_heaps();
+    active_camera = NULL;
+    clear_subtitles = 1;
+    fade_to_black = false;
+    fade_to_white = false;
 
-    /* Read game state */
-    game_time = getlLoHi(f);
-    game_timer = getlLoHi(f);
+    /* 4. Skip thumbnail */
+    fseek(f, THUMB_W * THUMB_H, SEEK_CUR);
 
-    /* Read hero position */
-    actor_position[0].X = getw_be(f);
-    actor_position[0].Y = getw_be(f);
-    actor_position[0].Z = getw_be(f);
-    actor_orientation[0].Y = getw_be(f);
+    /* 5. Load actor hierarchy from event stream */
+    selected_thing = NULL;
+    {
+        int16_t event_type;
+        do {
+            event_t *event = read_event(f);
+            event_type = event->event_type;
+            modify_part(event, selected_thing, 0, 0);
+            if (event_type == THING_FLAGS && selected_thing) {
+                selected_thing->flags &= 0xFB77u;
+                selected_thing->extra_action_index = event->param3;
+            }
+            free_event(event);
+        } while (event_type);
+    }
 
-    /* Read active actors */
-    for (int i = 0; i < ACTOR_POOL_SIZE; i++) {
-        actor_flags[i] = getw_be(f);
-        if (actor_flags[i] & 0x8) {
-            actor_rep_name[i] = getw_be(f);
-            actor_position[i].X = getw_be(f);
-            actor_position[i].Y = getw_be(f);
-            actor_position[i].Z = getw_be(f);
-            actor_orientation[i].X = getw_be(f);
-            actor_orientation[i].Y = getw_be(f);
-            actor_orientation[i].Z = getw_be(f);
-            actor_hit_points[i] = getw_be(f);
+    /* 5b. Post-event init: copy actuals to defaults for triangles and points */
+    for (actor_t *a = thing_list; a; a = a->next_thing1) {
+        for (tri_t *tri = a->polygone_tri_list; tri; tri = tri->next) {
+            tri->tri_color_1 = tri->tri_color_3;
+            tri->tri_color_2 = tri->tri_color_4;
+            tri->triangle_flags = (int16_t)tri->tri_use_flag;
+        }
+        for (part_t *p = a->actor_parts_list; p; p = p->next_in_display_list) {
+            for (point_t *pt = p->points_list; pt; pt = pt->next)
+                copy_vector(&pt->def_offset_point, &pt->offset_point);
+        }
+    }
 
-            /* Re-load the thing data */
-            if (actor_rep_name[i] >= 0) {
-                load_a_thing(actor_rep_name[i]);
-                if (thing_tab[actor_rep_name[i]]) {
-                    actor_heap_arr[i] = *thing_tab[actor_rep_name[i]];
-                }
+    /* 6. Load repertoires */
+    for (;;) {
+        int16_t rep_idx = getwLoHi(f);
+        if (rep_idx < 0) break;
+        load_a_repertoire(rep_idx);
+    }
+
+    /* 7. Load scenes + add referenced actors to display list */
+    {
+        scene_t *prev = NULL;
+        for (;;) {
+            int16_t sc_idx = getwLoHi(f);
+            if (sc_idx < 0) break;
+            load_a_scene(sc_idx);
+            scene_t *sc = scene_tab[sc_idx];
+            if (sc) {
+                if (prev)
+                    prev->next_scene = sc;
+                else
+                    root_scene = sc;
+                sc->next_scene = NULL;
+                prev = sc;
+                check_actors_in_scene_loaded(sc);
             }
         }
     }
 
+    /* 8. Per-thing runtime state */
+    for (;;) {
+        int16_t idx = getwLoHi(f);
+        if (idx < 0) break;
+
+        actor_t *actor = (idx >= 0 && idx < THING_TAB_SIZE) ? thing_tab[idx] : NULL;
+        if (!actor) {
+            /* Skip: behavior(2) + 4 vectors(24) + 7 words(14) + flags(6) +
+               matrix(18) + 4 words(8) + rep(4) + 5 codes(10) +
+               4 held vectors(24) + 2 action refs(4) = 112 fixed bytes */
+            fseek(f, 2 + 6+6+6+6 + 2+2+2+2+2+2+2 + 2+2+2 + 18 + 2+2+2+2 + 2+2 + 2+2+2+2+2 + 6+6+6+6 + 2+2, SEEK_CUR);
+            int16_t ta_count = getwLoHi(f);
+            fseek(f, ta_count * 6, SEEK_CUR);
+            fseek(f, 2, SEEK_CUR);
+            continue;
+        }
+
+        actor->actor_behavior = getwLoHi(f);
+        load_vector((int16_t *)&actor->position_vector, f);
+        load_vector((int16_t *)&actor->actor_center, f);
+        load_vector((int16_t *)&actor->rotate_vector, f);
+        load_vector((int16_t *)&actor->start_position, f);
+        actor->move_type = getwLoHi(f);
+        actor->wander_direction = getwLoHi(f);
+        actor->action_delay = getwLoHi(f);
+        actor->range_threshold = getwLoHi(f);
+        actor->actor_hitpoints = getwLoHi(f);
+        actor->full_actor_hp = getwLoHi(f);
+        actor->action_state = getwLoHi(f);
+        actor->flags = (uint16_t)getwLoHi(f);
+        actor->state_flags = getwLoHi(f);
+        actor->extra_action_index = getwLoHi(f);
+        load_matrix(&actor->matrix33_2, f);
+        actor->actor_strength_factor = getwLoHi(f);
+        actor->actor_magic_factor = getwLoHi(f);
+        actor->actor_magic = getwLoHi(f);
+        actor->actor_hit_factor = getwLoHi(f);
+        actor->actor_rep_index = getwLoHi(f);
+        actor->default_repert = getwLoHi(f);
+        actor->code_at_hp_change = getwLoHi(f) - 1;
+        actor->actor_hit_code = getwLoHi(f) - 1;
+        actor->actor_init_code = getwLoHi(f) - 1;
+        actor->picked_up_code = getwLoHi(f) - 1;
+        actor->dead_code_index = getwLoHi(f) - 1;
+        load_vector((int16_t *)&actor->held_offset, f);
+        load_vector((int16_t *)&actor->held_rotate, f);
+        load_vector((int16_t *)&actor->held_off_left, f);
+        load_vector((int16_t *)&actor->held_rot_left, f);
+
+        int16_t fa_idx = getwLoHi(f);
+        actor->force_action_to_execute =
+            (fa_idx >= 0 && fa_idx < ACTION_TAB_SIZE) ? action_tab[fa_idx] : NULL;
+        int16_t qa_idx = getwLoHi(f);
+        actor->queued_action =
+            (qa_idx >= 0 && qa_idx < ACTION_TAB_SIZE) ? action_tab[qa_idx] : NULL;
+
+        int16_t ta_count = getwLoHi(f);
+        actor->tactions_list = NULL;
+        for (int t = 0; t < ta_count; t++) {
+            int16_t ta_idx = getwLoHi(f);
+            int32_t ta_off = getlLoHi(f);
+            taction_t *ta = find_free_t_action();
+            if (ta) {
+                ta->taction_index = ta_idx;
+                ta->taction_time = game_time + ta_off;
+                ta->next = actor->tactions_list;
+                actor->tactions_list = ta;
+            }
+        }
+
+        int16_t hba = getwLoHi(f);
+        (void)hba;
+    }
+
+    /* 9. Per-actor arrays */
+    for (int i = 0; i < THING_TAB_SIZE; i++) {
+        thing_name_flags[i] = getwLoHi(f);
+        actor_flags[i] = getwLoHi(f);
+        actor_rep_name[i] = getwLoHi(f);
+        load_vector((int16_t *)&actor_position[i], f);
+        load_vector((int16_t *)&actor_orientation[i], f);
+        actor_hit_points[i] = getwLoHi(f);
+        actor_magic[i] = getwLoHi(f);
+    }
+
+    /* 10. Map areas */
+    for (;;) {
+        int16_t area_idx = getwLoHi(f);
+        if (area_idx < 0) break;
+        map_area_t *area = (area_idx < MAP_AREA_TAB_SIZE) ? map_area_tab[area_idx] : NULL;
+        if (area) {
+            for (int j = 0; j < 10; j++)
+                area->map_area_element_num[j] = (uint16_t)getwLoHi(f);
+        } else {
+            fseek(f, 20, SEEK_CUR);
+        }
+    }
+
+    /* 11. Game globals */
+    current_tune = getwLoHi(f);
+    armour_factor = getwLoHi(f);
+    kill_count = getwLoHi(f);
+    treasure_count = getwLoHi(f);
+    poison_time = getwLoHi(f);
+    difficulty = getwLoHi(f);
+    game_timer = getlLoHi(f);
+    game_timer_start = getlLoHi(f);
+
+    /* 12. Cameras viewed */
+    for (int i = 0; i < 150; i++)
+        cameras_viewed[i] = (int16_t)fgetc(f);
+
+    /* 13. Ambient sounds */
+    num_ambients = getwLoHi(f);
+    for (int i = 0; i < num_ambients && i < 20; i++) {
+        ambiant_name[i] = getwLoHi(f);
+        ambiant_freq[i] = getwLoHi(f);
+        ambiant_rand[i] = getwLoHi(f);
+        ambiant_vol[i] = getwLoHi(f);
+    }
+
+    /* 14. Settings */
+    music_on = getwLoHi(f) != 0;
+    sound_fx_on = getwLoHi(f) != 0;
+    subtitles_on = getwLoHi(f) != 0;
+    chosen_svga = getwLoHi(f);
+
+    /* 15. Verify sentinel */
+    int16_t sentinel = getwLoHi(f);
+    if (sentinel != 0x1234)
+        DBG_LOG(1, "[LOAD] Warning: bad sentinel 0x%04X\n", (unsigned)sentinel);
+
     fclose(f);
+
+    /* Post-load: apply positions from per-actor arrays to loaded actors */
+    for (actor_t *actor = root_thing; actor; actor = actor->next_in_display_list) {
+        int idx = actor->name_index;
+        if (idx >= 0 && idx < THING_TAB_SIZE) {
+            copy_vector(&actor->position_vector, &actor_position[idx]);
+            copy_vector(&actor->rotate_vector, &actor_orientation[idx]);
+        }
+    }
+
+    selected_thing = NULL;
+    for (actor_t *a = root_thing; a; a = a->next_in_display_list) {
+        if (a->actor_behavior == BH_JOYSTICK) {
+            selected_thing = a;
+            break;
+        }
+    }
+    if (!selected_thing)
+        selected_thing = thing_tab[0];
+    no_wanderers = false;
+    intro_flag = false;
+    remove_all_graphics();
+    update_game_icons();
+    draw_magic_bar();
+    if (current_tune >= 0 && music_on)
+        play_tune(current_tune);
+
+    DBG_LOG(1, "[LOAD] Loaded game from %s\n", filename);
+}
+
+/* file_load_saved_thumbnail — read thumbnail from save file into buffer */
+int load_saved_thumbnail(int slot, uint8_t *thumb_buf) {
+    if (slot < 0 || slot >= SAVE_MAX_SLOTS || !thumb_buf) return 0;
+    char filename[32];
+    make_save_filename(filename, sizeof(filename), slot);
+    FILE *f = fopen(filename, "rb");
+    if (!f) return 0;
+    fseek(f, SAVE_NAME_LEN + 2, SEEK_SET);
+    int read = (int)fread(thumb_buf, 1, THUMB_W * THUMB_H, f);
+    fclose(f);
+    return read == THUMB_W * THUMB_H;
+}
+
+/* file_get_save_name — read save name from a save file */
+int get_save_name(int slot, char *buf, int buflen) {
+    if (slot < 0 || slot >= SAVE_MAX_SLOTS) return 0;
+    char filename[32];
+    make_save_filename(filename, sizeof(filename), slot);
+    FILE *f = fopen(filename, "rb");
+    if (!f) return 0;
+    char name[SAVE_NAME_LEN];
+    if (fread(name, 1, SAVE_NAME_LEN, f) != SAVE_NAME_LEN) {
+        fclose(f);
+        return 0;
+    }
+    fclose(f);
+    name[SAVE_NAME_LEN - 1] = '\0';
+    strncpy(buf, name, buflen - 1);
+    buf[buflen - 1] = '\0';
+    return 1;
 }
 
 /* file_wave_open_file_4268B8

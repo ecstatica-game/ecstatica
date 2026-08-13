@@ -13,6 +13,7 @@
 #include "menu.h"
 #include "display.h"
 #include "edit.h"
+#include "file.h"
 #include "game.h"
 #include "init.h"
 #include "music.h"
@@ -198,6 +199,7 @@ static const int *menu_y_offsets(void) {
 
 /* menu_do_main_menu  E1: ? | E2P: 0x42B210 */
 void do_main_menu(void) {
+    capture_save_thumbnail();
     menu_active = 1;
     menu_result = -1;
     int num_items = menu_item_count();
@@ -340,6 +342,10 @@ static void handle_main_menu_selection(void) {
 void do_load_menu(void) {
     int slot = do_slot_select("Load Game");
     if (slot >= 0) {
+        if (!check_saved_game(slot)) {
+            beep_message("No saved game");
+            return;
+        }
         load_game(slot);
         menu_active = 0;
     }
@@ -354,18 +360,54 @@ void do_save_menu(void) {
     }
 }
 
-#define NUM_SLOTS 5
+#define NUM_SLOTS 11
+#define THUMB_W 80
+#define THUMB_H 60
+
+static void draw_thumbnail(int dx, int dy, const uint8_t *thumb) {
+    int scale = mode_svga ? 2 : 1;
+    int tw = THUMB_W * scale;
+    int th = THUMB_H * scale;
+    uint8_t *dst = (uint8_t *)bitmap[db];
+    for (int sy = 0; sy < THUMB_H; sy++) {
+        for (int sx = 0; sx < THUMB_W; sx++) {
+            uint8_t pixel = thumb[sy * THUMB_W + sx];
+            for (int ry = 0; ry < scale; ry++) {
+                int py2 = dy + sy * scale + ry;
+                if (py2 < 0 || py2 >= screen_height) continue;
+                for (int rx = 0; rx < scale; rx++) {
+                    int px2 = dx + sx * scale + rx;
+                    if (px2 < 0 || px2 >= screen_width) continue;
+                    dst[py2 * screen_width + px2] = pixel;
+                }
+            }
+        }
+    }
+    draw_bevel(dx - 1, dy - 1, tw + 2, th + 2, true);
+}
 
 /* menu_do_slot_select  E1: ? | E2P: 0x42B620 */
 int do_slot_select(const char *title) {
     int selected = 0;
+    int scroll_top = 0;
+    int visible = NUM_SLOTS < 8 ? NUM_SLOTS : 8;
 
     int item_h = tx_h + 8;
-    int item_w = 16 * tx_w;
-    int panel_w = item_w + 16;
-    int panel_h = NUM_SLOTS * item_h + 28;
+    int item_w = 22 * tx_w;
+    int thumb_scale = mode_svga ? 2 : 1;
+    int thumb_disp_w = THUMB_W * thumb_scale;
+    int thumb_disp_h = THUMB_H * thumb_scale;
+    int thumb_area_w = thumb_disp_w + 16;
+    int panel_w = item_w + thumb_area_w + 16;
+    int list_h = visible * item_h;
+    int min_h = thumb_disp_h + 8;
+    int content_h = list_h > min_h ? list_h : min_h;
+    int panel_h = content_h + 28;
     int px = (screen_width - panel_w) / 2;
     int py = (screen_height - panel_h) / 2;
+
+    uint8_t thumb_buf[THUMB_W * THUMB_H];
+    int thumb_loaded = -1;
 
     for (;;) {
         menu_frame_start();
@@ -376,19 +418,39 @@ int do_slot_select(const char *title) {
         int item_x = px + 8;
         int start_y = py + 22;
 
-        for (int i = 0; i < NUM_SLOTS; i++) {
+        for (int i = 0; i < visible && (scroll_top + i) < NUM_SLOTS; i++) {
+            int slot = scroll_top + i;
             int y = start_y + i * item_h;
             char label[32];
-            snprintf(label, sizeof(label), "Slot %d", i + 1);
-            draw_menu_item(label, item_x, y, item_w, item_h, i == selected);
+            char name[28];
+            if (get_save_name(slot, name, sizeof(name)))
+                snprintf(label, sizeof(label), "%d: %s", slot + 1, name);
+            else
+                snprintf(label, sizeof(label), "%d: ---", slot + 1);
+            draw_menu_item(label, item_x, y, item_w, item_h, slot == selected);
         }
 
+        if (thumb_loaded != selected) {
+            thumb_loaded = selected;
+            if (!load_saved_thumbnail(selected, thumb_buf))
+                memset(thumb_buf, 0, sizeof(thumb_buf));
+        }
+        int thumb_x = px + item_w + 16 + 4;
+        int thumb_y = start_y + (content_h - thumb_disp_h) / 2;
+        draw_thumbnail(thumb_x, thumb_y, thumb_buf);
+
         if (menu_nav_up()) {
-            if (selected > 0) selected--;
+            if (selected > 0) {
+                selected--;
+                if (selected < scroll_top) scroll_top = selected;
+            }
             platform_delay(120);
         }
         if (menu_nav_down()) {
-            if (selected < NUM_SLOTS - 1) selected++;
+            if (selected < NUM_SLOTS - 1) {
+                selected++;
+                if (selected >= scroll_top + visible) scroll_top = selected - visible + 1;
+            }
             platform_delay(120);
         }
 
