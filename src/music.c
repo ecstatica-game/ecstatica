@@ -83,6 +83,16 @@ static void smf_write_u16(uint8_t *buf, uint16_t v) {
     buf[0] = v >> 8; buf[1] = v;
 }
 
+/* Variable-length quantity, big-endian 7-bit groups. Returns bytes written. */
+static int smf_write_vlq(uint8_t *buf, uint32_t v) {
+    uint8_t tmp[5];
+    int n = 0;
+    tmp[n++] = v & 0x7F;
+    while ((v >>= 7) != 0) tmp[n++] = (v & 0x7F) | 0x80;
+    for (int i = 0; i < n; i++) buf[i] = tmp[n - 1 - i];
+    return n;
+}
+
 /* Sound Images MIDI Driver (SIMD) tune format → Standard MIDI File.
  *
  * Format (decoded from ValleyBell's Lem3DMid converter and confirmed
@@ -189,16 +199,25 @@ static uint8_t *si_to_smf(const uint8_t *src, int src_len, int *out_len) {
         uint8_t sel_ch = 0;
         uint8_t last_note = 0xFF;
         int trk_end = 0;
+        uint32_t pending_delta = 0;
 
-        while (!trk_end && ip < src_len && op < cap - 16) {
-            /* Read VLQ delta (pass through to output).
-               Save position so we can rewind for non-emitting events. */
-            int op_before_delta = op;
+/* Flush accumulated time immediately before an event is written. */
+#define EMIT_DELTA() do {                                   \
+            op += smf_write_vlq(out + op, pending_delta);    \
+            pending_delta = 0;                               \
+        } while (0)
+
+        while (!trk_end && ip < src_len && op < cap - 24) {
+            /* Read VLQ delta and accumulate. Events that produce no MIDI
+               output (channel select, loop markers) must carry their time
+               forward to the next real event rather than drop it. */
+            uint32_t delta = 0;
             while (ip < src_len && (src[ip] & 0x80)) {
-                out[op++] = src[ip++];
+                delta = (delta << 7) | (src[ip++] & 0x7F);
             }
             if (ip >= src_len) break;
-            out[op++] = src[ip++];
+            delta = (delta << 7) | src[ip++];
+            pending_delta += delta;
 
             if (ip >= src_len) break;
 
@@ -209,6 +228,7 @@ static uint8_t *si_to_smf(const uint8_t *src, int src_len, int *out_len) {
                 uint8_t vel  = src[ip + 1];
                 ip += 2;
 
+                EMIT_DELTA();
                 /* If same note replays, insert note-off first (SBL compat). */
                 if (last_note == note && last_note != 0xFF) {
                     out[op++] = 0x90 | sel_ch;
@@ -221,35 +241,35 @@ static uint8_t *si_to_smf(const uint8_t *src, int src_len, int *out_len) {
                 out[op++] = note;
                 out[op++] = vel;
             } else if ((src[ip] & 0xF0) == 0x80) {
-                /* Channel select. */
+                /* Channel select — recorded in sel_ch and applied to the
+                   status byte of every later event, so nothing is emitted. */
                 sel_ch = src[ip] & 0x0F;
                 ip++;
-                /* Emit as MIDI channel prefix meta (informational). */
-                out[op++] = 0xFF; out[op++] = 0x20;
-                out[op++] = 0x01; out[op++] = sel_ch;
             } else {
                 uint8_t cmd = src[ip];
                 switch (cmd) {
                 case 0x90: /* Note-off (specific note) */
                     if (ip + 1 >= src_len) { trk_end = 1; break; }
+                    EMIT_DELTA();
                     out[op++] = 0x90 | sel_ch;
                     out[op++] = src[ip + 1];
                     out[op++] = 0x00;
                     ip += 2;
                     break;
                 case 0x91: /* Track end */
-                    op = op_before_delta;
                     ip++;
                     trk_end = 1;
                     break;
                 case 0x92: /* Program change */
                     if (ip + 1 >= src_len) { trk_end = 1; break; }
+                    EMIT_DELTA();
                     out[op++] = 0xC0 | sel_ch;
                     out[op++] = src[ip + 1];
                     ip += 2;
                     break;
                 case 0x95: /* Pitch bend (high byte only) */
                     if (ip + 1 >= src_len) { trk_end = 1; break; }
+                    EMIT_DELTA();
                     out[op++] = 0xE0 | sel_ch;
                     out[op++] = 0x00;
                     out[op++] = src[ip + 1];
@@ -257,6 +277,7 @@ static uint8_t *si_to_smf(const uint8_t *src, int src_len, int *out_len) {
                     break;
                 case 0x96: /* Volume (CC 7) */
                     if (ip + 1 >= src_len) { trk_end = 1; break; }
+                    EMIT_DELTA();
                     out[op++] = 0xB0 | sel_ch;
                     out[op++] = 0x07;
                     out[op++] = src[ip + 1];
@@ -264,17 +285,18 @@ static uint8_t *si_to_smf(const uint8_t *src, int src_len, int *out_len) {
                     break;
                 case 0x97: /* Drum select (SBL) */
                     if (ip + 1 >= src_len) { trk_end = 1; break; }
+                    EMIT_DELTA();
                     out[op++] = 0xB0 | sel_ch;
                     out[op++] = 0x67;
                     out[op++] = src[ip + 1];
                     ip += 2;
                     break;
                 case 0x98: /* Loop back — end track; platform handles looping */
-                    op = op_before_delta;
                     trk_end = 1;
                     break;
                 case 0x99: /* Note-off (last note) */
                     if (last_note != 0xFF) {
+                        EMIT_DELTA();
                         out[op++] = 0x90 | sel_ch;
                         out[op++] = last_note;
                         out[op++] = 0x00;
@@ -284,17 +306,18 @@ static uint8_t *si_to_smf(const uint8_t *src, int src_len, int *out_len) {
                     break;
                 case 0x9B: /* Pan (CC 10) */
                     if (ip + 1 >= src_len) { trk_end = 1; break; }
+                    EMIT_DELTA();
                     out[op++] = 0xB0 | sel_ch;
                     out[op++] = 0x0A;
                     out[op++] = src[ip + 1];
                     ip += 2;
                     break;
                 case 0x9C: /* Loop start marker — ignored; platform loops whole file */
-                    op = op_before_delta;
                     ip++;
                     break;
                 case 0x9D: /* Generic controller */
                     if (ip + 2 >= src_len) { trk_end = 1; break; }
+                    EMIT_DELTA();
                     out[op++] = 0xB0 | sel_ch;
                     out[op++] = src[ip + 1];
                     out[op++] = src[ip + 2];
@@ -303,7 +326,6 @@ static uint8_t *si_to_smf(const uint8_t *src, int src_len, int *out_len) {
                 default:
                     DBG_LOG(1, "[TUNE] unknown SI cmd 0x%02x at offset %d\n",
                             cmd, ip);
-                    op = op_before_delta;
                     ip++;
                     trk_end = 1;
                     break;
@@ -311,9 +333,10 @@ static uint8_t *si_to_smf(const uint8_t *src, int src_len, int *out_len) {
             }
         }
 
-        /* End-of-track meta. */
-        out[op++] = 0x00;
+        /* End-of-track meta, preserving any trailing time. */
+        EMIT_DELTA();
         out[op++] = 0xFF; out[op++] = 0x2F; out[op++] = 0x00;
+#undef EMIT_DELTA
 
         /* Patch track length. */
         smf_write_u32(out + trk_size_pos, op - trk_start);

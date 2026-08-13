@@ -15,6 +15,15 @@ make clean    # remove build/
 CMake project in `src/CMakeLists.txt`. C99 + ObjC (macOS platform layer).
 Binary output: `build/bin/ecstatica`.
 
+**Linux music (optional):** macOS and Windows get a General MIDI synth from the
+OS (`AVMIDIPlayer` / MCI `sequencer`); Linux has no equivalent, so tunes are
+rendered by FluidSynth. `libfluidsynth` is `dlopen`'d at runtime, not linked —
+it is not a build dependency, and without it the game runs with music silent
+(SFX and speech are unaffected, they go through the ALSA mixer). Needs a GM
+soundfont; searched in order: `$ECSTATICA_SOUNDFONT`, game data dir,
+`~/.local/share/soundfonts`, `/usr/share/soundfonts`, `/usr/share/sounds/sf2`.
+On Arch/SteamOS: `pacman -S fluidsynth soundfont-fluid`.
+
 ## Code Style
 
 - C99 strict, snake_case, 4-space indent
