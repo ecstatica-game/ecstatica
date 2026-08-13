@@ -900,7 +900,7 @@ static bool midi_init(void) {
         DBG_LOG(1, "[MIDI] could not load soundfont %s\n", sf);
         goto fail;
     }
-    fl_synth_set_gain(s_fl_synth, s_master_music_volume * 0.5f);
+    fl_synth_set_gain(s_fl_synth, s_master_music_volume);
 
     s_fl_driver = fl_new_audio_driver(s_fl_settings, s_fl_synth);
     if (!s_fl_driver) {
@@ -962,7 +962,7 @@ void platform_set_music_volume(float vol) {
     if (vol < 0.0f) vol = 0.0f;
     if (vol > 1.0f) vol = 1.0f;
     s_master_music_volume = vol;
-    if (s_midi_ready) fl_synth_set_gain(s_fl_synth, vol * 0.5f);
+    if (s_midi_ready) fl_synth_set_gain(s_fl_synth, vol);
 }
 
 #endif /* __linux__ */
