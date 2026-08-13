@@ -21,12 +21,10 @@
 #include <string.h>
 #include <stdio.h>
 
-/* ── Map ── */
 uint16_t new_map[128][128] = {{0}};
 map_area_element_t map_elements[60000] = {{0}};
 int32_t top_of_map_elements = 0;
 
-/* ── File-local stubs for globals not yet in vars.h ── */
 int16_t need_draw_graphics;
 static int16_t camera_override = -1;
 static int16_t local_num_cameras;
@@ -36,16 +34,8 @@ static const char palette_red[16]   = { 0x00, 0x20, 0x30, 0x3F, 0x3F, 0x3F, 0x3F
 static const char palette_green[16] = { 0x3F, 0x3F, 0x3F, 0x3F, 0x30, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x20, 0x30, 0x3F, 0x3F };
 static const char palette_blue[16]  = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x20, 0x30, 0x3F, 0x3F, 0x3F, 0x3F, 0x3F, 0x3F, 0x3F, 0x20 };
 
-/* ══════════════════════════════════════════════════════════════
- *  camera Control
- * ══════════════════════════════════════════════════════════════ */
-
 /* map_switch_camera  E1: 0x441954 | E2: 0x44C60C */
 void switch_camera(camera_data_t *camera) {
-    DBG_LOG(1, "[CAM] switch_camera: pos=(%d,%d,%d) rot=(%d,%d,%d) zoom=%d\n",
-        camera->view_pos.X, camera->view_pos.Y, camera->view_pos.Z,
-        camera->view_rot.X, camera->view_rot.Y, camera->view_rot.Z,
-        camera->zoom_factor);
     copy_vector(&view_pos, &camera->view_pos);
     copy_vector(&view_rot, &camera->view_rot);
     zoom_factor = camera->zoom_factor << 12;
@@ -59,8 +49,6 @@ void switch_camera(camera_data_t *camera) {
 void check_view(int camera_idx) {
     camera_data_t *cam = &camera[camera_idx];
     if (cam == active_camera) return;
-    DBG_LOG(1, "[CAM] check_view: camera_idx=%d cam=%p active=%p switching\n",
-        camera_idx, (void*)cam, (void*)active_camera);
     if (camera_idx < 0) goto update_actors;
 
     selected_camera = camera_idx;
@@ -94,7 +82,6 @@ void check_view(int camera_idx) {
 
     clip_mask(2, 1, 0, 0, screen_width, screen_height);
     background_status = 2;
-    DBG_LOG(1, "[CV] check_view: cam=%d background_status=2 set\n", camera_idx);
     clip_blit(3, 0, 0, 2, 0, 0, screen_width, screen_height, 192);
     clip_mask(2, 1, 0, 0, screen_width, screen_height);
     clip_mask(2, 0, 0, 0, screen_width, screen_height);
@@ -127,10 +114,6 @@ update_actors:
     }
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  Hot Spots / camera Triggers
- * ══════════════════════════════════════════════════════════════ */
-
 /* map_check_hot_spots  E1: 0x4414AC | E2: 0x44C0B4 */
 void check_hot_spots(void) {
     if (!selected_thing || selected_thing->actor_behavior == BH_DEAD)
@@ -147,7 +130,6 @@ void check_hot_spots(void) {
     }
 
     if (code_idx > 0 && code_tab[code_idx - 1]) {
-        DBG_LOG(1, "[HOTSPOT] cell code=%d\n", code_idx - 1);
         execute_thing_code(selected_thing, code_idx - 1);
     }
 }
@@ -175,12 +157,6 @@ void check_camera(void) {
 
     camera_data_t *cam = &camera[camera_idx];
     if (cam == active_camera) return;
-
-    DBG_LOG(1, "[CC] check_camera: mapEl=%d cam=%d pos=(%d,%d,%d)\n",
-        map_elem_idx, camera_idx,
-        selected_thing->position_vector.X,
-        selected_thing->position_vector.Y,
-        selected_thing->position_vector.Z);
 
     if (camera_idx <= 0) {
         if (!(thing_name_flags[0] & 4))
@@ -234,10 +210,6 @@ void check_camera(void) {
         }
     }
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  Map Initialization
- * ══════════════════════════════════════════════════════════════ */
 
 /* map_init_map  E1: 0x4419A8 | E2: 0x44C66C */
 void init_map(void) {
@@ -296,10 +268,6 @@ void init_map(void) {
     local_num_cameras = 1;
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  Visibility Checks
- * ══════════════════════════════════════════════════════════════ */
-
 /* map_position_is_visible  E1: 0x4424B0 | E2: 0x44D1DC */
 int position_is_visible(vector_t *position) {
     signed int map_elem_idx = find_map_element_vis(position);
@@ -320,24 +288,16 @@ void check_visibility(actor_t *actor) {
             if (actor != selected_thing && !position_is_visible(position) &&
                 !actor->actor_velocity.Y) {
                 if (actor->name_index == 32)
-                    DBG_LOG(1, "[VIS] actor=32 CLEARED visible pos=(%d,%d,%d)\n",
-                            position->X, position->Y, position->Z);
                 actor->flags &= 0xFFF7;
             }
         } else {
             if (actor == selected_thing || position_is_visible(position)) {
                 if (actor->name_index == 32)
-                    DBG_LOG(1, "[VIS] actor=32 SET visible pos=(%d,%d,%d)\n",
-                            position->X, position->Y, position->Z);
                 actor->flags |= 8;
             }
         }
     }
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  Actor Swap In/Out
- * ══════════════════════════════════════════════════════════════ */
 
 /* map_check_thing_name_invis  E1: 0x442564 | E2: 0x44D29C */
 void check_thing_name_invis(int actor_idx) {
@@ -580,10 +540,6 @@ void swap_in_actor(int actor_idx) {
 /* map_make_invisible  E2: 0x44D8F8 */
 void make_invisible(actor_t *actor) {
     actor->flags &= ~0x08;
-}
-
-/* map_reposition_fixed_parts  E2: 0x44D8FC */
-void reposition_fixed_parts(void) {
 }
 
 /* map_copy_vga_to_svga  E2: 0x44C434

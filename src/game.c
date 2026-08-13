@@ -33,7 +33,6 @@
 /* Part context for CT_SPAWN_LIVE dispatch — set by execute_part_code. */
 static part_t *g_execute_part = NULL;
 
-/* ── Game state ── */
 bool game_up_and_running = false;
 bool program_up_and_running = false;
 int32_t game_timer = 0;
@@ -53,7 +52,6 @@ bool no_wanderers = false;
 int16_t no_icons = 0;
 bool slow_motion = false;
 
-/* ── Combat / Stats ── */
 int16_t kill_count = 0;
 int16_t treasure_count = 0;
 int16_t map_count = 0;
@@ -66,7 +64,6 @@ int32_t select_flag = 0;
 int32_t eagle_card = 0;
 int16_t height_shift = 7;
 
-/* ── Fade state ── */
 bool fade_to_black = false;
 bool fade_to_white = false;
 bool fade_in = false;
@@ -76,7 +73,6 @@ int32_t check_time = 0;
 int16_t last_fade_factor = 0;
 int32_t lightning = 0;
 
-/* ── Linked list heads ── */
 actor_t *root_thing = NULL;
 actor_t *thing_list = NULL;
 actor_t *stuck_thing_list = NULL;
@@ -97,7 +93,6 @@ point_t *point_list = NULL;
 tri_t *triangle_list = NULL;
 script_t *script_list = NULL;
 
-/* ── Lookup tables ── */
 actor_t *thing_tab[THING_TAB_SIZE] = {0};
 action_t *action_tab[ACTION_TAB_SIZE] = {0};
 scene_t *scene_tab[SCENE_TAB_SIZE] = {0};
@@ -107,7 +102,6 @@ sound_t *sound_tab[SOUND_TAB_SIZE] = {0};
 map_area_t *map_area_tab[MAP_AREA_TAB_SIZE] = {0};
 texture_t *texture_tab[TEXTURE_TAB_SIZE] = {0};
 
-/* ── Heaps ── */
 actor_t actor_heap_arr[ACTOR_POOL_SIZE] = {{0}};
 part_tab_t part_tab_heap_arr[ACTOR_POOL_SIZE];
 triangle_tab_t triangle_tab_heap_arr[ACTOR_POOL_SIZE];
@@ -126,7 +120,6 @@ texture_t texture_heap_arr[TEXTURE_POOL_SIZE] = {{0}};
 taction_t taction_heap_arr[TACTION_POOL_SIZE] = {{0}};
 act_t act_arr[ACT_SIZE] = {{0}};
 
-/* ── Name tables ── */
 name_text_t *thing_names = NULL;
 name_text_t *action_names = NULL;
 name_text_t *scene_names = NULL;
@@ -139,11 +132,9 @@ name_text_t *triangle_names = NULL;
 name_text_t *map_area_names = NULL;
 name_text_t *texture_names = NULL;
 
-/* ── Name flags ── */
 int16_t thing_name_flags[THING_TAB_SIZE] = {0};
 int16_t scene_name_flags[SCENE_TAB_SIZE] = {0};
 
-/* ── Per-actor state arrays ── */
 int16_t actor_rep_name[THING_TAB_SIZE] = {0};
 int16_t actor_magic[THING_TAB_SIZE] = {0};
 int16_t actor_hit_points[THING_TAB_SIZE] = {0};
@@ -154,33 +145,23 @@ int16_t actor_held_by_part[THING_TAB_SIZE] = {0};
 int16_t actor_held_by_actor[THING_TAB_SIZE] = {0};
 int16_t actor_flags[THING_TAB_SIZE] = {0};
 
-/* ── Tokens ── */
 int16_t *token_store = NULL;
 int32_t top_of_tokens = 0;
 
-/* ── Debug / dev mode ── */
 bool show_rate = false;
 bool develop_mode = false;
 bool is_god_mode = false;
 
-/* ── Saved game ── */
 int16_t saved_game_num = 0;
 int32_t extra_life_time = 0;
 
-/* ── Forward declarations for static helpers ── */
 UNUSED_ATTR static int find_empty_actor_slot(void);
-
-/* ══════════════════════════════════════════════════════════════
- *  Script Execution Engine
- * ══════════════════════════════════════════════════════════════ */
 
 /* game_execute_code_425678 — main script interpreter */
 void execute_code(code_t *code, actor_t *actor) {
     if (!code) return;
     do_execute_code(code, actor);
 }
-
-/* ── Token helpers (game_unpackToken_44DB80) ── */
 
 /* Unpack a signed 12-bit value from a token word */
 static int unpack_token(int16_t token) {
@@ -270,9 +251,7 @@ int execute_boolean(int16_t **pp, actor_t *actor) {
     }
 
     int16_t token = *tp;
-    DBG_LOG(1, "[BOOL] token=%d%s\n", token, inverted ? " (NOT)" : "");
 
-    /* ── Scene-related conditions ── */
     if (token == CT_STARTED || token == CT_NOT_STARTED ||
         token == CT_FINISHED || token == CT_NOT_FINISHED ||
         token == CT_NOT_PLAYING || token == CT_SCENE_FLAGGED) {
@@ -297,19 +276,9 @@ int execute_boolean(int16_t **pp, actor_t *actor) {
                     result = true;
             } else if (token == CT_SCENE_FLAGGED)
                 result = (flags & 8) != 0;
-            static const char *cond_names[] = {
-                [CT_STARTED]="STARTED", [CT_NOT_STARTED]="NOT_STARTED",
-                [CT_FINISHED]="FINISHED", [CT_NOT_FINISHED]="NOT_FINISHED",
-                [CT_NOT_PLAYING]="NOT_PLAYING", [CT_SCENE_FLAGGED]="SCENE_FLAGGED"
-            };
-            DBG_LOG(1, "[BOOL] %s%s scene=%d flags=0x%x -> %d\n",
-                    inverted ? "NOT " : "",
-                    (token >= 0 && token <= CT_SCENE_FLAGGED) ? cond_names[token] : "?",
-                    scene_index, flags, result);
         }
         tp += 2;
     }
-    /* ── Directional facing ── */
     else if (token == CT_FACING_NORTH) {
         if (selected_thing)
             result = ((selected_thing->rotate_vector.Y + 0x4000) & 0x8000) != 0;
@@ -330,7 +299,6 @@ int execute_boolean(int16_t **pp, actor_t *actor) {
             result = (selected_thing->rotate_vector.Y & 0x8000) == 0;
         tp++;
     }
-    /* ── Key presses ── */
     else if (token == CT_ANY_KEY_PRESSED || token == CT_NO_KEY_PRESSED) {
         result = key1_pressed || key2_pressed || key3_pressed ||
                  key4_pressed || key5_pressed || key6_pressed ||
@@ -360,12 +328,10 @@ int execute_boolean(int16_t **pp, actor_t *actor) {
         result = space_pressed || key_esc_was_pressed;
         tp++;
     }
-    /* ── Gender ── */
     else if (token == CT_FEMALE) {
         result = female;
         tp++;
     }
-    /* ── Language ── */
     else if (token == CT_ENGLISH) {
         result = (language == 0);
         tp++;
@@ -394,7 +360,6 @@ int execute_boolean(int16_t **pp, actor_t *actor) {
         result = false;
         tp++;
     }
-    /* ── Hand checks ── */
     else if (token == CT_IN_RIGHT_HAND) {
         int16_t actor_index = get_value_from_token(tp[1]);
         /* E1: right hand = part[1]; E2: right hand = part[8] */
@@ -406,15 +371,6 @@ int execute_boolean(int16_t **pp, actor_t *actor) {
                 actor_t *held = part->actor_2_held;
                 if (held && actor_index == held->name_index)
                     result = true;
-                DBG_LOG(1, "[BOOL] IN_RIGHT_HAND want=%d(%s) held=%d -> %d\n",
-                        actor_index,
-                        (thing_names && actor_index < THING_TAB_SIZE) ? thing_names[actor_index].field_0 : "?",
-                        held ? held->name_index : -1, result);
-            } else {
-                DBG_LOG(1, "[BOOL] IN_RIGHT_HAND want=%d(%s) part[%d]=NULL -> 0\n",
-                        actor_index,
-                        (thing_names && actor_index < THING_TAB_SIZE) ? thing_names[actor_index].field_0 : "?",
-                        rh_idx);
             }
         }
         tp += 2;
@@ -430,15 +386,6 @@ int execute_boolean(int16_t **pp, actor_t *actor) {
                 actor_t *held = part->actor_2_held;
                 if (held && actor_index == held->name_index)
                     result = true;
-                DBG_LOG(1, "[BOOL] IN_LEFT_HAND want=%d(%s) held=%d -> %d\n",
-                        actor_index,
-                        (thing_names && actor_index < THING_TAB_SIZE) ? thing_names[actor_index].field_0 : "?",
-                        held ? held->name_index : -1, result);
-            } else {
-                DBG_LOG(1, "[BOOL] IN_LEFT_HAND want=%d(%s) part[%d]=NULL -> 0\n",
-                        actor_index,
-                        (thing_names && actor_index < THING_TAB_SIZE) ? thing_names[actor_index].field_0 : "?",
-                        lh_idx);
             }
         }
         tp += 2;
@@ -460,7 +407,6 @@ int execute_boolean(int16_t **pp, actor_t *actor) {
         }
         tp++;
     }
-    /* ── Camera ── */
     else if (token == CT_CAMERA_WAS_OFF) {
         if (check_token_value_exist(tp[1]))
             do_info_req("2 numbers expected after 'CameraWasOff'");
@@ -473,7 +419,6 @@ int execute_boolean(int16_t **pp, actor_t *actor) {
             result = true;
         tp += 3;
     }
-    /* ── Rep check ── */
     else if (token == CT_REPIS) {
         int16_t actor_index = get_value_from_token(tp[1]);
         int16_t rep_index = get_value_from_token(tp[2]);
@@ -485,16 +430,9 @@ int execute_boolean(int16_t **pp, actor_t *actor) {
         }
         tp += 3;
     }
-    /* ── Actor checks ── */
     else if (token == CT_CHECK_ACTOR) {
         int16_t actor_index = get_value_from_token(tp[1]);
         result = (actor_index >= THING_TAB_SIZE || thing_tab[actor_index] == NULL);
-        const char *aname = (actor_index >= 0 && actor_index < THING_TAB_SIZE && thing_names)
-                            ? thing_names[actor_index].field_0 : "?";
-        DBG_LOG(1, "[BOOL] CHECK_ACTOR actor=%d name='%s' in_tab=%d -> %d\n",
-                actor_index, aname,
-                (actor_index < THING_TAB_SIZE && thing_tab[actor_index] != NULL),
-                result);
         tp += 2;
     }
     else if (token == CT_ACTOR_IS_DEAD) {
@@ -520,7 +458,6 @@ int execute_boolean(int16_t **pp, actor_t *actor) {
         }
         tp += 3;
     }
-    /* ── Activated below ── */
     else if (token == CT_ACTIVATED_BELOW) {
         int num_part = 0;
         if (check_token_value_exist(tp[1]))
@@ -534,7 +471,6 @@ int execute_boolean(int16_t **pp, actor_t *actor) {
         result = num_part < unpack_token(tp[1]);
         tp += 2;
     }
-    /* ── Hit points ── */
     else if (token == CT_HIT_POINTS_ABOVE || token == CT_HITPTS_ABOVE_X10) {
         result = false;
         if (check_token_value_exist(tp[1]))
@@ -546,7 +482,6 @@ int execute_boolean(int16_t **pp, actor_t *actor) {
             result = true;
         tp += 2;
     }
-    /* ── Magic below ── */
     else if (token == CT_MAGIC_BELOW) {
         result = false;
         if (check_token_value_exist(tp[1]))
@@ -556,7 +491,6 @@ int execute_boolean(int16_t **pp, actor_t *actor) {
             result = true;
         tp += 2;
     }
-    /* ── Part/Object is ── */
     else if (token == CT_PART_IS) {
         int16_t actor_index = get_value_from_token(tp[1]);
         if (g_execute_part != NULL) {
@@ -586,7 +520,6 @@ int execute_boolean(int16_t **pp, actor_t *actor) {
         result = (actor != NULL && actor->name_index == actor_index);
         tp += 2;
     }
-    /* ── Random ── */
     else if (token == CT_RANDOM) {
         if (check_token_value_exist(tp[1]))
             do_info_req("Number expected after 'Random'");
@@ -594,7 +527,6 @@ int execute_boolean(int16_t **pp, actor_t *actor) {
         result = 100 * random_value >> 16 < unpack_token(tp[1]);
         tp += 2;
     }
-    /* ── Timed exists ── */
     else if (token == CT_TIMED_EXISTS) {
         int16_t actor_index = get_value_from_token(tp[1]);
         int16_t taction_index = get_value_from_token(tp[2]);
@@ -612,12 +544,10 @@ int execute_boolean(int16_t **pp, actor_t *actor) {
         }
         tp += 3;
     }
-    /* ── Demo mode ── */
     else if (token == CT_DEMO) {
         result = false; /* not in demo mode */
         tp++;
     }
-    /* ── Fallback ── */
     else {
         quit("Unexpected token in boolean expression");
         tp++;
@@ -653,45 +583,6 @@ void do_execute_code(code_t *code, actor_t *actor) {
 
     int pc = 0;
 
-    DBG_LOG(1, "[EXEC] code=%d tokens_at=%d actor=%d tok[0..3]=%d,%d,%d,%d\n",
-            code->index_code, code->token_store_index,
-            actor ? actor->name_index : -1,
-            tokens[0], tokens[1], tokens[2], tokens[3]);
-
-    /* One-time full token dump for code 25 */
-    {
-        static int dumped_25 = 0;
-        if (code->index_code == 25 && !dumped_25) {
-            dumped_25 = 1;
-            DBG_LOG(1, "[DUMP] code 25 full tokens:");
-            for (int i = 0; i < 200 && tokens[i] != 0; i++)
-                DBG_LOG(1, " %d", tokens[i]);
-            DBG_LOG(1, "\n");
-        }
-    }
-
-    {
-        static int dumped_9 = 0;
-        if (code->index_code == 9 && !dumped_9) {
-            dumped_9 = 1;
-            DBG_LOG(1, "[DUMP] code 9 full tokens:");
-            for (int i = 0; i < 200 && tokens[i] != 0; i++)
-                DBG_LOG(1, " %d", tokens[i]);
-            DBG_LOG(1, "\n");
-        }
-    }
-
-    {
-        static int dumped_1286 = 0;
-        if (code->index_code == 1286 && !dumped_1286) {
-            dumped_1286 = 1;
-            DBG_LOG(1, "[DUMP] code 1286 full tokens:");
-            for (int i = 0; i < 500 && tokens[i] != 0; i++)
-                DBG_LOG(1, " %d", tokens[i]);
-            DBG_LOG(1, "\n");
-        }
-    }
-
     for (int safety = 0; safety < 10000; safety++) {
         int16_t opcode = tokens[pc++];
 
@@ -702,12 +593,10 @@ void do_execute_code(code_t *code, actor_t *actor) {
 
         switch (opcode) {
 
-        /* ── Conditional blocks ── */
         case CT_IF: {
             /* pc already past CT_IF; point tp at current position */
             int16_t *tp = &tokens[pc];
             bool cond_result = execute_boolean(&tp, actor);
-            DBG_LOG(1, "[EXEC] CT_IF cond=%d in code=%d\n", cond_result, code->index_code);
             if (!cond_result) {
                 skip_to_matching_if_type(&tp);
                 while (*tp == CT_ELSE_IF) {
@@ -737,7 +626,6 @@ void do_execute_code(code_t *code, actor_t *actor) {
             /* End of conditional block — nothing to do */
             break;
 
-        /* ── Boolean modifiers / conditions ── */
         case CT_NOT:
             /* Negate the next boolean result */
             break;
@@ -799,7 +687,6 @@ void do_execute_code(code_t *code, actor_t *actor) {
             game_timer = game_timer_start;
             break;
 
-        /* ── Action commands ── */
         case CT_FORCE_ACTION: {
             int16_t actor_index = get_value_from_token(tokens[pc++]);
             int16_t action_index = get_value_from_token(tokens[pc++]);
@@ -817,8 +704,6 @@ void do_execute_code(code_t *code, actor_t *actor) {
 
         case CT_PLAY_SCENE: {
             int16_t scene_id = tokens[pc++] & 0x0FFF;
-            DBG_LOG(1, "[CT] PLAY_SCENE %d (flags=0x%x) from code=%d\n",
-                    scene_id, scene_id < SCENE_TAB_SIZE ? scene_name_flags[scene_id] : -1, code->index_code);
             if (scene_id < SCENE_TAB_SIZE && !(scene_name_flags[scene_id] & 2)) {
                 check_scene_loaded(scene_id);
                 scene_t *scene = scene_tab[scene_id];
@@ -845,8 +730,6 @@ void do_execute_code(code_t *code, actor_t *actor) {
                 } else if (scene_name_flags[scene_id] & 4) {
                     should_start = true;
                 }
-                DBG_LOG(1, "[CT] REPEAT_SCENE %d (flags=0x%x use=0x%x) should_start=%d from code=%d\n",
-                    scene_id, scene_name_flags[scene_id], scene ? scene->scene_use_flag : -1, should_start, code ? code->index_code : -1);
                 if (should_start) {
                     check_scene_loaded(scene_id);
                     scene = scene_tab[scene_id];
@@ -869,7 +752,6 @@ void do_execute_code(code_t *code, actor_t *actor) {
 
         case CT_PLAY_END_SCENE: {
             int16_t scene_id = tokens[pc++] & 0x0FFF;
-            DBG_LOG(1, "[DEAD] CT_PLAY_END_SCENE: scene_id=%d\n", scene_id);
             if (scene_id < SCENE_TAB_SIZE) {
                 play_dead_scene(scene_id);
             }
@@ -881,8 +763,6 @@ void do_execute_code(code_t *code, actor_t *actor) {
              * playing the scene's scripted actions.  E2 quits here
              * ("Unexpected adds") — token is never emitted for E2. */
             int16_t scene_id = tokens[pc++] & 0x0FFF;
-            DBG_LOG(1, "[CT] ADD_SCENE %d (flags=0x%x) from code=%d\n",
-                    scene_id, scene_id < SCENE_TAB_SIZE ? scene_name_flags[scene_id] : -1, code->index_code);
             if (scene_id < SCENE_TAB_SIZE) {
                 check_scene_loaded(scene_id);
                 scene_t *scene = scene_tab[scene_id];
@@ -957,7 +837,6 @@ void do_execute_code(code_t *code, actor_t *actor) {
         case CT_SUBTITLE: {
             clear_subtitles = 1;
             int16_t sub_index = unpack_token(tokens[pc++]);
-            DBG_LOG(1, "[CT] SUBTITLE idx=%d from code=%d\n", sub_index, code->index_code);
             int16_t name_length = unpack_token(tokens[pc++]);
             if (subtitles_on) {
                 int16_t volume = 127;
@@ -998,9 +877,6 @@ void do_execute_code(code_t *code, actor_t *actor) {
             int16_t scene_index = get_value_from_token(tokens[pc++]);
             if (scene_index < SCENE_TAB_SIZE) {
                 scene_name_flags[scene_index] |= 8;
-                DBG_LOG(1, "[FLAG] SET_SCENE_FLAG scene=%d code=%d actor=%d\n",
-                        scene_index, code->index_code,
-                        actor ? actor->name_index : -1);
             }
             break;
         }
@@ -1015,8 +891,6 @@ void do_execute_code(code_t *code, actor_t *actor) {
         case CT_MAKE_REP: {
             int16_t actor_index = get_value_from_token(tokens[pc++]);
             int16_t rep_index = get_value_from_token(tokens[pc++]);
-            DBG_LOG(1, "[CT] MAKE_REP actor=%d rep=%d from code=%d\n",
-                    actor_index, rep_index, code ? code->index_code : -1);
             if (actor_index < THING_TAB_SIZE) {
                 actor_t *target = thing_tab[actor_index];
                 if (target && rep_index < 500)
@@ -1042,7 +916,6 @@ void do_execute_code(code_t *code, actor_t *actor) {
 
         case CT_START_TUNE: {
             int16_t tune_id = unpack_token(tokens[pc++]);
-            DBG_LOG(1, "[CT] START_TUNE %d from code=%d\n", tune_id, code ? code->index_code : -1);
             play_tune(tune_id);
             break;
         }
@@ -1063,7 +936,6 @@ void do_execute_code(code_t *code, actor_t *actor) {
                 char gr_name[12];
                 memcpy(gr_name, &tokens[pc], name_length);
                 gr_name[name_length] = 0;
-                DBG_LOG(1, "[GFX] CT_PUT_GRAPHIC '%s' at (%d,%d) code=%d\n", gr_name, pos_x, pos_y, code ? code->index_code : -1);
                 put_a_graphic(gr_name, pos_x, pos_y, 1);
             }
             pc += (name_length + 1) / 2;
@@ -1087,7 +959,6 @@ void do_execute_code(code_t *code, actor_t *actor) {
                 char gr_name[12];
                 memcpy(gr_name, &tokens[pc], name_length);
                 gr_name[name_length] = 0;
-                DBG_LOG(1, "[GFX] CT_CLEAR_GRAPHIC '%s' code=%d\n", gr_name, code ? code->index_code : -1);
                 clear_a_graphic(gr_name);
             }
             pc += (name_length + 1) / 2;
@@ -1104,10 +975,6 @@ void do_execute_code(code_t *code, actor_t *actor) {
                 int lhi = (game_version == GAME_VERSION_E1) ? 0 : 7;
                 part_t *rh = selected_thing->_PartTab->field_0[rhi];
                 part_t *lh = selected_thing->_PartTab->field_0[lhi];
-                DBG_LOG(1, "[SWAP] CT_SWAP_HANDS: rh_held=%d lh_held=%d from code=%d\n",
-                        rh && rh->actor_2_held ? rh->actor_2_held->name_index : -1,
-                        lh && lh->actor_2_held ? lh->actor_2_held->name_index : -1,
-                        code ? code->index_code : -1);
                 if (rh && lh) {
                     actor_t *tmp = rh->actor_2_held;
                     rh->actor_2_held = lh->actor_2_held;
@@ -1138,9 +1005,6 @@ void do_execute_code(code_t *code, actor_t *actor) {
 
         case CT_MAKE_DEAD: {
             actor_t *target = actor ? actor : selected_thing;
-            DBG_LOG(1, "[DEAD] CT_MAKE_DEAD: actor='%s' idx=%d hp=%d is_hero=%d\n",
-                    target ? thing_names[target->name_index].field_0 : "null", target ? target->name_index : -1,
-                    target ? target->actor_hitpoints : -1, target == selected_thing);
             if (target) make_dead(target);
             break;
         }
@@ -1154,9 +1018,6 @@ void do_execute_code(code_t *code, actor_t *actor) {
             int hp = unpack_token(tokens[pc++]);
             actor_t *target = actor ? actor : selected_thing;
             if (target) {
-                DBG_LOG(1, "[DEAD] CT_ADJUST_HP: actor='%s' idx=%d delta=%d hp_before=%d hp_after=%d is_hero=%d\n",
-                        thing_names[target->name_index].field_0, target->name_index,
-                        hp, target->actor_hitpoints, target->actor_hitpoints + hp, target == selected_thing);
                 target->actor_hitpoints += hp;
                 if (target->code_at_hp_change >= 0 && target->code_at_hp_change < CODE_TAB_SIZE) {
                     code_t *hp_code = code_tab[target->code_at_hp_change];
@@ -1172,9 +1033,6 @@ void do_execute_code(code_t *code, actor_t *actor) {
         case CT_CAUSE_GET_HIT: {
             actor_t *target = actor ? actor : selected_thing;
             if (target) {
-                DBG_LOG(1, "[DEAD] CT_CAUSE_GET_HIT: actor='%s' idx=%d hp=%d is_hero=%d\n",
-                        thing_names[target->name_index].field_0, target->name_index,
-                        target->actor_hitpoints, target == selected_thing);
                 target->actor_behavior = BH_GET_HIT;
                 target->flags |= 0x2000;
             }
@@ -1201,8 +1059,6 @@ void do_execute_code(code_t *code, actor_t *actor) {
         case CT_SET_FULL_HITPT_X100: {
             int hp = unpack_token(tokens[pc++]);
             if (opcode == CT_SET_FULL_HITPT_X100) hp *= 100;
-            DBG_LOG(1, "[CT] SET_FULL_HP: hp=%d actor=%p name_idx=%d\n",
-                    hp, (void*)actor, actor ? actor->name_index : -1);
             if (actor)
                 actor->full_actor_hp = hp;
             if (actor && !actor->name_index)
@@ -1336,7 +1192,6 @@ void do_execute_code(code_t *code, actor_t *actor) {
                 selected_thing = thing_tab[actor_index];
                 if (selected_thing)
                     selected_thing->actor_behavior = BH_JOYSTICK;
-                DBG_LOG(1, "[CT] LOAD_HERO: idx=%d selected_thing=%p\n", actor_index, (void*)selected_thing);
             }
             break;
         }
@@ -1390,20 +1245,12 @@ void do_execute_code(code_t *code, actor_t *actor) {
 
         case CT_REMOVE_THIS_ACTOR:
             if (actor) {
-                DBG_LOG(1, "[REMOVE] CT_REMOVE_THIS_ACTOR: actor=%d hand=%p\n",
-                        actor->name_index, (void *)actor->part_heap_link);
                 remove_actor_from_world(actor);
             }
             break;
 
         case CT_REMOVE_ACTOR: {
             int16_t actor_index = get_value_from_token(tokens[pc++]);
-            DBG_LOG(1, "[REMOVE] CT_REMOVE_ACTOR idx=%d '%s' in_world=%d hand=%p from code=%d\n",
-                    actor_index,
-                    (thing_names && actor_index >= 0 && actor_index < THING_TAB_SIZE) ? thing_names[actor_index].field_0 : "?",
-                    (actor_index >= 0 && actor_index < THING_TAB_SIZE && thing_tab[actor_index]) ? 1 : 0,
-                    (actor_index >= 0 && actor_index < THING_TAB_SIZE && thing_tab[actor_index]) ? (void *)thing_tab[actor_index]->part_heap_link : NULL,
-                    code ? code->index_code : -1);
             if (actor_index < THING_TAB_SIZE) {
                 if (thing_tab[actor_index])
                     remove_actor_from_world(thing_tab[actor_index]);
@@ -1454,7 +1301,6 @@ void do_execute_code(code_t *code, actor_t *actor) {
             break;
 
         case CT_WANDERERS_ON:
-            DBG_LOG(1, "[CT] WANDERERS_ON from code=%d\n", code ? code->index_code : -1);
             no_wanderers = 0;
             break;
 
@@ -1551,7 +1397,6 @@ void do_execute_code(code_t *code, actor_t *actor) {
         }
 
         case CT_END_OF_INTRO:
-            DBG_LOG(1, "[CT] END_OF_INTRO from code=%d\n", code ? code->index_code : -1);
             intro_flag = 0;
             remove_all_graphics();
             if (!no_icons)
@@ -1604,10 +1449,6 @@ void tokenize_code(code_t *code) {
     token_store[top_of_tokens++] = 0;
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  Actor Spawning / Removal
- * ══════════════════════════════════════════════════════════════ */
-
 /* game_find_empty_actor_slot  E1: ? | E2P: 0x426128 */
 UNUSED_ATTR
 static int find_empty_actor_slot(void) {
@@ -1636,12 +1477,10 @@ void try_to_add_actor_to_world(void) {
     int spawn_type_index = 0;
     if (position_is_visible(&spawn_point)) {
         spawn_type_index = 0;
-        DBG_LOG(1, "[SPAWN] visible, spawn_type=0\n");
     } else {
         int element_index = find_map_element(&spawn_point);
         if (element_index >= 0)
             spawn_type_index = map_elements[element_index].wanderer_spawn;
-        DBG_LOG(1, "[SPAWN] element=%d spawn_type=%d\n", element_index, spawn_type_index);
     }
 
     actor_t *new_wanderer = NULL;
@@ -1848,8 +1687,6 @@ void check_encounter(void) {
 
         if (poison_time)
             draw_life_bar();
-
-        DBG_LOG(1, "[ENC] check_encounter: no_wanderers=%d game_time=%d\n", no_wanderers, game_time);
         if (!no_wanderers) {
             /* Remove distant wanderers */
             for (actor_t *actor = thing_list; actor; actor = actor->next_thing1) {
@@ -1888,7 +1725,6 @@ void check_encounter(void) {
                 if ((thing_name_flags[actor->name_index] & 8) && actor->actor_behavior != BH_DEAD)
                     count++;
             }
-            DBG_LOG(1, "[ENC] hostile_count=%d\n", count);
             if (count < 4)
                 try_to_add_actor_to_world();
         }
@@ -2145,10 +1981,6 @@ actor_t *load_wanderer(int base_type, int num_variations) {
     return NULL;
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  Fade Effects
- * ══════════════════════════════════════════════════════════════ */
-
 /* game_check_fade  E1: ? | E2: 0x4576A4 */
 void check_fade(void) {
     int32_t now = my_time();
@@ -2210,8 +2042,6 @@ void check_fade(void) {
             fade_to_black = 0;
             fade_to_white = 0;
             if (fade_log < 10) {
-                DBG_LOG(1, "[FADE] fade_in complete: view_cmap[1]=(%d,%d,%d)\n",
-                    view_cmap[1].R, view_cmap[1].G, view_cmap[1].B);
                 fade_log++;
             }
         }
@@ -2245,10 +2075,6 @@ void do_fade_in(void) {
     fade_time = 1000;  /* 1 second fade */
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  camera
- * ══════════════════════════════════════════════════════════════ */
-
 /* game_switch_camera_426A80 — defined in map.c */
 
 /* game_get_camera_position  E1: ? | E2P: 0x426AF0 */
@@ -2280,10 +2106,6 @@ void chase_camera(void) {
     calculate_view_matrices();
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  Combat / Collision
- * ══════════════════════════════════════════════════════════════ */
-
 /* game_check_hit  E1: ? | E2P: 0x42CD68 */
 int check_hit(actor_t *attacker, actor_t *target) {
     if (!attacker || !target) return 0;
@@ -2309,10 +2131,6 @@ void inflict_damage(int actor_index, int damage) {
             make_dead(thing_tab[actor_index]);
     }
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  Timed Actions
- * ══════════════════════════════════════════════════════════════ */
 
 /* game_force_timed  E1: 0x449BF4 | E2: 0x457B7C */
 void force_timed(int actor_index, int taction_index, int ticks) {
@@ -2385,10 +2203,6 @@ void do_timed(actor_t *actor) {
     }
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  Distance / Position Helpers
- * ══════════════════════════════════════════════════════════════ */
-
 /* game_find_distance  E1: ? | E2P: 0x42D0A8 */
 int32_t find_distance(vector_t *a, vector_t *b) {
     int32_t dx = a->X - b->X;
@@ -2431,10 +2245,6 @@ void find_relative_rot_vector(vector_t *v, const matrix3x3_t *m) {
         v->Z = (int16_t)(v->Z + 0x8000);
     }
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  Game Start / Level Loading
- * ══════════════════════════════════════════════════════════════ */
 
 static bool scene_load_tried[SCENE_TAB_SIZE];
 static bool action_load_tried[ACTION_TAB_SIZE];
@@ -2495,7 +2305,6 @@ void initialise_game(void) {
 
 /* menu_start_game_medium  E1: 0x430184 | E2: 0x43A31C */
 void start_game_medium(int notUsed1, int notUsed2) {
-    DBG_LOG(1, "[GAME] start_game_medium(%d, %d)\n", notUsed1, notUsed2);
 
     stop_the_clock = true;
     break_do_movement = 0;
@@ -2518,8 +2327,6 @@ void start_game_medium(int notUsed1, int notUsed2) {
 
         check_scene_loaded(notUsed1);
         present_delay(0);
-        DBG_LOG(1, "[GAME] after check_scene_loaded(%d): scene_tab[%d]=%p\n",
-                notUsed1, notUsed1, (void*)scene_tab[notUsed1]);
         if (notUsed1 >= 0 && notUsed1 < SCENE_TAB_SIZE && scene_tab[notUsed1]) {
             active_camera = NULL;
             check_actors_in_scene_loaded(scene_tab[notUsed1]);
@@ -2542,7 +2349,6 @@ void start_game_medium(int notUsed1, int notUsed2) {
             if (!name || !*name) continue;
             int len = (int)strlen(name);
             if (len == 11 && strcmp(name + 4, "StartUp") == 0) {
-                DBG_LOG(1, "[GAME] executing StartUp code: '%s'\n", name);
                 execute_code(c, NULL);
                 break;
             }
@@ -2569,7 +2375,6 @@ void start_game_medium(int notUsed1, int notUsed2) {
                 if (len > 5) {
                     const char *suffix = name + len - (int)strlen(start_code_name);
                     if (suffix >= name && strcmp(suffix, start_code_name) == 0) {
-                        DBG_LOG(1, "[GAME] executing %s code: '%s'\n", start_code_name, name);
                         execute_code(c, NULL);
                         found = true;
                         break;
@@ -2600,10 +2405,6 @@ void start_game_medium(int notUsed1, int notUsed2) {
     }
     hero_material = 0;
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  Misc Game Systems
- * ══════════════════════════════════════════════════════════════ */
 
 /* game_put_a_graphic_4555B0 — load (if needed) and display a named graphic overlay */
 void put_a_graphic(const char *name, int pos_x, int pos_y, int intro_graphic) {
@@ -2861,9 +2662,6 @@ void clear_graphics(void) {
 void draw_graphics(void) {
     for (int i = 0; i < GRAPHICS_MAX; ++i) {
         if (graphic_name_arr[i].field_0[0] && graphic_flag[i] == 2)
-            DBG_LOG(1, "[GFX] draw slot=%d name='%s' data=%p x=%d y=%d sz=%dx%d\n",
-                    i, graphic_name_arr[i].field_0, (void*)graphic_data[i],
-                    graphic_x[i], graphic_y[i], graphic_size_x[i], graphic_size_y[i]);
         if (graphic_name_arr[i].field_0[0] &&
                 graphic_flag[i] == 2 &&
                 graphic_data[i]) {
@@ -2942,7 +2740,6 @@ void update_game_icons(void) {
     static const char *gem_svga[5] = {"bar1","bar2","bar3","bar4","bar5"};
     static const char *gem_vga[5]  = {"lbar1","lbar2","lbar3","lbar4","lbar5"};
 
-    /* ── Life bar icon — depends on full HP level ── */
     int16_t full_hp = hero->full_actor_hp;
     if (mode_svga) {
         if (full_hp == 100) {
@@ -2974,7 +2771,6 @@ void update_game_icons(void) {
         }
     }
 
-    /* ── Armor icon — depends on actor_strength_factor ── */
     int16_t armor = hero->actor_strength_factor;
     if (armor > 200) {
         if (mode_svga) {
@@ -3002,7 +2798,6 @@ void update_game_icons(void) {
         }
     }
 
-    /* ── Weapon / hand icon ── */
     part_tab_t *pt = hero->_PartTab;
     int rh_slot = (game_version == GAME_VERSION_E1) ? 1 : 8;
     part_t *right_hand = (pt && pt->field_0[rh_slot]) ? pt->field_0[rh_slot] : NULL;
@@ -3052,7 +2847,6 @@ void update_game_icons(void) {
         }
     }
 
-    /* ── Gem power icons — based on weapon power ── */
     int16_t power = held->actor_magic ? held->actor_magic_factor : held->actor_strength_factor;
     if (power > 100) {
         int gem_idx = power / 100 - 1;
@@ -3070,7 +2864,6 @@ void update_game_icons(void) {
             clear_a_graphic(mode_svga ? gem_svga[i] : gem_vga[i]);
     }
 
-    /* ── Magic bar icon — shown only if weapon has magic ── */
     if (held->actor_magic) {
         if (mode_svga)
             put_a_graphic("magibar1", 0x235, 0x15, 0);
@@ -3167,8 +2960,6 @@ void show_icon_page(void) {
     load_palette(NULL);
 
     FILE *f = fopen_ci("graphics/iconpage.raw", "rb");
-    DBG_LOG(1, "[ICON] show_icon_page: fopen=%p sw=%d sh=%d db=%d mode_svga=%d\n",
-            (void*)f, screen_width, screen_height, db, mode_svga);
     if (!f) return;
 
     char header[32];
@@ -3330,14 +3121,6 @@ void play_sound_win95(sound_t *sound, int volume) {
     int rate = sound->sample_rate > 0 ? sound->sample_rate : 22050;
     if (game_version == GAME_VERSION_E1 && screen_width <= 320 && rate == 21000)
         rate = 11025;
-    DBG_LOG(1, "[SND] play: name=%d rate=%d len=%d vol=%d sample_rate=%d volume=%d\n",
-            sound->sound_name_index, rate, sound->sound_length, volume,
-            sound->sample_rate, sound->volume);
-    if (sound->sound_length >= 8) {
-        uint8_t *p = (uint8_t *)sound->audio_ptr;
-        DBG_LOG(1, "[SND]   pcm[0..7]: %02x %02x %02x %02x %02x %02x %02x %02x\n",
-                p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7]);
-    }
     platform_audio_play_pcm(sound->audio_ptr, sound->sound_length,
                             rate, volume, 0, false);
 }
@@ -3445,10 +3228,6 @@ UNUSED_ATTR static void game_turn_actor(actor_t *actor) {
     else
         turn_actor(actor, diff);
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  Remove Scene / Action / Sound / Rep / Actor
- * ══════════════════════════════════════════════════════════════ */
 
 /* game_remove_scene  E1: 0x446FF0 | E2: 0x4525D0 */
 void remove_scene(scene_t *scene) {
@@ -3584,10 +3363,6 @@ void remove_actor(actor_t *actor) {
     thing_tab[actor->name_index] = NULL;
     do_delete_thing(actor);
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  Heap Allocators and Deallocators
- * ══════════════════════════════════════════════════════════════ */
 
 /* Free functions */
 void free_event(event_t *event) {
@@ -3840,10 +3615,6 @@ taction_t *find_free_t_action(void) {
     return NULL;
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  Delete helpers — free an entity and all its sub-components
- * ══════════════════════════════════════════════════════════════ */
-
 /* menu_delete_key  E1: 0x4307E0 | E2: 0x43AAB8 */
 void delete_key(key_state_t *key) {
     if (!key) return;
@@ -3986,10 +3757,6 @@ void do_delete_rep(rephead_t *rep) {
     free_rep(rep);
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  Check Loaded (load from file if not present)
- * ══════════════════════════════════════════════════════════════ */
-
 /* game_check_action_loaded_no_msg  E1: 0x4461CC | E2: 0x4517A4 */
 int check_action_loaded_no_msg(int16_t index) {
     actor_t *save = selected_thing;
@@ -4089,10 +3856,6 @@ void check_actor_loaded_by_index(int16_t actor_index) {
     }
     actor = thing_tab[actor_index];
     if (actor) {
-        DBG_LOG(1, "[LOAD] check_actor_loaded_by_index actor=%d name='%s'\n",
-                actor_index,
-                (actor_index >= 0 && actor_index < THING_TAB_SIZE && thing_names)
-                ? thing_names[actor_index].field_0 : "?");
         if (actor_rep_name[actor_index] != -2)
             actor->actor_rep_index = actor_rep_name[actor_index];
         add_to_display_list(actor);
@@ -4169,19 +3932,13 @@ int check_actor_loaded(const char *name) {
 void check_scene_loaded(int16_t scene_index) {
     if (scene_index < 0 || scene_index >= SCENE_TAB_SIZE) return;
     actor_t *save = selected_thing;
-    DBG_LOG(1, "[SCENE] check_scene_loaded(%d): tab=%p tried=%d load_by_offset=%d offset=%d fp=%p\n",
-            scene_index, (void*)scene_tab[scene_index], scene_load_tried[scene_index],
-            load_by_offset, scene_offset[scene_index], (void*)file_pointer);
     if (!scene_tab[scene_index] && !scene_load_tried[scene_index]) {
-        DBG_LOG(1, "[SCENE] check_scene_loaded(%d): attempting load\n", scene_index);
         scene_load_tried[scene_index] = true;
         stop_the_clock = true;
         if (load_by_offset) {
             if (scene_offset[scene_index] >= 0) {
                 fseek(file_pointer, scene_offset[scene_index], SEEK_SET);
                 merge_sought_file(file_pointer, 1);
-                DBG_LOG(1, "[SCENE] after merge_sought_file: scene_tab[%d]=%p\n",
-                        scene_index, (void*)scene_tab[scene_index]);
             } else {
                 do_info2_req("Can't find scene",
                              file_find_scene_name(scene_index));
@@ -4415,10 +4172,6 @@ void draw_life_bar(void) {
     }
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  Scene loading and startup
- * ══════════════════════════════════════════════════════════════ */
-
 /* game_check_actors_in_scene_loaded  E1: 0x4469E8 | E2: 0x451FD8 */
 void check_actors_in_scene_loaded(scene_t *scene) {
     actor_t *save = selected_thing;
@@ -4502,11 +4255,6 @@ int check_scene_ok_to_start(scene_t *scene) {
 /* game_start_scene  E1: 0x446CC8 | E2: 0x452290 */
 void start_scene(scene_t *scene) {
     if (!scene) return;
-    int nscripts = 0;
-    for (script_t *s = scene->scene_script_list; s; s = s->next_script) nscripts++;
-    DBG_LOG(1, "[SS] start_scene: idx=%d cam=%d code2=%d code_idx=%d scripts=%d\n",
-            scene->scene_index, scene->camera_index,
-            scene->scene_code_2, scene->scene_code_index, nscripts);
 
     scene_name_flags[scene->scene_index] |= 2;
     scene_name_flags[scene->scene_index] &= ~4;
@@ -4717,11 +4465,6 @@ void save_vector(int16_t *vec, FILE *f) {
 void load_vector(int16_t *vec, FILE *f) {
     for (int i = 0; i < 3; i++)
         vec[i] = getwLoHi(f);
-}
-
-/* game_save_word  E1: 0x44935C | E2: 0x454F08 */
-void save_word(int16_t *val, FILE *f) {
-    putwLoHi(*val, f);
 }
 
 /* game_load_word  E1: 0x449364 | E2: 0x454F10 */

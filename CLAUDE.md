@@ -81,6 +81,28 @@ IDA Pro 9.1 connected via `ida-mcp` MCP server. Use MCP tools to query the origi
 Original Watcom debug symbols follow pattern: `module_function_name_hexaddr`
 (e.g., `init_init_mouse_410100`). Module prefix maps to source file.
 
+### Removed functions (do not re-create)
+
+These original functions were intentionally removed — empty stubs, dead wrappers,
+or unused in the C port. Do not recreate them when decompiling nearby code.
+
+**Empty stubs (no-op in original or irrelevant to C port):**
+- `init`: `analyse_view`, `archive_all`, `archive_all_fast`, `display_beep`, `expand_palette`, `set_grey_palette`, `zeroise_bitmap_pointers`, `read_from_dsp`, `write_to_dsp`
+- `anim`: `clear_choice_box`, `draw_choice_box`, `load_action_directory`, `draw_view_cone_tri`, `draw_world_square`
+- `map`: `reposition_fixed_parts`
+- `req`: `handle_ok2`, `handle_test`, `handle_strings_gadg`, `handle_file_gadg`, `handle_uninstall`
+- `topo`: `show_topography`, `make_mask_map`
+- `tri`: `clip_tri`
+
+**Dead wrappers (called another function with same args, no callers):**
+- `init`: `clip_mask2` → `clip_mask`, `text_win95` → `small_text_win95`, `do_text_with_mask_win95_japan` → `text_with_mask`, `old_draw` → `draw`, `draw_clipped` → `draw`, `clear_rectangle` → `rect_fill`
+- `display`: `transpose_matrix` → `c_transpose_matrix`, `x_view_transform` → `long_view_transform`, `c_matrix_mult_display` → `c_matrix_mult`
+- `edit`: `write_event` → `fwrite`
+- `game`: `save_word` → `fwrite`
+- `move`: `find_direction_and_distance_zx` → `find_direction_and_distance`
+- `music`: `init_sound_channels` → `platform_audio_init`, `update_sound_mix` → `platform_audio_mix`
+- `win`: `finish_win95` → `platform_shutdown`
+
 ## Data Files
 
 Game data lives in `data/` (not committed):
@@ -104,7 +126,7 @@ See `types.h` for complete definitions. Important ones:
 
 ## Debug
 
-- `DBG_LOG(level, ...)` macro — level 1 = important, 2 = verbose
+- `DBG_LOG(level, ...)` macro — level 1 = errors/warnings only, 2 = verbose tracing
 - `debug_verbose` global controls output level
 - Log file: `ecstatica_debug.log`
 - Compile flags: `SKIP_START_LOGO`, `SKIP_DRAW_TRIANGLE`, `APP_ALWAYS_ACTIVE`

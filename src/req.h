@@ -3,11 +3,6 @@
 
 #include "types.h"
 
-/* ══════════════════════════════════════════════════════════════
- *  Structure Definitions
- * ══════════════════════════════════════════════════════════════ */
-
-/* ── UI Gadget ── */
 #pragma pack(push, 1)
 struct gadget_s {
     int16_t X;
@@ -25,7 +20,6 @@ struct gadget_s {
 };
 #pragma pack(pop)
 
-/* ── UI Request ── */
 struct request_s {
     uint16_t field_0;
     uint16_t field_2;
@@ -40,10 +34,6 @@ struct request_s {
     int16_t width;
     int16_t height;
 };
-
-/* ══════════════════════════════════════════════════════════════
- *  GUI / Requester Globals (extern)
- * ══════════════════════════════════════════════════════════════ */
 
 extern int16_t active_requester;
 extern int16_t req_finished;
@@ -75,10 +65,6 @@ extern gadget_t sound_fx_gadg;
 extern gadget_t lod_gadg;
 extern gadget_t lo_hi_res_gadg;
 
-/* ══════════════════════════════════════════════════════════════
- *  Function Declarations
- * ══════════════════════════════════════════════════════════════ */
-
 void restore_screen(request_t *req);
 request_t *find_active_req(void);
 void restore_active_req(void);
@@ -88,10 +74,8 @@ void clear_requester(void);
 void show_gadget(gadget_t *gadget);
 void do_input(void);
 void load_saved_screen(void);
-void handle_test(void);
 void handle_cancel(void);
 void handle_ok(void);
-void handle_ok2(void);
 int do_choice_req(const char *msg);
 void do_choice_page_req(void);
 void do_choice2_req(void);
@@ -108,9 +92,6 @@ void init_gadgets(void);
 void install_to_disk(void);
 
 /* Handler functions */
-void handle_strings_gadg(void);
-void handle_file_gadg(void);
-void handle_uninstall(void);
 void handle_dir_gadg(void);
 void handle_play_female(void);
 void handle_play_male(void);

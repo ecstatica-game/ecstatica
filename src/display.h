@@ -3,17 +3,12 @@
 
 #include "types.h"
 
-/* ══════════════════════════════════════════════════════════════
- *  Structure Definitions
- * ══════════════════════════════════════════════════════════════ */
-
 #pragma pack(push, 1)
 typedef struct graphic_name_s {
     char field_0[9];
 } graphic_name_t;
 #pragma pack(pop)
 
-/* ── Camera data ── */
 #pragma pack(push, 1)
 struct camera_data_s {
     vector_t view_pos;
@@ -27,7 +22,6 @@ struct camera_data_s {
 };
 #pragma pack(pop)
 
-/* ── Triangle entry ── */
 #pragma pack(push, 1)
 struct tri_s {
     int16_t tri_index;
@@ -61,7 +55,6 @@ struct tri_s {
 };  /* 68 bytes */
 #pragma pack(pop)
 
-/* ── Part entry (350 bytes) ── */
 #pragma pack(push, 1)
 struct part_s {
     /* Part-like core (same layout as actor first 80 bytes) */
@@ -137,7 +130,6 @@ struct part_s {
 };  /* 350 bytes */
 #pragma pack(pop)
 
-/* ── Point entry ── */
 #pragma pack(push, 1)
 struct point_s {
     int16_t point_index;
@@ -153,7 +145,6 @@ struct point_s {
 };  /* 42 bytes */
 #pragma pack(pop)
 
-/* ── Texture entry ── */
 #pragma pack(push, 1)
 struct texture_s {
     int16_t textur_index;
@@ -165,10 +156,6 @@ struct texture_s {
     int32_t textur_time;
 };  /* 20 bytes */
 #pragma pack(pop)
-
-/* ══════════════════════════════════════════════════════════════
- *  Display Globals (extern)
- * ══════════════════════════════════════════════════════════════ */
 
 extern int16_t screen_width;
 extern int16_t screen_height;
@@ -235,15 +222,10 @@ extern bool making_background;
 extern int16_t level_of_detail;
 extern int16_t set_palette_flag;
 
-/* ── Display Arrays ── */
 extern part_t part_heap_arr[PART_POOL_SIZE];
 extern tri_t tri_arr[TRI_SIZE];
 extern point_t point_heap_arr[POINT_POOL_SIZE];
 extern texture_t texture_heap_arr[TEXTURE_POOL_SIZE];
-
-/* ══════════════════════════════════════════════════════════════
- *  Function Declarations
- * ══════════════════════════════════════════════════════════════ */
 
 void initialise_parts(void);
 void restore_actor_entries(int index);
@@ -264,7 +246,6 @@ void put_a_circle(part_t *part);
 void long_view_trans_ellipse(part_t *part);
 void put_a_line(part_t *part);
 void xxx_stick_to_background(actor_t *actor);
-void c_matrix_mult_display(matrix3x3_t *out, matrix3x3_t *a, matrix3x3_t *b);
 void show_parts(void);
 void draw_subtitles(void);
 void show_subtitle(const char *text_str, int duration);
@@ -290,12 +271,10 @@ void copy_vector(vector_t *dst, vector_t *src);
 void copy_matrix(matrix3x3_t *dst, matrix3x3_t *src);
 void calculate_view_matrices(void);
 void calculate_rot_matrix(matrix3x3_t *m, vector_t *rot);
-void transpose_matrix(matrix3x3_t *out, matrix3x3_t *in);
 
 /* Transform & projection */
 void view_transform(vector_t *out, vector_t *world_pos);
 void perspective_transform(vector_t *point);
-void x_view_transform(vector_t *out, vector_t *world_pos);
 void xx_long_view_transform(long_vector_t *out, vector_t *world_pos);
 void long_view_transform(long_vector_t *out, vector_t *world_pos);
 void long_perspective_transform(long_vector_t *point);

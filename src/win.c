@@ -19,15 +19,10 @@
 #include <unistd.h>
 #endif
 
-/* ── Window / platform globals ── */
 void *hwnd = NULL;
 bool app_active = true;
 
 static platform_t *g_platform = NULL;
-
-/* ══════════════════════════════════════════════════════════════
- *  Display Surface Management
- * ══════════════════════════════════════════════════════════════ */
 
 /* win_flip_win95_458094
  * Page flip — present the back buffer.
@@ -83,17 +78,6 @@ void present_delay(int ms) {
         platform_delay(50);
     }
 }
-
-/* win_finish_win95_4580D0
- * Release display surfaces. Original freed DirectDraw objects.
- */
-void finish_win95(void) {
-    platform_shutdown(g_platform);
-}
-
-/* ══════════════════════════════════════════════════════════════
- *  Window Procedure / Event Handling
- * ══════════════════════════════════════════════════════════════ */
 
 /* win_window_proc_458110
  * Original Win32 WndProc — keyboard/mouse event handler.
@@ -190,10 +174,6 @@ void window_proc(void) {
     if (mb & 2) mouse = 8;  /* right down */
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  Initialization
- * ══════════════════════════════════════════════════════════════ */
-
 /* win_do_init_458714
  * Original created Win32 window + DirectDraw surfaces.
  * Now delegates to platform_init().
@@ -220,10 +200,6 @@ void change_screen_mode_win95(void) {
      * No hardware mode change needed in modern platform layer. */
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  Main Entry / Game Loop
- * ══════════════════════════════════════════════════════════════ */
-
 /* win_win_main_game_458B84
  * Original WinMain entry point. Now called from main.c.
  */
@@ -232,10 +208,6 @@ void win_main_game(void) {
     // if_editor_show_cursor();
     setup();
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  Misc Platform Stubs
- * ══════════════════════════════════════════════════════════════ */
 
 /* win_make_code_writable_458000
  * Original patched PE section flags for self-modifying code.

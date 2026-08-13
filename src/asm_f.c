@@ -13,10 +13,6 @@
 #include "ellipse.h"
 #include <string.h>
 
-/* ══════════════════════════════════════════════════════════════
- *  Matrix / Vector Operations (14-bit fixed-point)
- * ══════════════════════════════════════════════════════════════ */
-
 /* asm_matrix_mult_45DD04 — 3x3 fixed-point matrix multiply: out = in1 * in2 */
 void matrix_mult(matrix3x3_t *out, matrix3x3_t *in1, matrix3x3_t *in2) {
     matrix3x3_t tmp;
@@ -87,10 +83,6 @@ void matrix_long_vector(long_vector_t *in, long_vector_t *out, matrix3x3_t *mat)
                            (int64_t)mat->_32 * y +
                            (int64_t)mat->_33 * z) >> 14);
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  bitmap / Mask RLE Decompression
- * ══════════════════════════════════════════════════════════════ */
 
 /*
  * RLE format: each span has a header byte
@@ -225,10 +217,6 @@ void unpack_mask(int16_t *dst, char *src) {
     }
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  Triangle Rasterizer
- * ══════════════════════════════════════════════════════════════ */
-
 /*
  * Column-based triangle scanline rasterizer with z-buffer.
  * Parameters passed via global "self-modifying code" variables.
@@ -265,10 +253,6 @@ void tri_line_win95(int draw_height, int draw_data, int draw_height_bias,
         draw_data -= 256;
     } while (draw_data > 0);
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  Ellipse Rasterizers
- * ══════════════════════════════════════════════════════════════ */
 
 /*
  * Column-based ellipsoid renderer with z-buffer and shade map.
@@ -394,10 +378,6 @@ void smoke_line_win95(int mask_idx, int col_height,
     } while (col_height >= 0);
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  Textured Triangle Rasterizer
- * ══════════════════════════════════════════════════════════════ */
-
 /* asm_tex_tri_line_win95_45D99A
  * Textured triangle column renderer (Win95 mode).
  * Matches tri_line_win95 calling convention: draw_data is packed
@@ -425,10 +405,6 @@ void tex_tri_line_win95(int draw_height, int draw_data, int draw_height_bias,
         draw_data -= 256;
     } while (draw_data > 0);
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  Legacy VGA / Hardware Stubs
- * ══════════════════════════════════════════════════════════════ */
 
 /* These were direct VGA register manipulations — no-ops in software renderer */
 

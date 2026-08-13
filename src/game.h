@@ -4,18 +4,12 @@
 #include "types.h"
 #include "anim.h"  /* action_t full definition needed by script_t */
 
-/* ══════════════════════════════════════════════════════════════
- *  Structure Definitions
- * ══════════════════════════════════════════════════════════════ */
-
-/* ── Name text ── */
 #pragma pack(push, 1)
 typedef struct name_text_s {
     char field_0[26];
 } name_text_t;
 #pragma pack(pop)
 
-/* ── Token (for script parsing) ── */
 #pragma pack(push, 1)
 typedef struct token_s {
     int16_t token_code;
@@ -23,7 +17,6 @@ typedef struct token_s {
 } token_t;  /* 23 bytes */
 #pragma pack(pop)
 
-/* ── Act entry (per-actor animation state) ── */
 #pragma pack(push, 1)
 struct act_s {
     action_t *act_action;
@@ -37,7 +30,6 @@ struct act_s {
 };  /* 22 bytes */
 #pragma pack(pop)
 
-/* ── Actor entry (the main entity struct, 396 bytes) ── */
 #pragma pack(push, 1)
 struct actor_s {
     /* Part-like core (first 80 bytes match part_t layout) */
@@ -145,7 +137,6 @@ struct actor_s {
 };  /* 396 bytes */
 #pragma pack(pop)
 
-/* ── Scene entry ── */
 #pragma pack(push, 1)
 struct scene_s {
     int16_t scene_index;
@@ -165,7 +156,6 @@ struct scene_s {
 };
 #pragma pack(pop)
 
-/* ── Script entry ── */
 #pragma pack(push, 1)
 struct script_s {
     int16_t script_actor_index;
@@ -175,7 +165,6 @@ struct script_s {
 };  /* 29 bytes */
 #pragma pack(pop)
 
-/* ── Line of code (script text) ── */
 #pragma pack(push, 1)
 struct line_of_code_s {
     char field_0[53];
@@ -183,7 +172,6 @@ struct line_of_code_s {
 };
 #pragma pack(pop)
 
-/* ── Code structure ── */
 #pragma pack(push, 1)
 struct code_s {
     int16_t index_code;
@@ -193,7 +181,6 @@ struct code_s {
 };
 #pragma pack(pop)
 
-/* ── Timed action ── */
 #pragma pack(push, 1)
 struct taction_s {
     int16_t taction_index;
@@ -201,10 +188,6 @@ struct taction_s {
     struct taction_s *next;
 };  /* 10 bytes */
 #pragma pack(pop)
-
-/* ══════════════════════════════════════════════════════════════
- *  Game State Globals (extern)
- * ══════════════════════════════════════════════════════════════ */
 
 extern bool game_up_and_running;
 extern bool program_up_and_running;
@@ -311,10 +294,6 @@ extern bool is_god_mode;
 extern int16_t saved_game_num;
 extern int32_t extra_life_time;
 
-/* ══════════════════════════════════════════════════════════════
- *  Function Declarations
- * ══════════════════════════════════════════════════════════════ */
-
 /* Actor management */
 actor_t *load_wanderer(int base_type, int num_variation);
 void try_to_add_actor_to_world(void);
@@ -411,7 +390,6 @@ void save_matrix(matrix3x3_t *m, FILE *f);
 void load_matrix(matrix3x3_t *m, FILE *f);
 void save_vector(int16_t *vec, FILE *f);
 void load_vector(int16_t *vec, FILE *f);
-void save_word(int16_t *val, FILE *f);
 void load_word(int16_t *val, FILE *f);
 int check_saved_game(int slot);
 void remove_all_sounds(void);

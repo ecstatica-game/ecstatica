@@ -28,10 +28,6 @@
 
 static int16_t e1_pick_up_hand = 0;
 
-/* ══════════════════════════════════════════════════════════════
- *  Main Movement Loop
- * ══════════════════════════════════════════════════════════════ */
-
 /* move_do_movement_427998 — called every frame from game loop */
 void do_movement(void) {
     int some_time = x_time;
@@ -76,8 +72,6 @@ void do_movement(void) {
         space_pressed = true;
     }
 
-
-    /* ── Phase 1: Process all actors in display list ── */
     actor_t *actor = root_thing;
     if (root_thing) {
         while (1) {
@@ -96,15 +90,6 @@ void do_movement(void) {
                     scene_t *actor_scene = actor->actor_scene;
                     actor->actor_scene = NULL;
 
-                    DBG_LOG(1, "[SCENE] P1 actor %d '%s' act-complete scene=%d rep=%p rep_idx=%d def_rep=%d bh=%d\n",
-                            actor->name_index,
-                            (actor->name_index >= 0 && actor->name_index < THING_TAB_SIZE) ? thing_names[actor->name_index].field_0 : "?",
-                            actor_scene ? actor_scene->scene_index : -1,
-                            (void*)actor->actor_reperture,
-                            actor->actor_rep_index,
-                            actor->default_repert,
-                            actor->actor_behavior);
-
                     /* Only walk scripts if actor was bound to a scene. */
                     if (actor_scene) {
                         /* Check if ALL scripts for this scene are done */
@@ -113,28 +98,19 @@ void do_movement(void) {
                         for (script_t *script = actor_scene->scene_script_list;
                              script; script = script->next_script) {
                             if (script->script_action.action_flags & 0x20) {
-                                DBG_LOG(1, "[SCENE] P1   script actor=%d SKIP (flags&0x20)\n", script->script_actor_index);
                                 continue;
                             }
                             int script_actor_idx = script->script_actor_index;
                             actor_t *script_actor = (script_actor_idx >= 0 && script_actor_idx < THING_TAB_SIZE) ? thing_tab[script_actor_idx] : NULL;
                             if (!script_actor) {
-                                DBG_LOG(1, "[SCENE] P1   script actor=%d NOT in thing_tab\n", script_actor_idx);
                             } else if (script_actor->actor_act.act_action != &script->script_action) {
-                                DBG_LOG(1, "[SCENE] P1   script actor=%d act_action MISMATCH (act=%p script=%p scene=%d)\n",
-                                        script_actor_idx, (void*)script_actor->actor_act.act_action,
-                                        (void*)&script->script_action, actor_scene->scene_index);
                             } else if (!(thing_name_flags[script_actor_idx] & 2)) {
-                                DBG_LOG(1, "[SCENE] P1   script actor=%d name_flags no bit2 (flags=0x%x)\n",
-                                        script_actor_idx, thing_name_flags[script_actor_idx]);
                             } else {
                                 all_done = false;
                                 if (blocker_ai < 0) blocker_ai = script_actor_idx;
                             }
                         }
                         if (all_done) {
-                            DBG_LOG(1, "[SCENE] P1 all_done scene=%d code2=%d\n",
-                                    actor_scene->scene_index, actor_scene->scene_code_2);
                             scene_name_flags[actor_scene->scene_index] |= 4;
                             int16_t code_idx = actor_scene->scene_code_2;
                             if (code_idx >= 0) {
@@ -144,12 +120,8 @@ void do_movement(void) {
                                 else
                                     DBG_LOG(1, "[SCENE] P1 code2=%d is NULL!\n", code_idx);
                             } else {
-                                DBG_LOG(1, "[SCENE] P1 scene=%d has no code2\n",
-                                        actor_scene->scene_index);
                             }
                         } else {
-                            DBG_LOG(1, "[SCENE] P1 scene=%d NOT all_done, blocker=%d\n",
-                                    actor_scene->scene_index, blocker_ai);
                         }
                     }
                 } else {
@@ -176,7 +148,6 @@ void do_movement(void) {
         }
     }
 
-    /* ── Phase 2: Process root scenes — check for completed scripts ── */
     scene_t *current_scene = NULL;
     if (root_scene) {
         for (scene_t *scene = root_scene; scene; scene = scene->next_scene) {
@@ -199,9 +170,6 @@ void do_movement(void) {
                  * the actor-act-complete path. If bit 4 already set, Phase 1
                  * already handled scene_code_2 — don't re-fire it here. */
                 bool already_finished = (scene_name_flags[scene->scene_index] & 4) != 0;
-                DBG_LOG(1, "[SCENE] P2 all_done scene=%d already_finished=%d code2=%d code_idx=%d\n",
-                        scene->scene_index, already_finished,
-                        scene->scene_code_2, scene->scene_code_index);
                 scene_name_flags[scene->scene_index] |= 4;
                 if (!current_scene)
                     root_scene = scene->next_scene;
@@ -225,8 +193,6 @@ void do_movement(void) {
                 scene->scene_time = game_time;
                 int16_t code_idx = scene->scene_code_index;
                 if (code_idx >= 0) {
-                    DBG_LOG(1, "[SCENE] P2 per-frame scene=%d code_idx=%d\n",
-                            scene->scene_index, code_idx);
                     code_t *code = code_tab[code_idx];
                     if (code)
                         execute_code(code, NULL);
@@ -236,7 +202,6 @@ void do_movement(void) {
         }
     }
 
-    /* ── Phase 3: Rendering ── */
     if (need_clear_graphics) clear_graphics();
     prepare_parts();
     draw_stuck_parts();
@@ -244,14 +209,9 @@ void do_movement(void) {
     if (need_draw_graphics) draw_graphics();
     show_parts();
 
-    /* ── Phase 4: Game-over check ── */
     if (selected_thing &&
         selected_thing->actor_behavior == BH_DEAD &&
         selected_thing->action_delay <= 0) {
-        DBG_LOG(1, "[DEAD] game-over check: selected_thing=%p behavior=%d action_delay=%d\n",
-                (void*)selected_thing,
-                selected_thing->actor_behavior,
-                selected_thing->action_delay);
         if (game_version == 1) {
             int scene_id;
             switch (selected_camera) {
@@ -282,10 +242,6 @@ void do_movement(void) {
             play_dead_scene(scene_idx);
     }
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  Wander — obstacle-probing pathfinding
- * ══════════════════════════════════════════════════════════════ */
 
 /* Hit direction mapping table (from ASM dword_427140) */
 static const int16_t hit_dir_table[8] = { 5, 8, 7, 6, 3, 0, 1, 2 };
@@ -421,17 +377,12 @@ int16_t do_new_wander(actor_t *actor) {
     return result;
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  Behaviour — AI state machine dispatch (~1555 lines in reference)
- * ══════════════════════════════════════════════════════════════ */
-
 /* move_behaviour  E1: ? | E2: 0x427554 */
 void behaviour(actor_t *actor, int game_time_arg) {
     if (!actor) return;
 
     int one_shot_action = 0;  /* one-shot action flag */
 
-    /* ── Repertoire management ── */
     actor->state_flags &= 0xFFFD;
     if (actor == selected_thing) {
         actor->rotate_vector.Z = 0;
@@ -464,7 +415,6 @@ void behaviour(actor_t *actor, int game_time_arg) {
             actor->actor_reperture->rep_time = game_time;
     }
 
-    /* ── Force action / timed action processing ── */
     action_t *action = actor->force_action_to_execute;
     int action_type = 1;
     if (!action) {
@@ -518,7 +468,6 @@ void behaviour(actor_t *actor, int game_time_arg) {
         }
     }
 
-    /* ── Early exit if no repertoire and no action ── */
     rephead_t *repertoire = actor->actor_reperture;
     /* E1 hero has default_repert=0 → rep->rep_index=0 → this exit fires and
      * BH_JOYSTICK is never assigned → keyboard dead. Hero must fall through
@@ -540,7 +489,6 @@ void behaviour(actor_t *actor, int game_time_arg) {
         return;
     }
 
-    /* ── Find interaction target ── */
     int16_t next_move = 1000;
     actor_t *interact_actor;
     if (actor == selected_thing) {
@@ -589,7 +537,6 @@ void behaviour(actor_t *actor, int game_time_arg) {
         interact_actor = NULL;
     }
 
-    /* ── Get interaction parts ── */
     part_t *interact_part = NULL;
     if (interact_actor) {
         interact_part = interact_actor->_PartTab ? interact_actor->_PartTab->field_0[2] : NULL;
@@ -610,7 +557,6 @@ void behaviour(actor_t *actor, int game_time_arg) {
         && (interact_actor->actor_parts_list->flags & 0x42))
         interact_actor = NULL;
 
-    /* ── Calculate direction/distance to target ── */
     int target_direction = 0;     /* direction to target */
     int16_t target_distance = 0x7FFF;  /* distance to target */
     int16_t rel_angle = 0;
@@ -716,7 +662,6 @@ void behaviour(actor_t *actor, int game_time_arg) {
         }
     }
 
-    /* ── Decrement timers ── */
     if (actor->event_timer > 0) actor->event_timer -= game_time_arg;
     if (actor->event_timer < 0) actor->event_timer = 0;
     if (actor->hold_timer > 0) actor->hold_timer -= game_time_arg;
@@ -726,7 +671,6 @@ void behaviour(actor_t *actor, int game_time_arg) {
     if (actor->interact_cooldown > 0) actor->interact_cooldown -= game_time_arg;
     if (actor->interact_cooldown < 0) actor->interact_cooldown = 0;
 
-    /* ── Prepare for behavior switches ── */
     actor->action_variant = -1;
     if (actor->actor_behavior != BH_WANDER) {
         if ((actor->actor_behavior != BH_CHASE && actor->actor_behavior != BH_GO_CLOSER)
@@ -739,7 +683,6 @@ void behaviour(actor_t *actor, int game_time_arg) {
     }
     actor->action_variant = 20 * (uint16_t)(2 * my_rand()) >> 16;
 
-    /* ══════ Switch 1: Behavior state transitions ══════ */
     int16_t attack_range = (game_version == GAME_VERSION_E1) ? 900 : 6000;
 
     switch (actor->actor_behavior) {
@@ -846,8 +789,6 @@ void behaviour(actor_t *actor, int game_time_arg) {
 
     case BH_DYING:
         if (actor->flags & 0x40) {
-            DBG_LOG(1, "[DEAD] BH_DYING->make_dead: actor='%s' is_hero=%d\n",
-                    thing_names[actor->name_index].field_0, actor == selected_thing);
             make_dead(actor);
         }
         break;
@@ -889,7 +830,6 @@ void behaviour(actor_t *actor, int game_time_arg) {
         break;
     }
 
-    /* ══════ Switch 2: Movement direction selection ══════ */
     switch (actor->actor_behavior) {
     case BH_CHASE:
     case BH_GO_CLOSER:
@@ -1319,9 +1259,6 @@ void behaviour(actor_t *actor, int game_time_arg) {
             if (actor->actor_hitpoints >= 0)
                 actor->actor_behavior = BH_RECOVERING;
             else {
-                DBG_LOG(1, "[DEAD] BH_DYING via fall: actor='%s' hp=%d code_at_hp=%d dead_code=%d\n",
-                        thing_names[actor->name_index].field_0, actor->actor_hitpoints,
-                        actor->code_at_hp_change, actor->dead_code_index);
                 actor->actor_behavior = BH_DYING;
                 thing_name_flags[actor->name_index] |= 4;
             }
@@ -1331,9 +1268,6 @@ void behaviour(actor_t *actor, int game_time_arg) {
                 next_move = (random_value <= 0xAAAAu) ? 32 : 31;
             else
                 next_move = 30;
-            DBG_LOG(1, "[DEAD] BH_DYING via die_action: actor='%s' hp=%d code_at_hp=%d dead_code=%d\n",
-                    thing_names[actor->name_index].field_0, actor->actor_hitpoints,
-                    actor->code_at_hp_change, actor->dead_code_index);
             actor->actor_behavior = BH_DYING;
             thing_name_flags[actor->name_index] |= 4;
         } else {
@@ -1367,9 +1301,6 @@ void behaviour(actor_t *actor, int game_time_arg) {
             if (actor->actor_hitpoints >= 0)
                 actor->actor_behavior = BH_RECOVERING;
             else {
-                DBG_LOG(1, "[DEAD] BH_DYING via hit_dir: actor='%s' hp=%d code_at_hp=%d dead_code=%d has_die=%d has_fall=%d\n",
-                        thing_names[actor->name_index].field_0, actor->actor_hitpoints,
-                        actor->code_at_hp_change, actor->dead_code_index, has_die_action, has_fall_action);
                 actor->actor_behavior = BH_DYING;
                 thing_name_flags[actor->name_index] |= 4;
             }
@@ -1404,7 +1335,6 @@ void behaviour(actor_t *actor, int game_time_arg) {
         break;
     }
 
-    /* ══════ CENTER_FUNCTION — next_move selection and playback ══════ */
 center_function:
     /* InbetweenPos calls for special repertoire types (simplified) */
     if (actor->actor_reperture && actor->actor_reperture->rep_index > 0) {
@@ -1565,7 +1495,6 @@ center_function:
         actor->move_type = next_move;
     }
 
-    /* ══════ LABEL_917 — final act advance ══════ */
 label_917:
     actor->state_flags &= 0xFFFB;
     action_t *cur_action = actor->actor_act.act_action;
@@ -1608,10 +1537,6 @@ void unmake2_part_limb(actor_t *actor) {
     actor->flags &= ~0x20;  /* Clear 2-part limb flag */
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  Check steps / Recover hit points (E2 stubs)
- * ══════════════════════════════════════════════════════════════ */
-
 /* move_check_steps  E1: ? | E2: 0x429FC8 */
 void check_steps(void) {
     /* E2 stub — just returns */
@@ -1621,10 +1546,6 @@ void check_steps(void) {
 void recover_hit_points(void) {
     /* E2 stub — just returns */
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  Act heap management — find_free_act, spawn_action
- * ══════════════════════════════════════════════════════════════ */
 
 /* move_find_free_act  E1: 0x4263FC | E2: 0x42CE78 */
 act_t *find_free_act(void) {
@@ -1667,10 +1588,6 @@ void spawn_action(event_t *event, actor_t *actor, int some_time) {
         beep_error("can't spawn action");
     }
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  Act Playback — complete_act, position_act, free_spent_acts
- * ══════════════════════════════════════════════════════════════ */
 
 /* move_complete_act  E1: 0x42489C | E2: 0x42AF78 */
 void complete_act(act_t *act, actor_t *actor) {
@@ -1787,10 +1704,6 @@ void default_modifieds(actor_t *actor) {
     }
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  Direction / Distance
- * ══════════════════════════════════════════════════════════════ */
-
 /* move_find_dirn_and_dist_428548 — see find_direction_and_distance for the
  * truncate-then-abs note. */
 void find_dirn_and_dist(int16_t *dir, int16_t *dist, int16_t dx, int16_t dz) {
@@ -1842,15 +1755,6 @@ void find_direction_and_distance(int16_t *dir, int16_t *dist, int16_t dx, int16_
     *dist = (int16_t)(low < 0 ? -low : low);
 }
 
-/* move_find_direction_and_distance_4285E0 — swapped param order (dz, dx) */
-void find_direction_and_distance_zx(int16_t *dir, int16_t *dist, int16_t dz, int16_t dx) {
-    find_dirn_and_dist(dir, dist, dx, dz);
-}
-
-/* ══════════════════════════════════════════════════════════════
- *  Actor State — turn, death, smart bomb
- * ══════════════════════════════════════════════════════════════ */
-
 /* move_turn_actor_42490C — rebuild matrix33_2 from rotate_vector */
 void turn_actor(actor_t *actor, int16_t angle) {
     if (!actor) return;
@@ -1884,10 +1788,6 @@ void make_dead(actor_t *actor) {
     actor->flags |= 0x400;
     actor->action_delay = 200;
     thing_name_flags[actor->name_index] |= 4;
-
-    DBG_LOG(1, "[DEAD] make_dead: actor='%s' name_idx=%d is_hero=%d dead_code_idx=%d\n",
-            thing_names[actor->name_index].field_0, actor->name_index,
-            actor == selected_thing, actor->dead_code_index);
 
     int code_idx = actor->dead_code_index;
     if (code_idx >= 0) {
@@ -1972,9 +1872,6 @@ void smart_bomb(actor_t *attacker, int range, int damage) {
 
         if (victim->code_at_hp_change >= 0 && victim->code_at_hp_change < CODE_TAB_SIZE) {
             code_t *hpc = code_tab[victim->code_at_hp_change];
-            DBG_LOG(1, "[DEAD] code_at_hp_change: actor='%s' code_idx=%d code=%p hp=%d is_hero=%d\n",
-                    thing_names[victim->name_index].field_0, victim->code_at_hp_change,
-                    (void*)hpc, victim->actor_hitpoints, victim == selected_thing);
             if (hpc) execute_code(hpc, victim);
         }
 
@@ -1982,10 +1879,6 @@ void smart_bomb(actor_t *attacker, int range, int damage) {
             draw_life_bar();
     }
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  ModifyPart — apply event to part at a given time
- * ══════════════════════════════════════════════════════════════ */
 
 /* move_modify_part  E1: 0x424FEC | E2: 0x42B7F4 */
 void modify_part(event_t *event, actor_t *actor, int some_time, action_t *action) {
@@ -2290,10 +2183,6 @@ void modify_part(event_t *event, actor_t *actor, int some_time, action_t *action
         triangle->tri_use_flag = (event->param2 & event->param1) | (~event->param2 & triangle->tri_use_flag);
         break;
     case ACTOR_REP:
-        DBG_LOG(1, "[EVT] ACTOR_REP actor=%d p1=%d p2=%d p3=%d (rep_idx=%d->%d def=%d)\n",
-                actor ? actor->name_index : -1, event->param1, event->param2, event->param3,
-                actor ? actor->actor_rep_index : -999, event->param1,
-                actor ? actor->default_repert : -999);
         actor->actor_rep_index = event->param1;
         if (event->param2)
             actor->default_repert = event->param3;
@@ -2333,22 +2222,14 @@ void modify_part(event_t *event, actor_t *actor, int some_time, action_t *action
             if (part) check_part_hit(part);
             break;
         case 1: /* CheckPickUp */
-            DBG_LOG(1, "[INTERACT] CheckPickUp part=%p parent=%d param=%d\n",
-                    (void *)part, part ? part->parent_actor->name_index : -1, (int)event->param2);
             if (part) check_pick_up(part, event->param2);
             break;
         case 2: /* CheckPutDown */
-            DBG_LOG(1, "[INTERACT] CheckPutDown part=%p parent=%d held=%d\n",
-                    (void *)part, part ? part->parent_actor->name_index : -1,
-                    (part && part->actor_2_held) ? part->actor_2_held->name_index : -1);
             if (part) check_put_down(part, action ? (action->action_flags & 2) : 0);
             break;
         case 3: /* HoldThingWithPart */ {
             if (!part) break;
             actor_t *a = thing_tab[event->param2];
-            DBG_LOG(1, "[INTERACT] HoldThingWithPart part=%p parent=%d actor=%d '%s'\n",
-                    (void *)part, part->parent_actor->name_index, event->param2,
-                    (thing_names && event->param2 >= 0 && event->param2 < THING_TAB_SIZE) ? thing_names[event->param2].field_0 : "?");
             if (a) {
                 if (a->part_heap_link) {
                     ((part_t *)a->part_heap_link)->actor_2_held = NULL;
@@ -2536,10 +2417,6 @@ void modify_part(event_t *event, actor_t *actor, int some_time, action_t *action
     }
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  Part coordinate transforms
- * ══════════════════════════════════════════════════════════════ */
-
 /* move_make_part_absolute  E1: 0x426C24 | E2: 0x42D6A0 */
 void make_part_absolute(part_t *part) {
     if (part->flags & 0x200)
@@ -2617,10 +2494,6 @@ void make_part_relative(part_t *part) {
     find_relative_rotations(part, &combined);
     part->flags &= 0xBDFF;  /* clear 0x4200 */
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  Sound — play_sound_ecstatica, find_footstep_sound
- * ══════════════════════════════════════════════════════════════ */
 
 /* move_find_footstep_sound_42FC84 — return sound index for hero_material. */
 int find_footstep_sound(void) {
@@ -2703,10 +2576,6 @@ void see_if_anything_hit(part_t *part) {
 
     for (actor_t *target = root_thing; target; target = target->next_in_display_list) {
         if (target == selected_thing && (target->flags & 0x2000)) {
-            DBG_LOG(1, "[HIT] hero 0x2000 set: bh=%d flags=0x%x act=%p aflags=0x%x\n",
-                    target->actor_behavior, target->flags,
-                    (void*)target->actor_act.act_action,
-                    target->actor_act.flags);
         }
         /* Skip self, holder, and ally actors */
         if (target == hitter_actor) continue;
@@ -2726,39 +2595,31 @@ void see_if_anything_hit(part_t *part) {
             part->joint_position.X - target->position_vector.X,
             part->joint_position.Z - target->position_vector.Z);
         if (distance >= target->actor_box_size) {
-            DBG_LOG(1, "[HIT] SKIP dist: h=%d t=%d d=%d box=%d\n",
-                    hitter_actor->name_index, target->name_index, distance, target->actor_box_size);
             continue;
         }
 
         /* Distance check: vertical */
         int16_t vert = part->joint_position.Y - target->position_vector.Y;
         if (vert <= -2560 || vert >= 512) {
-            DBG_LOG(1, "[HIT] SKIP vert: h=%d t=%d v=%d\n",
-                    hitter_actor->name_index, target->name_index, vert);
             continue;
         }
 
         /* Skip dying/dead actors */
         if (target->actor_behavior == BH_DYING || target->actor_behavior == BH_DEAD) {
-            DBG_LOG(1, "[HIT] SKIP dead: t=%d\n", target->name_index);
             continue;
         }
 
         /* Skip actors with CannotBeHit flag (0x2000) */
         if (target->flags & 0x2000) {
-            DBG_LOG(1, "[HIT] SKIP 0x2000: t=%d flags=0x%x\n", target->name_index, target->flags);
             continue;
         }
 
         /* Skip scene-linked actors */
         if (target->actor_scene) {
-            DBG_LOG(1, "[HIT] SKIP scene: t=%d\n", target->name_index);
             continue;
         }
 
         if (target->actor_act.act_action && (target->actor_act.flags & 0x80)) {
-            DBG_LOG(1, "[HIT] SKIP prot: t=%d aflags=0x%x\n", target->name_index, target->actor_act.flags);
             continue;
         }
 
@@ -2794,12 +2655,6 @@ void see_if_anything_hit(part_t *part) {
             effective_hitter = hitter_actor;  /* puzzle item: use item's code */
         else
             effective_hitter = holder ? holder : hitter_actor;
-
-        DBG_LOG(1, "[HIT] hitter=%d holder=%d effective=%d target=%d\n",
-                hitter_actor->name_index,
-                holder ? holder->name_index : -1,
-                effective_hitter->name_index,
-                target->name_index);
 
         /* Check if hitter has a hit-code script */
         if (effective_hitter->actor_hit_code >= 0) {
@@ -2878,9 +2733,6 @@ void see_if_anything_hit(part_t *part) {
         /* Execute target's hp-change code if present */
         if (target->code_at_hp_change >= 0) {
             code_t *code = code_tab[target->code_at_hp_change];
-            DBG_LOG(1, "[DEAD] check_hits hp_change: actor='%s' code_idx=%d code=%p hp=%d is_hero=%d\n",
-                    thing_names[target->name_index].field_0, target->code_at_hp_change,
-                    (void*)code, target->actor_hitpoints, target == selected_thing);
             if (code) {
                 execute_code(code, target);
             } else {
@@ -3590,8 +3442,6 @@ void check_pick_up(part_t *part, int16_t param) {
     target->part_heap_link = part;
 
     if (game_version == GAME_VERSION_E1) {
-        DBG_LOG(1, "[PICKUP] E1 pickup actor=%d param=%d hand_part=%p\n",
-                target->name_index, (int)param, (void *)part);
         if (param && param < CODE_TAB_SIZE && code_tab[param])
             execute_code_with_part(code_tab[param], target, part);
     } else {
@@ -3607,9 +3457,6 @@ void check_pick_up(part_t *part, int16_t param) {
         else if (f == 2) part->parent_actor->action_state = 5;
         else             DBG_LOG(1, "[PICKUP] WARN: action_state=%d (not 0/1/2) no transition (actor=%d)\n",
                                  (int)f, target ? target->name_index : -1);
-        DBG_LOG(1, "[PICKUP] action_state: %d → %d (actor=%d part=%p)\n",
-                (int)f, (int)part->parent_actor->action_state,
-                target ? target->name_index : -1, (void *)part);
         update_game_icons();
     }
 }
@@ -3656,10 +3503,6 @@ void check_put_down(part_t *part, int flags) {
         update_game_icons();
     }
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  Additional E2 functions
- * ══════════════════════════════════════════════════════════════ */
 
 /* move_add_act_to_act_list  E1: ? | E2: 0x42CF80 */
 void add_act_to_act_list(act_t *act, actor_t *actor) {

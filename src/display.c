@@ -23,7 +23,6 @@
 #include <string.h>
 #include <stdlib.h>
 
-/* ── Display / Resolution ── */
 int16_t screen_width = 640;
 int16_t screen_height = 480;
 int16_t hires_width = 640;
@@ -38,16 +37,13 @@ int32_t zoom_factor = 0;
 int32_t near_clip = 0;
 int16_t top_clip = 0;
 
-/* ── Bitmap planes and masks ── */
 char *bitmap[6] = {0};
 char *hires_bitmap[6] = {0};
 int16_t *mask_map[3] = {0};
 int16_t draw_mode[6] = {0};
 
-/* ── Double-buffering ── */
 int16_t db = 0;
 
-/* ── Text rendering ── */
 int16_t a_pen_colour = 15;
 int16_t b_pen_colour = 0;
 int16_t pen_position_x[6] = {0};
@@ -56,10 +52,8 @@ int16_t tx_w = 6;
 int16_t tx_h = 8;
 char character_set[256][48] = {{0}};
 
-/* ── Display mode ── */
 int16_t display_mode = 0;
 
-/* ── View / camera ── */
 matrix3x3_t view_matrix = {0};
 vector_t view_rot = {0};
 vector_t view_pos = {0};
@@ -67,7 +61,6 @@ camera_data_t camera[1200] = {{0}};
 camera_data_t *active_camera = NULL;
 int16_t cameras_viewed[150] = {0};
 
-/* ── Clear tab ── */
 subarea_t clear_tab[2][100] = {{{0}}};
 int16_t number_to_clear[2] = {0};
 
@@ -75,7 +68,6 @@ int16_t number_to_clear[2] = {0};
  * valid write target (writes discarded). */
 subarea_t null_area_to_clear = {0};
 
-/* ── Subtitle / overlay state ── */
 int32_t subtitles_time = 0;
 int16_t clear_subtitles = 0;
 subarea_t sub_area_to_clear[20] = {{0}};
@@ -85,7 +77,6 @@ int16_t subtitle_offset[20] = {0};
 int16_t subtitle_status[20] = {0};
 int16_t subtitle_colour[20] = {0};
 
-/* ── Graphics overlay ── */
 int16_t graphic_flag[GRAPHICS_MAX] = {0};
 char *graphic_data[GRAPHICS_MAX] = {0};
 int16_t graphic_x[GRAPHICS_MAX] = {0};
@@ -95,7 +86,6 @@ int16_t graphic_size_y[GRAPHICS_MAX] = {0};
 graphic_name_t graphic_name_arr[GRAPHICS_MAX] = {{0}};
 int16_t background_status = 0;
 
-/* ── Rendering / ellipsoid model ── */
 int32_t z_scale = 0;
 int16_t *depth_mask = NULL;
 char *shade_lut = NULL;
@@ -106,11 +96,9 @@ char *beam_tab1 = NULL;
 char *beam_tab2 = NULL;
 char *shadow_lut = NULL;
 
-/* ── FPS tracking ── */
 int16_t max_fps = 30;
 int16_t fps = 0;
 
-/* ── Misc display ── */
 bool making_background = false;
 /* Max detail: draw all triangles including detail LOD tiers (0x2/0x4).
  * The original sets this per-actor by distance in DrawDetail (0x47A6E8);
@@ -119,17 +107,12 @@ bool making_background = false;
 int16_t level_of_detail = 2;
 int16_t set_palette_flag = 0;
 
-/* ── Blocked parts list (deferred point-to-point IK) ── */
 part_t *blocked_parts_list[2] = {0};
 int db_bpl = 0;
 
 /* Alias shortened names to the actual global variable names in vars.h */
 #define HeldByPart actor_held_by_part
 #define HeldByActor actor_held_by_actor
-
-/* ══════════════════════════════════════════════════════════════
- *  Initialization & State Reset
- * ══════════════════════════════════════════════════════════════ */
 
 /* display_initialise_parts  E1: 0x41CFD0 | E2: 0x4209E0 */
 void initialise_parts(void) {
@@ -249,8 +232,6 @@ void initialise_actor(actor_t *actor) {
     actor->tactions_list = NULL;
     actor->time_actor = game_time - 10000;
     actor->actor_rep_index = actor->default_repert;
-    DBG_LOG(1, "[INIT] initialise_actor: actor=%d default_repert=%d rep_idx=%d\n",
-            actor->name_index, actor->default_repert, actor->actor_rep_index);
 
     for (part_t *p = actor->actor_parts_list; p; p = p->next_in_display_list)
         p->actor_2_held = NULL;
@@ -263,10 +244,6 @@ void initialise_actor(actor_t *actor) {
         execute_code(code_tab[actor->actor_init_code], actor);
     }
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  Actor Holding / Parenting
- * ══════════════════════════════════════════════════════════════ */
 
 /* display_hold_thing_with_part  E1: 0x41D458 | E2: 0x420E94 */
 void hold_thing_with_part(actor_t *actor, part_t *part) {
@@ -311,10 +288,6 @@ void hold_thing_with_part(actor_t *actor, part_t *part) {
         part->parent_actor->flags &= ~0x0400;
     }
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  Preparation Pipeline (per-frame)
- * ══════════════════════════════════════════════════════════════ */
 
 /* display_prepare_an_actor  E1: 0x41D5F0 | E2: 0x421044 */
 void prepare_an_actor(actor_t *actor) {
@@ -387,7 +360,6 @@ void prepare_parts(void) {
         action_t *act = sel ? sel->actor_act.act_action : NULL;
         if (sel && act && (act->action_flags & 2)) {
             if (sel->actor_scene) {
-                // DBG_LOG(1, "[PP] scene-cam path: scene=%d cam=%d\n",
                 //     sel->actor_scene->scene_index, sel->actor_scene->camera_index);
                 check_view(sel->actor_scene->camera_index);
             }
@@ -452,10 +424,6 @@ void prepare_parts(void) {
 
     number_to_clear[db] = 0;
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  Clearing
- * ══════════════════════════════════════════════════════════════ */
 
 /* display_clear_a_stuck_thing_421684 — Bug 55 pt.4: was strict `>` and
  * size w/o +1. Correct behavior: always assign area_to_clear = &bounding_box first,
@@ -532,10 +500,6 @@ void clear_parts(void) {
         }
     }
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  Drawing Pipeline
- * ══════════════════════════════════════════════════════════════ */
 
 /* display_draw_stuck_parts_421A14 — Bug 55: assign area_to_clear pointer.
  * Was leaving actor->area_to_clear NULL, so ellipse renderer read garbage
@@ -718,10 +682,6 @@ void show_parts(void) {
     game_up_and_running = 1;
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  Matrix & Vector Math (14-bit fixed-point: 0x4000 = 1.0)
- * ══════════════════════════════════════════════════════════════ */
-
 /* display_make_identity  E1: 0x41E720 | E2: 0x422300 */
 void make_identity(matrix3x3_t *mtx) {
     memset(mtx, 0, sizeof(matrix3x3_t));
@@ -789,11 +749,6 @@ void matrix_inverse(matrix3x3_t *out, matrix3x3_t *in) {
     out->_11 = in->_11; out->_12 = in->_21; out->_13 = in->_31;
     out->_21 = in->_12; out->_22 = in->_22; out->_23 = in->_32;
     out->_31 = in->_13; out->_32 = in->_23; out->_33 = in->_33;
-}
-
-/* display_transpose_matrix  E1: 0x41F37C | E2: 0x422F5C */
-void transpose_matrix(matrix3x3_t *out, matrix3x3_t *in) {
-    matrix_inverse(out, in);
 }
 
 /* display_rotate_vector_about_x  E1: 0x41EA64 | E2: 0x422644 */
@@ -931,10 +886,6 @@ void sub_vector(vector_t *out, vector_t *a, vector_t *b) {
     out->Z = a->Z - b->Z;
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  View Transform Pipeline
- * ══════════════════════════════════════════════════════════════ */
-
 /* display_calculate_view_matrices_422ABC.
  * asm non-editor path: identity, then post-mult Rx(view_rot.X), then
  * post-mult Ry(view_rot.Y). Z component of view_rot is NEVER applied
@@ -1011,11 +962,6 @@ void perspective_transform(vector_t *point) {
     point->Z = 0;
 }
 
-/* display_x_view_transform  E1: 0x41F518 | E2: 0x4230F8 */
-void x_view_transform(vector_t *out, vector_t *world_pos) {
-    view_transform(out, world_pos);
-}
-
 /* display_xx_long_view_transform  E1: 0x41F6B0 | E2: 0x423290 */
 void xx_long_view_transform(long_vector_t *out, vector_t *world_pos) {
     vector_t rel;
@@ -1071,10 +1017,6 @@ void print_matrix(matrix3x3_t *mtx) {
 void print_vector(vector_t *vec) {
     (void)vec; /* Debug only */
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  Skeletal Position Solving
- * ══════════════════════════════════════════════════════════════ */
 
 /* display_find_position_of_extremity  E1: 0x41FA64 | E2: 0x423644 */
 void find_position_of_extremity(part_t *part) {
@@ -1684,10 +1626,6 @@ void find_view_positions(actor_t *actor) {
     }
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  Part Rendering
- * ══════════════════════════════════════════════════════════════ */
-
 /* display_put_parts_select  E1: 0x4210AC | E2: 0x424C8C */
 void put_parts_select(actor_t *actor) {
     if (!actor) return;
@@ -2085,7 +2023,3 @@ void xxx_stick_to_background(actor_t *actor) {
     actor->bounding_box.right = actor->bounding_box.bottom;
 }
 
-/* display_c_matrix_mult  E1: ? | E2: 0x425CE0 */
-void c_matrix_mult_display(matrix3x3_t *out, matrix3x3_t *a, matrix3x3_t *b) {
-    matrix_mult(out, a, b);
-}

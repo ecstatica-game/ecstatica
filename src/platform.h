@@ -14,7 +14,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-/* ── Key codes (matching common scancodes) ── */
 enum {
     PKEY_ESCAPE = 0x01,
     PKEY_RETURN = 0x1C,
@@ -65,14 +64,12 @@ enum {
     PKEY_LCMD   = 0x5B,  /* macOS Command key */
 };
 
-/* ── mouse button flags ── */
 enum {
     PMOUSE_LEFT   = (1 << 0),
     PMOUSE_RIGHT  = (1 << 1),
     PMOUSE_MIDDLE = (1 << 2),
 };
 
-/* ── Platform state (opaque internals held by platform implementation) ── */
 typedef struct platform_t platform_t;
 
 /**

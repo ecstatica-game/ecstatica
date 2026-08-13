@@ -45,8 +45,6 @@ static void inject_debug_palette(void) {
     view_cmap[ZONE_COL_QUAD].R   = 30; view_cmap[ZONE_COL_QUAD].G   = 50; view_cmap[ZONE_COL_QUAD].B   = 63;
 }
 
-/* ── Low-level draw helpers ── */
-
 static void draw_pixel(int x, int y, uint8_t color) {
     if (x < 0 || x >= screen_width || y < 0 || y >= screen_height) return;
     bitmap[db][y * hires_width + x] = (char)color;
@@ -105,7 +103,6 @@ static void overlay_text_at(int sx, int sy, const char *str) {
     pen_position_y[db] = saved_py;
 }
 
-/* ── Feature 1+2: player HUD ── */
 static void draw_player_hud(void) {
     if (!selected_thing) return;
     char buf[80];
@@ -135,7 +132,6 @@ static void draw_player_hud(void) {
     }
 }
 
-/* ── Feature 3: active scene flags ── */
 static void draw_active_scene_flags(void) {
     int x = 4, y = 4 + (tx_h + 1) * 2 + tx_h + 2;
     int count = 0;
@@ -151,7 +147,6 @@ static void draw_active_scene_flags(void) {
     }
 }
 
-/* ── Feature 4: actor labels at world positions ── */
 static void draw_actor_labels(void) {
     for (actor_t *a = root_thing; a; a = a->next_in_display_list) {
         if (!a->name_index || a->name_index >= THING_TAB_SIZE) continue;
@@ -167,8 +162,6 @@ static void draw_actor_labels(void) {
         overlay_text_at(sx - lw / 2, sy, buf);
     }
 }
-
-/* ── Feature 5: trigger zone outlines ── */
 
 /* Draw a projected quad outline (4 world corners → screen lines). */
 static void draw_cell_outline(int gx, int gz, int16_t gy, uint8_t color) {
@@ -231,8 +224,6 @@ static void draw_trigger_zones(void) {
         }
     }
 }
-
-/* ── Feature 6: terrain block_config visualization ── */
 
 static int cell_has_block_token(int map_elem_idx) {
     int16_t code_idx = map_elements[map_elem_idx].code_index_p1 & 0x3FFF;

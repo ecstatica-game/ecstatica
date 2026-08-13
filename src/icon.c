@@ -10,7 +10,6 @@
 #include "icon.h"
 #include "display.h"
 
-/* ── Rate/Vector box positions ── */
 int16_t rate_box_left = 10;
 int16_t rate_box_top = 20;
 int16_t vector_box_left = 242;

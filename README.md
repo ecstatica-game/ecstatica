@@ -110,7 +110,7 @@ Game data is not committed. Place original game files under `data/`:
 
 ## Debug
 
-* `DBG_LOG(level, ...)` — `1` = important, `2` = verbose
+* `DBG_LOG(level, ...)` — `1` = errors/warnings only, `2` = verbose tracing
 * `debug_verbose` global toggles level
 * Log file: `ecstatica_debug.log`
 * Compile flags: `SKIP_START_LOGO`, `SKIP_DRAW_TRIANGLE`, `APP_ALWAYS_ACTIVE`

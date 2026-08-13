@@ -23,10 +23,8 @@
 #include <stdio.h>
 #include <math.h>
 
-/* ── Profile heights ── */
 profile_height_t profile_height = {0};
 
-/* ── Topo / terrain globals ── */
 int16_t topography = 0;
 int16_t editor_mode = 0;
 int16_t script_mode = 0;
@@ -55,10 +53,6 @@ int16_t reverse_char_word_val(int16_t val) {
     return (int16_t)((v >> 8) | (v << 8));
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  profile Heights
- * ══════════════════════════════════════════════════════════════ */
-
 /* topo_init_profile_heights  E1: 0x43E2F8 | E2: 0x448628 */
 void init_profile_heights(void) {
     profile_height.field_0 = 0;
@@ -70,10 +64,6 @@ void init_profile_heights(void) {
     profile_height.field_E = 0;
     profile_height.field_C = -256;
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  Map Element Queries
- * ══════════════════════════════════════════════════════════════ */
 
 /* topo_find_map_element_448744
  * Returns index of best matching map element at given (x,z) position,
@@ -197,10 +187,6 @@ signed int find_map_element_vis(vector_t *position) {
     return result_idx;
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  Height Queries
- * ══════════════════════════════════════════════════════════════ */
-
 /* topo_find_height_now  E1: 0x43E644 | E2: 0x44898C */
 int16_t find_height_now(vector_t *position, actor_t *actor) {
     return find_height_now_material(position, actor, 0);
@@ -279,10 +265,6 @@ int16_t find_height_now_vis(vector_t *position) {
         return 0x7FFF;
     return (int16_t)((0x80 - (uint8_t)map_elements[map_elem_idx].height) << height_shift);
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  Position Update with Collision
- * ══════════════════════════════════════════════════════════════ */
 
 /* topo_update_position_448C1C
  * Recursively halves large increments to ensure collision precision.
@@ -521,10 +503,6 @@ apply_movement:
     }
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  Velocity / Gravity
- * ══════════════════════════════════════════════════════════════ */
-
 /* topo_update_velocity  E1: ? | E2: 0x449530 */
 void update_velocity(actor_t *actor) {
     int grounded = 0;
@@ -628,10 +606,6 @@ check_landing:
     }
     return landed;
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  Background Loading
- * ══════════════════════════════════════════════════════════════ */
 
 /* topo_flush_backgrounds  E1: 0x43F41C | E2: 0x449A80 */
 void flush_backgrounds(void) {
@@ -759,10 +733,6 @@ void save_screen_shot(void) {
     dd_unlock(db, fb);
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  Palette Loading
- * ══════════════════════════════════════════════════════════════ */
-
 /* topo_load_palette  E1: ? | E2: 0x44AD28 */
 void load_palette(const char *filename) {
     if (!load_by_offset || intro_flag) {
@@ -833,10 +803,6 @@ void load_palette(const char *filename) {
     }
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  Visibility Map
- * ══════════════════════════════════════════════════════════════ */
-
 /* topo_load_visibility_map  E1: 0x440674 | E2: 0x44AFFC */
 void load_visibility_map(void) {
     map_area_element_t *work_map_elem;
@@ -863,7 +829,6 @@ void load_visibility_map(void) {
         char vis_path[64];
         snprintf(vis_path, sizeof(vis_path), "VISIB/%04d.VIS", selected_camera);
         vis_fp = fopen(vis_path, "rb");
-        DBG_LOG(1, "[VIS] E1 load cam=%d path=%s fp=%p\n", selected_camera, vis_path, (void*)vis_fp);
         if (!vis_fp) return;
 
         char signature[4];
@@ -934,14 +899,6 @@ void load_visibility_map(void) {
             map_elem_idx++;
         }
     }
-}
-
-/* topo_show_topography_4497D8 — E2: 0x4497D8 */
-void show_topography(void) {
-}
-
-/* topo_make_mask_map_447F40 — E2: 0x447F40 (also PaintWord) */
-void make_mask_map(void) {
 }
 
 /* topo_swap_xy_447F44 — E2: 0x447F44 */
