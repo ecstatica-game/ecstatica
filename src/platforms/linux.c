@@ -10,6 +10,10 @@
 #include <time.h>
 #include <pthread.h>
 #include <alsa/asoundlib.h>
+#include <linux/joystick.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <errno.h>
 #include "platform.h"
 
 #define MAX_KEYS 256
@@ -37,6 +41,10 @@ struct platform_t {
     XImage  *ximage;
     Atom     wm_delete;
     int      screen;
+
+    int      js_fd;
+    int16_t  js_axes[8];
+    uint8_t  js_buttons[16];
 };
 
 static int x11_keysym_to_pkey(KeySym ks) {
@@ -168,6 +176,9 @@ platform_t *platform_init(const char *title, int fb_width, int fb_height, int sc
 
     /* Disable X11 key auto-repeat detection */
     XkbSetDetectableAutoRepeat(p->display, True, NULL);
+
+    /* Try to open first joystick device */
+    p->js_fd = open("/dev/input/js0", O_RDONLY | O_NONBLOCK);
 
     return p;
 }
@@ -430,6 +441,7 @@ void platform_shutdown(platform_t *p) {
     if (p->display) {
         XCloseDisplay(p->display);
     }
+    if (p->js_fd >= 0) close(p->js_fd);
     if (p->rgba_buffer) {
         free(p->rgba_buffer);
         p->rgba_buffer = NULL;
@@ -443,9 +455,68 @@ void platform_set_title(platform_t *p, const char *title) {
     XFlush(p->display);
 }
 
-/* ================================================================
- *  Audio backend -- ALSA + software mixer in a pthread
- * ================================================================ */
+/* Gamepad — Linux joystick API (/dev/input/js0) */
+
+void platform_gamepad_poll(platform_t *p, platform_gamepad_state_t *state) {
+    memset(state, 0, sizeof(*state));
+    if (!p) return;
+
+    /* Try to reopen if not connected */
+    if (p->js_fd < 0) {
+        p->js_fd = open("/dev/input/js0", O_RDONLY | O_NONBLOCK);
+        if (p->js_fd < 0) return;
+        memset(p->js_axes, 0, sizeof(p->js_axes));
+        memset(p->js_buttons, 0, sizeof(p->js_buttons));
+    }
+
+    /* Drain pending events */
+    struct js_event ev;
+    while (read(p->js_fd, &ev, sizeof(ev)) == sizeof(ev)) {
+        ev.type &= ~JS_EVENT_INIT;
+        if (ev.type == JS_EVENT_BUTTON && ev.number < 16)
+            p->js_buttons[ev.number] = ev.value;
+        else if (ev.type == JS_EVENT_AXIS && ev.number < 8)
+            p->js_axes[ev.number] = ev.value;
+    }
+    if (errno == ENODEV) {
+        close(p->js_fd);
+        p->js_fd = -1;
+        return;
+    }
+
+    state->connected = true;
+
+    /* Standard gamepad axis mapping (SDL convention):
+     * 0=LX, 1=LY, 2=LT, 3=RX, 4=RY, 5=RT, 6=DX, 7=DY */
+    state->left_x  = p->js_axes[0];
+    state->left_y  = (int16_t)(-p->js_axes[1]);
+    state->right_x = p->js_axes[3];
+    state->right_y = (int16_t)(-p->js_axes[4]);
+
+    state->dpad_left  = p->js_axes[6] < -16000;
+    state->dpad_right = p->js_axes[6] > 16000;
+    state->dpad_up    = p->js_axes[7] < -16000;
+    state->dpad_down  = p->js_axes[7] > 16000;
+
+    state->btn_lt = p->js_axes[2] > 0;
+    state->btn_rt = p->js_axes[5] > 0;
+
+    /* Standard button mapping (Xbox layout):
+     * 0=A, 1=B, 2=X, 3=Y, 4=LB, 5=RB, 6=Select, 7=Start,
+     * 8=Logo, 9=LStick, 10=RStick */
+    state->btn_south  = p->js_buttons[0];
+    state->btn_east   = p->js_buttons[1];
+    state->btn_west   = p->js_buttons[2];
+    state->btn_north  = p->js_buttons[3];
+    state->btn_lb     = p->js_buttons[4];
+    state->btn_rb     = p->js_buttons[5];
+    state->btn_select = p->js_buttons[6];
+    state->btn_start  = p->js_buttons[7];
+    state->btn_lstick = p->js_buttons[9];
+    state->btn_rstick = p->js_buttons[10];
+}
+
+/* Audio backend -- ALSA + software mixer in a pthread */
 
 #define AUDIO_MAX_VOICES 16
 #define AUDIO_OUT_RATE   44100

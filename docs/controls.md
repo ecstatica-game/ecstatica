@@ -163,3 +163,56 @@
 | Mouse movement | Menu cursor |
 | Left click | Select / confirm (menus) |
 | Right click | Context action (menus) |
+
+---
+
+## Gamepad (Steam Deck / Xbox / PlayStation / Generic)
+
+Supported on all platforms: macOS (GameController.framework), Linux (evdev/joystick), Windows (XInput).
+Auto-detected — no configuration needed. Gamepad and keyboard can be used simultaneously.
+
+### Movement
+
+| Button | Action |
+|--------|--------|
+| Left Stick / D-pad | Walk (8-direction) |
+| Left Stick Click | Cycle speed mode (sneak → walk → run) |
+
+### Actions
+
+| Button | Keyboard Equivalent | Action |
+|--------|---------------------|--------|
+| A / Cross (south) | Space | Pick up / interact |
+| B / Circle (east) | Escape | Cancel / back |
+| X / Square (west) | Left Alt | Use item / flip / roll / magic |
+| Y / Triangle (north) | Enter | Open inventory |
+| LB / L1 | Left Shift | Jump |
+| RB / R1 | Left Ctrl | Run modifier / attack modifier |
+| LT / L2 | Left Alt | Magic/special modifier (E2) |
+| RT / R2 | Left Ctrl | Attack modifier (alternative) |
+| Start | Escape | Pause menu |
+| Select / Back | I | Toggle HUD icons |
+
+### Combat (E1)
+
+| Input | Action |
+|-------|--------|
+| Right Stick Left | Left swing / upper cut (Numpad 7 / Q) |
+| Right Stick Right | Straight punch / right swing (Numpad 9 / E) |
+| RB/RT + Left Stick | Directional attacks (Ctrl + direction) |
+
+### Combat (E2)
+
+| Input | Action |
+|-------|--------|
+| RB/RT + Left Stick | Directional attacks (Ctrl + direction) |
+| X or LT + Left Stick | Magic/special (Alt + direction) |
+| RB/RT + X/LT + Left Stick | Aimed attacks (Ctrl + Alt + direction) |
+
+### Item Handling (E1)
+
+| Input | Action |
+|-------|--------|
+| Right Stick Down | Left hand pick up / drop (Numpad 1 / Z) |
+| Right Stick Up | Right hand pick up / drop (Numpad 3 / C) |
+| A / Cross | Auto pick up (Space — right hand first) |

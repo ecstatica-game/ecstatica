@@ -25,6 +25,7 @@ The goal is a single native executable that runs both games on modern systems (m
 
 * Build system: CMake + Makefile wrapper
 * Platforms: macOS (Cocoa/NSView framebuffer) working; Linux + Windows scaffolded, untested
+* Input: keyboard + mouse + gamepad (Steam Deck, Xbox, PlayStation, generic HID)
 * Renderer: 8-bit indexed palette framebuffer, palette expansion + scale in `platform_blit`
 * Modules ported: init, display, ellipse, tri, asm_f (fixed-point + rasterizers), edit, move, map, topo, anim, file (.FAN I/O), music, menu, req, icon, chars, win, game
 * Fixed-point math: 14-bit fraction (`FIXED_POINT_SHIFT`)

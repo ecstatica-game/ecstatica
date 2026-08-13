@@ -172,6 +172,100 @@ void window_proc(void) {
     mouse_y = my;
     if (mb & 1) mouse = 2;  /* left down */
     if (mb & 2) mouse = 8;  /* right down */
+
+    /* Gamepad — OR into existing key globals.
+     *
+     * Mapping (matches controls.md):
+     *   Left stick / D-pad    → movement (up/down/left/right + diagonals)
+     *   A / Cross  (south)    → Space: pick up / interact
+     *   B / Circle (east)     → Escape: menu / back
+     *   X / Square (west)     → Left Alt: use item / flip / roll / magic
+     *   Y / Triangle (north)  → Enter: inventory
+     *   LB / L1               → Left Shift: jump
+     *   RB / R1               → Left Ctrl: run / attack modifier
+     *   LT / L2               → Left Alt: magic/special modifier (E2)
+     *   RT / R2               → Left Ctrl: attack modifier (alternative)
+     *   Start                 → Escape: pause menu
+     *   Select / Back         → I: toggle HUD icons
+     *   Left stick click      → speed mode cycle (1→2→3)
+     */
+    platform_gamepad_state_t gp;
+    platform_gamepad_poll(g_platform, &gp);
+
+    if (gp.connected) {
+        int dz = GAMEPAD_STICK_DEADZONE;
+        bool gp_up    = gp.dpad_up    || gp.left_y >  dz;
+        bool gp_down  = gp.dpad_down  || gp.left_y < -dz;
+        bool gp_left  = gp.dpad_left  || gp.left_x < -dz;
+        bool gp_right = gp.dpad_right || gp.left_x >  dz;
+
+        /* Movement directions (same logic as keyboard arrows) */
+        key8_pressed |= gp_up    && !gp_left && !gp_right;
+        key2_pressed |= gp_down  && !gp_left && !gp_right;
+        key4_pressed |= gp_left  && !gp_up   && !gp_down;
+        key6_pressed |= gp_right && !gp_up   && !gp_down;
+        key7_pressed |= gp_up    && gp_left;
+        key9_pressed |= gp_up    && gp_right;
+        key1_pressed |= gp_down  && gp_left;
+        key3_pressed |= gp_down  && gp_right;
+
+        /* BH_JOYSTICK movement scancodes */
+        extra_keys_pressed[72] |= gp_up;
+        extra_keys_pressed[80] |= gp_down;
+        extra_keys_pressed[75] |= gp_left;
+        extra_keys_pressed[77] |= gp_right;
+
+        /* A → Space (interact / pick up) */
+        space_pressed |= gp.btn_south;
+        if (gp.btn_south) space_was_pressed = true;
+        extra_keys_pressed[57] |= gp.btn_south;
+
+        /* B / Start → Escape (menu) */
+        if (gp.btn_east || gp.btn_start) key_esc_was_pressed = true;
+
+        /* X / LT → Left Alt (use item / magic) */
+        alt_pressed |= gp.btn_west || gp.btn_lt;
+        extra_keys_pressed[56] |= gp.btn_west || gp.btn_lt;
+
+        /* Y → Enter (inventory) */
+        enter_pressed |= gp.btn_north;
+        if (gp.btn_north) {
+            enter_was_pressed = true;
+            key_return_was_pressed = true;
+        }
+
+        /* LB → Left Shift (jump) */
+        keys_pressed[42] |= gp.btn_lb;
+
+        /* RB / RT → Left Ctrl (run / attack modifier) */
+        ctrl_pressed |= gp.btn_rb || gp.btn_rt;
+
+        /* Select → I (toggle HUD) */
+        if (gp.btn_select) key_i_was_pressed = true;
+
+        /* E1 combat: Q/E mapped to numpad7/numpad9.
+         * Right stick horizontal maps to combat swings. */
+        int rs_dz = GAMEPAD_STICK_DEADZONE;
+        extra_keys_pressed[71] |= gp.right_x < -rs_dz;  /* Q / Num7 left swing */
+        extra_keys_pressed[73] |= gp.right_x >  rs_dz;   /* E / Num9 right swing */
+
+        /* E1 item handling: Z/C mapped to numpad1/numpad3.
+         * Right stick vertical maps to hand pick/drop. */
+        extra_keys_pressed[79] |= gp.right_y < -rs_dz;   /* Z / Num1 left hand */
+        extra_keys_pressed[81] |= gp.right_y >  rs_dz;    /* C / Num3 right hand */
+
+        /* Left stick click: cycle speed mode (sneak → walk → run) */
+        static bool lstick_was_pressed = false;
+        if (gp.btn_lstick && !lstick_was_pressed) {
+            if (movement_speed_mode <= 3)
+                extra_keys_were_pressed[0x74] = 1;      /* F5: walk */
+            else if (movement_speed_mode <= 7)
+                extra_keys_were_pressed[0x78] = 1;      /* F9: run */
+            else
+                extra_keys_were_pressed[0x70] = 1;      /* F1: sneak */
+        }
+        lstick_was_pressed = gp.btn_lstick;
+    }
 }
 
 /* win_do_init_458714

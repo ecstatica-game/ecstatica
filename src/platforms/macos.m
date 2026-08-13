@@ -445,9 +445,56 @@ void platform_set_title(platform_t *p, const char *title) {
     }
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  Audio backend — AudioUnit output + software mixer
- * ══════════════════════════════════════════════════════════════ */
+/* Gamepad — GameController.framework */
+#import <GameController/GameController.h>
+
+void platform_gamepad_poll(platform_t *p, platform_gamepad_state_t *state) {
+    memset(state, 0, sizeof(*state));
+    if (!p) return;
+
+    NSArray<GCController *> *controllers = [GCController controllers];
+    if (controllers.count == 0) return;
+
+    GCController *gc = controllers[0];
+    GCExtendedGamepad *gp = gc.extendedGamepad;
+    if (!gp) return;
+
+    state->connected = true;
+
+    GCControllerDirectionPad *dp = gp.dpad;
+    state->dpad_up    = dp.up.isPressed;
+    state->dpad_down  = dp.down.isPressed;
+    state->dpad_left  = dp.left.isPressed;
+    state->dpad_right = dp.right.isPressed;
+
+    GCControllerDirectionPad *ls = gp.leftThumbstick;
+    state->left_x = (int16_t)(ls.xAxis.value * 32767);
+    state->left_y = (int16_t)(ls.yAxis.value * 32767);
+
+    GCControllerDirectionPad *rs = gp.rightThumbstick;
+    state->right_x = (int16_t)(rs.xAxis.value * 32767);
+    state->right_y = (int16_t)(rs.yAxis.value * 32767);
+
+    state->btn_south = gp.buttonA.isPressed;
+    state->btn_east  = gp.buttonB.isPressed;
+    state->btn_west  = gp.buttonX.isPressed;
+    state->btn_north = gp.buttonY.isPressed;
+
+    state->btn_lb = gp.leftShoulder.isPressed;
+    state->btn_rb = gp.rightShoulder.isPressed;
+    state->btn_lt = gp.leftTrigger.value > 0.3f;
+    state->btn_rt = gp.rightTrigger.value > 0.3f;
+
+    state->btn_start  = gp.buttonMenu.isPressed;
+    if (@available(macOS 10.15, *))
+        state->btn_select = gp.buttonOptions.isPressed;
+    if (@available(macOS 12.1, *)) {
+        state->btn_lstick = gp.leftThumbstickButton.isPressed;
+        state->btn_rstick = gp.rightThumbstickButton.isPressed;
+    }
+}
+
+/* Audio backend — AudioUnit output + software mixer */
 
 #import <AudioUnit/AudioUnit.h>
 #import <AudioToolbox/AudioToolbox.h>
