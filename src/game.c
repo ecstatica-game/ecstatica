@@ -2661,7 +2661,6 @@ void clear_graphics(void) {
  * (calls draw_weapon_magic) are E2 HUD overlays. */
 void draw_graphics(void) {
     for (int i = 0; i < GRAPHICS_MAX; ++i) {
-        if (graphic_name_arr[i].field_0[0] && graphic_flag[i] == 2)
         if (graphic_name_arr[i].field_0[0] &&
                 graphic_flag[i] == 2 &&
                 graphic_data[i]) {
