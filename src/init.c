@@ -26,7 +26,6 @@
 #include "compat.h"
 #include <math.h>
 
-/* ── Input ── */
 char keys_pressed[256] = {0};
 char keys_were_pressed[256] = {0};
 char extra_keys_pressed[256] = {0};
@@ -51,13 +50,11 @@ bool joystick_control = true;   /* defaults to 1 */
 int16_t joy_button = 0;
 int16_t movement_speed_mode = 4;  /* default: walk speed 1 (F5) */
 
-/* ── Mouse cursor ── */
 int16_t mcursor_x = 0;
 int16_t mcursor_y = 0;
 bool mouse_pointer_on = false;
 char mouse_buffer[2][8][8] = {{{0}}};
 
-/* ── Math tables ── */
 int16_t sine_table[65536] = {0};
 int16_t cosn_table[65536] = {0};
 int16_t arcsin_tab[32768] = {0};
@@ -69,25 +66,17 @@ char shadow_tab[3][16][256] = {{{0}}};
 char shade_map[128][128] = {{0}};
 int16_t profile[128][128] = {{0}};
 
-/* ── Material flags ── */
 int16_t material_flags[30] = {0};
 
-/* ── Event type flags and priorities ── */
 int16_t event_type_flags[80] = {0};
 int16_t event_priority[80] = {0};
 
-/* ── Color maps ── */
 palette_entry_t view_cmap[256] = {{0}};
 palette_entry_t colour_map[256] = {{0}};
 palette_entry_t all_black_cmap[256] = {{0}};
 palette_entry_t spare_cmap[256] = {{0}};
 palette_entry_t fade_cmap[256] = {{0}};
 palette_entry_t edit_map_cmap[256] = {{0}};
-
-
-/* ══════════════════════════════════════════════════════════════
- *  setup & Main Initialization
- * ══════════════════════════════════════════════════════════════ */
 
 /* init_setup  E1: 0x41007C | E2: 0x41007C */
 void setup(void) {
@@ -270,10 +259,6 @@ void setup_directory_paths(void) {
 /* init_thing_name  E1: 0x410A0C | E2: 0x410A08 */
 /* Helper — not externally visible */
 
-/* ══════════════════════════════════════════════════════════════
- *  Sound Functions
- * ══════════════════════════════════════════════════════════════ */
-
 /* init_stop_samples_413E88 — stop all playing sound buffers */
 void stop_samples(void) {
     platform_audio_stop_all();
@@ -361,8 +346,6 @@ try_per_file:
             fclose(f);
         }
     }
-    DBG_LOG(1, "[TUNE] loaded idx=%d drv=%d len=%d\n",
-            sound_idx, sound_driver, tune_buffer_length);
 }
 
 /* init_select_sound_card_win95  E1: 0x412EA8 | E2: 0x416410 */
@@ -375,10 +358,6 @@ void select_sound_card(void) {
     /* Stub */
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  Display Timing
- * ══════════════════════════════════════════════════════════════ */
-
 /* init_wait_vert_blank  E1: 0x411844 | E2: 0x414664 */
 void wait_vert_blank(void) {
     /* No-op on modern platforms — vsync handled by platform layer */
@@ -388,10 +367,6 @@ void wait_vert_blank(void) {
 void select_video_page(void) {
     db = 1 - db;  /* Toggle double-buffer index */
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  bitmap / Screen setup
- * ══════════════════════════════════════════════════════════════ */
 
 /* init_set_up_bitmaps  E1: 0x411990 | E2: 0x4147B0 */
 void set_up_bitmaps(void) {
@@ -519,10 +494,6 @@ void load_motion_file(void) {
     /* No-op: editor-only function, never called at runtime */
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  Quit / Shutdown
- * ══════════════════════════════════════════════════════════════ */
-
 /* init_quit2  E1: 0x412028 | E2: 0x414E30 */
 void quit2(const char *msg1, const char *msg2) {
     printf("%s\n%s\n", msg1, msg2);
@@ -549,10 +520,6 @@ void quit(const char *info) {
 
     exit(0);
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  Math Table Initialization
- * ══════════════════════════════════════════════════════════════ */
 
 /* init_fill_in_sin_tables  E1: 0x41210C | E2: 0x414F14 */
 void fill_in_sin_tables(void) {
@@ -671,10 +638,6 @@ int load_hires_path(void) {
     return 0;  /* Stub */
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  Wait / Timing
- * ══════════════════════════════════════════════════════════════ */
-
 /* init_wait_for_interrupt  E1: 0x41262C | E2: 0x415CF4 */
 /* No-op on modern platforms */
 
@@ -694,10 +657,6 @@ int32_t my_time(void) {
     return (int32_t)(platform_ticks(NULL) * 70 / 1000);
 #endif
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  Input
- * ══════════════════════════════════════════════════════════════ */
 
 /* init_add_keyboard_handler  E1: 0x4184D4 | E2: 0x41BA4C */
 void add_keyboard_handler(void) {
@@ -738,8 +697,6 @@ void get_joystick(void) {
             key_f_code_idx[0] = find_code_name_index("Key_F1_4");
             key_f_code_idx[1] = find_code_name_index("Key_F5_8");
             key_f_code_idx[2] = find_code_name_index("Key_F9_12");
-            DBG_LOG(1, "[INIT] Key_F code indices: F1_4=%d F5_8=%d F9_12=%d\n",
-                    key_f_code_idx[0], key_f_code_idx[1], key_f_code_idx[2]);
         }
 
         for (int g = 0; g < 3; g++) {
@@ -753,13 +710,9 @@ void get_joystick(void) {
             if (pressed && selected_thing) {
                 int16_t ci = key_f_code_idx[g];
                 if (ci >= 0 && code_tab[ci]) {
-                    DBG_LOG(1, "[MOVE] F-key group %d → executing code '%s' (idx=%d)\n",
-                            g, file_find_code_name(ci), ci);
                     execute_thing_code(selected_thing, ci);
                 } else {
                     movement_speed_mode = (int16_t)(g * 4);
-                    DBG_LOG(1, "[MOVE] F-key group %d → no script code, fallback speed_mode=%d\n",
-                            g, movement_speed_mode);
                 }
             }
         }
@@ -836,10 +789,6 @@ void clear_keys_pressed(void) {
     key_i_was_pressed = false;
     key_return_was_pressed = false;
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  Pointer Table / Flags init
- * ══════════════════════════════════════════════════════════════ */
 
 /* init_clear_ptr_tabs  E1: 0x413564 | E2: 0x416ACC */
 void clear_ptr_tabs(void) {
@@ -982,10 +931,6 @@ void init_event_type_flags(void) {
     event_priority[INTERACT] = 1;
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  Binary I/O Helpers
- * ══════════════════════════════════════════════════════════════ */
-
 /* init_getw_4171B8 — read 16-bit big-endian */
 int16_t getw_be(FILE *f) {
     unsigned char buf[2];
@@ -1012,10 +957,6 @@ int16_t getwLoHi(FILE *f) {
     if (fread(buf, 1, 2, f) != 2) return 0;
     return (int16_t)((buf[1] << 8) | buf[0]);
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  Blit / Drawing Primitives
- * ══════════════════════════════════════════════════════════════ */
 
 /* init_old_clip_blit  E1: 0x413EB8 | E2: 0x417430 */
 void old_clip_blit(int src_plane, int src_x, int src_y, int dst_plane,
@@ -1104,10 +1045,6 @@ void clear_background_win95(int plane, int x, int y, int sx, int sy) {
     }
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  Mask Operations
- * ══════════════════════════════════════════════════════════════ */
-
 /* init_clip_mask  E1: 0x4150E8 | E2: 0x418660 */
 void clip_mask(int src, int dst, int x, int y, int sx, int sy) {
     if (!mask_map[src] || !mask_map[dst]) return;
@@ -1119,15 +1056,6 @@ void clip_mask(int src, int dst, int x, int y, int sx, int sy) {
         memcpy(mask_map[dst] + off, mask_map[src] + off, sx * sizeof(int16_t));
     }
 }
-
-/* init_clip_mask2  E1: 0x415154 | E2: 0x4186CC */
-void clip_mask2(int src, int dst, int x, int y, int sx, int sy) {
-    clip_mask(src, dst, x, y, sx, sy);
-}
-
-/* ══════════════════════════════════════════════════════════════
- *  text Rendering
- * ══════════════════════════════════════════════════════════════ */
 
 /* init_convert_ascii  E1: 0x415CF8 | E2: 0x419270 */
 int convert_ascii(int ascii_code) {
@@ -1231,20 +1159,6 @@ void text_with_mask_win95(int plane, const char *str, int length) {
     }
 }
 
-/* init_text_win95  E1: 0x41653C | E2: 0x419AB4 */
-void text_win95(int plane, const char *str, int length) {
-    text(plane, str, length);
-}
-
-/* init_do_text_with_mask_win95_japan  E1: 0x416550 | E2: 0x419AC8 */
-void do_text_with_mask_win95_japan(int plane, const char *str, int length) {
-    text_with_mask(plane, str, length);
-}
-
-/* ══════════════════════════════════════════════════════════════
- *  Rectangle Fill
- * ══════════════════════════════════════════════════════════════ */
-
 /* init_rect_fill  E1: 0x4175A8 | E2: 0x41AB20 */
 void rect_fill(int plane, int x, int y, int w, int h) {
     rect_fill_win95(plane, x, y, w, h);
@@ -1265,10 +1179,6 @@ void rect_fill_win95(int plane, int x, int y, int w, int h) {
     }
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  Palette
- * ══════════════════════════════════════════════════════════════ */
-
 /* init_set_palette  E1: 0x4179E4 | E2: 0x41AF5C */
 void set_palette(palette_entry_t *new_palette) {
     /* Copy to view_cmap and update platform palette */
@@ -1276,10 +1186,6 @@ void set_palette(palette_entry_t *new_palette) {
 
     /* Platform layer handles the actual palette application via platform_blit */
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  Line Drawing
- * ══════════════════════════════════════════════════════════════ */
 
 /* init_move  E1: 0x417AD4 | E2: 0x41B04C */
 void move_pen(int indx, int16_t x, int16_t y) {
@@ -1320,20 +1226,6 @@ void draw_win95(int plane, int x, int y) {
     pen_position_y[plane] = (int16_t)y;
 }
 
-/* init_old_draw  E1: 0x417AE8 | E2: 0x41B060 */
-void old_draw(int plane, int x, int y) {
-    draw(plane, x, y);
-}
-
-/* init_draw_clipped  E1: 0x41819C | E2: 0x41B714 */
-void draw_clipped(int plane, int x, int y) {
-    draw(plane, x, y);
-}
-
-/* ══════════════════════════════════════════════════════════════
- *  Pixel Operations
- * ══════════════════════════════════════════════════════════════ */
-
 /* init_write_pixel  E1: 0x41837C | E2: 0x41B8F4 */
 void write_pixel(int plane, int x, int y, int unused) {
     (void)unused;
@@ -1360,10 +1252,6 @@ void xor_pixel(int plane, int x, int y) {
         bitmap[plane][y * hires_width + x] ^= (char)a_pen_colour;
     }
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  mouse Cursor
- * ══════════════════════════════════════════════════════════════ */
 
 /* init_if_editor_show_cursor  E1: 0x4184C4 | E2: 0x41BA3C */
 void if_editor_show_cursor(void) {
@@ -1404,10 +1292,6 @@ void clear_mouse_cursor_win95(void) {
 void clear_db_mouse_cursor_win95(void) {
     /* Clear double-buffered cursor */
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  Color / Shade
- * ══════════════════════════════════════════════════════════════ */
 
 /* init_init_colours0to8  E1: 0x419748 | E2: 0x41CCC4 */
 void init_colours0to8(palette_entry_t *palette) {
@@ -1450,32 +1334,6 @@ void load_shade_map(void) {
         }
     }
 
-    int inside = 0, outside = 0;
-    for (int i = 0; i < 128*128; i++) {
-        if (((unsigned char)shade_map[0][i]) & 0x80)
-            outside++;
-        else
-            inside++;
-    }
-    int r0_in = 0, r64_in = 0, c0_in = 0, c64_in = 0;
-    for (int i = 0; i < 128; i++) {
-        if (!(((unsigned char)shade_map[0][i]) & 0x80)) r0_in++;
-        if (!(((unsigned char)shade_map[64][i]) & 0x80)) r64_in++;
-        if (!(((unsigned char)shade_map[i][0]) & 0x80)) c0_in++;
-        if (!(((unsigned char)shade_map[i][64]) & 0x80)) c64_in++;
-    }
-    DBG_LOG(1, "[SHADEMAP] inside=%d outside=%d total=%d row0_in=%d row64_in=%d col0_in=%d col64_in=%d center_val=0x%02x\n",
-        inside, outside, inside+outside, r0_in, r64_in, c0_in, c64_in,
-        (unsigned char)shade_map[64][64]);
-}
-
-/* ══════════════════════════════════════════════════════════════
- *  Clear Operations
- * ══════════════════════════════════════════════════════════════ */
-
-/* init_clear_rectangle  E1: 0x4199D4 | E2: 0x41CF54 */
-void clear_rectangle(int plane, int x, int y, int w, int h) {
-    rect_fill(plane, x, y, w, h);
 }
 
 /* init_clear_mask_rect  E1: 0x4199F8 | E2: 0x41CF78 */
@@ -1483,10 +1341,6 @@ void clear_mask_rect(int mask, int x, int y, int w, int h) {
     if (!mask_map[mask]) return;
     clip_mask(0, mask, x, y, w, h);
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  Pack/Unpack Views
- * ══════════════════════════════════════════════════════════════ */
 
 /* init_pack_bitmap_41D084 — editor-only: packs bitmap for archiving.
  * Returns 0 (confirmed no-op in Win95 port).
@@ -1501,24 +1355,6 @@ void pack_bitmap(char *output, char *input) {
 void pack_mask(int16_t *output, char *input) {
     (void)output; (void)input;
 }
-
-/* init_analyse_view_41D694 — confirmed empty in Win95 port. */
-void analyse_view(void) {
-}
-
-/* init_archive_all_41D8AC — editor/tool: packs all data directories.
- * Not called at runtime. */
-void archive_all(void) {
-}
-
-/* init_archive_all_fast_41D938 — editor/tool: packs directories incrementally.
- * Not called at runtime. */
-void archive_all_fast(void) {
-}
-
-/* ══════════════════════════════════════════════════════════════
- *  Misc init
- * ══════════════════════════════════════════════════════════════ */
 
 /* init_set_load_by_offset  E1: 0x41A59C | E2: 0x41DB1C */
 void set_load_by_offset(void) {
@@ -1572,34 +1408,6 @@ void dd_unlock(int plane, char *data) {
     /* No-op */
     (void)plane;
     (void)data;
-}
-
-/* ══════════════════════════════════════════════════════════════
- *  Timer helper (file-local)
- * ══════════════════════════════════════════════════════════════ */
-
-/* init_display_beep_410078 — E2: 0x410078 (also GetPallette, same addr) */
-void display_beep(void) {
-}
-
-/* init_expand_palette_41CD24 — E2: 0x41CD24 */
-void expand_palette(void) {
-}
-
-/* init_set_grey_palette_41CE58 — E2: 0x41CE58 */
-void set_grey_palette(void) {
-}
-
-/* init_zeroise_bitmap_pointers_4147AC — E2: 0x4147AC */
-void zeroise_bitmap_pointers(void) {
-}
-
-/* init_read_from_dsp_413E60 — E2: 0x413E60 (platform stub) */
-void read_from_dsp(void) {
-}
-
-/* init_write_to_dsp_413E40 — E2: 0x413E40 (platform stub) */
-void write_to_dsp(void) {
 }
 
 /* init_clear_background_svga  E2: 0x418560 (SVGA stub) */

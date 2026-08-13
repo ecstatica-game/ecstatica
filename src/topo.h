@@ -3,11 +3,6 @@
 
 #include "types.h"
 
-/* ══════════════════════════════════════════════════════════════
- *  Structure Definitions
- * ══════════════════════════════════════════════════════════════ */
-
-/* ── Profile height ── */
 #pragma pack(push, 1)
 typedef struct profile_height_s {
     int16_t field_0;
@@ -21,7 +16,6 @@ typedef struct profile_height_s {
 } profile_height_t;
 #pragma pack(pop)
 
-/* ── Bitmap header ── */
 #pragma pack(push, 1)
 typedef struct bitmap_hdr_s {
     int16_t field_0;
@@ -42,10 +36,6 @@ typedef struct bitmap_hdr_s {
     int16_t field_1E;
 } bitmap_hdr_t;  /* 32 bytes */
 #pragma pack(pop)
-
-/* ══════════════════════════════════════════════════════════════
- *  Topo / Terrain Globals (extern)
- * ══════════════════════════════════════════════════════════════ */
 
 extern profile_height_t profile_height;
 extern int16_t topography;
@@ -70,10 +60,6 @@ extern int16_t right_ang[100];
 extern char *spare_bit_map;
 extern char *mask_bit_map;
 
-/* ══════════════════════════════════════════════════════════════
- *  Function Declarations
- * ══════════════════════════════════════════════════════════════ */
-
 void init_profile_heights(void);
 int find_map_element(vector_t *pos);
 signed int find_map_element_vis(vector_t *pos);
@@ -90,8 +76,6 @@ char *load_raw_graphic(const char *source, int *size_x, int *size_y);
 void save_screen_shot(void);
 void load_palette(const char *filename);
 void load_visibility_map(void);
-void show_topography(void);
-void make_mask_map(void);
 void swap_xy(int32_t *a, int32_t *b);
 int check_block_needs_rendering(void);
 int16_t find_def_height(vector_t *pos);

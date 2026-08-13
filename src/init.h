@@ -3,11 +3,6 @@
 
 #include "types.h"
 
-/* ══════════════════════════════════════════════════════════════
- *  Structure Definitions
- * ══════════════════════════════════════════════════════════════ */
-
-/* ── Config file structure ── */
 #pragma pack(push, 1)
 typedef struct config_s {
     char name[12];
@@ -33,10 +28,6 @@ typedef struct config_s {
     char field_1F;
 } config_t;  /* 32 bytes */
 #pragma pack(pop)
-
-/* ══════════════════════════════════════════════════════════════
- *  Input Globals (extern)
- * ══════════════════════════════════════════════════════════════ */
 
 extern char keys_pressed[256];
 extern char keys_were_pressed[256];
@@ -84,10 +75,6 @@ extern palette_entry_t all_black_cmap[256];
 extern palette_entry_t spare_cmap[256];
 extern palette_entry_t fade_cmap[256];
 extern palette_entry_t edit_map_cmap[256];
-
-/* ══════════════════════════════════════════════════════════════
- *  Function Declarations
- * ══════════════════════════════════════════════════════════════ */
 
 /* setup & initialization */
 void setup(void);
@@ -152,17 +139,14 @@ void clear_background_win95(int plane, int x, int y, int sx, int sy);
 
 /* Mask operations */
 void clip_mask(int src, int dst, int x, int y, int sx, int sy);
-void clip_mask2(int src, int dst, int x, int y, int sx, int sy);
 
 /* text rendering */
 void text(int plane, const char *text, int length);
-void text_win95(int plane, const char *text, int length);
 void small_text_win95(int plane, const char *text, int length);
 void anti_aliased_text(int plane, const char *text, int length);
 int  convert_ascii(int ascii_code);
 void text_with_mask(int plane, const char *text, int length);
 void text_with_mask_win95(int plane, const char *text, int length);
-void do_text_with_mask_win95_japan(int plane, const char *text, int length);
 
 /* Rectangle fill */
 void rect_fill(int plane, int x, int y, int w, int h);
@@ -174,10 +158,8 @@ void show_timer(int timer_val, char reset, int unused);
 
 /* Line drawing */
 void move_pen(int indx, int16_t x, int16_t y);
-void old_draw(int plane, int x, int y);
 void draw(int plane, int x, int y);
 void draw_win95(int plane, int x, int y);
-void draw_clipped(int plane, int x, int y);
 
 /* Pixel operations */
 void write_pixel(int plane, int x, int y, int not_used);
@@ -209,15 +191,11 @@ int32_t biostime(void);
 int32_t my_time(void);
 
 /* Clear operations */
-void clear_rectangle(int plane, int x, int y, int w, int h);
 void clear_mask_rect(int mask, int x, int y, int w, int h);
 
 /* Pack/unpack views */
 void pack_bitmap(char *output, char *input);
 void pack_mask(int16_t *output, char *input);
-void analyse_view(void);
-void archive_all(void);
-void archive_all_fast(void);
 
 /* Misc init */
 void set_load_by_offset(void);
@@ -230,14 +208,6 @@ void change_text_jap(void);
 void set_up_sub_directories(void);
 void check_directories(void);
 void if_editor_show_cursor(void);
-
-/* Stubs (platform/unused) */
-void display_beep(void);
-void expand_palette(void);
-void set_grey_palette(void);
-void zeroise_bitmap_pointers(void);
-void read_from_dsp(void);
-void write_to_dsp(void);
 
 /* SVGA stubs (bank-switched video, not used in SDL port) */
 void clear_background_svga(int plane, int x, int y, int sx, int sy);

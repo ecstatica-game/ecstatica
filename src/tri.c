@@ -185,10 +185,6 @@ static void clip_and_raster(tri_t *tri, int plane, tri_t *shade) {
         draw_clipped_subtri(tri, plane, shade, &out[0], &out[i], &out[i + 1]);
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  Polygon Rendering
- * ══════════════════════════════════════════════════════════════ */
-
 /* tri_draw_polygon_433D30
  * Renders a triangle or quad. Quads are split into two triangles:
  *   tri 1: point1-point2-point3 (original)
@@ -706,8 +702,4 @@ void draw_textured_tri(tri_t *tri, int plane, tri_t *shade) {
  *  Recursive Sutherland-Hodgman triangle clipper using floats.
  *  Clips triangle against view frustum planes with recursion
  *  depth limit of 5. No external callers found in binary —
- *  kept as stub pending discovery of call site.
- * ══════════════════════════════════════════════════════════════ */
-
-void clip_tri(void) {
-}
+ */

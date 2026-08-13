@@ -24,10 +24,6 @@
 /* Ellipse column renderers in asm_f.c — 5-arg packed convention.
  * Declared in funcs.h. */
 
-/* ══════════════════════════════════════════════════════════════
- *  Ellipsoid Column-Based Rendering (shade_map)
- * ══════════════════════════════════════════════════════════════ */
-
 /* ellipse_shade_ellipse  E1: 0x429A00 | E2: 0x430750 */
 void shade_ellipse(part_t *part, int plane) {
     check_fade();
@@ -210,10 +206,6 @@ void shade_ellipse_win95(part_t *part, int plane) {
 
     dd_unlock(plane, plane_data);
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  Triangle Rendering (Flat-Shaded, Z-Buffered)
- * ══════════════════════════════════════════════════════════════ */
 
 /* ellipse_draw_triangle_431A7C
  * Flat-shaded triangle with z-buffer. Takes 3 screen-space points,
@@ -553,10 +545,6 @@ void draw_triangle_ell(tri_t *tri, int plane, tri_t *shade) {
     dd_unlock(plane, fb_data);
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  Fixed-Point Trigonometry
- * ══════════════════════════════════════════════════════════════ */
-
 /* ellipse_arctan_432C64
  * Fixed-point arctangent using lookup tables atan_tab0/atan_tab1.
  * Returns angle in 16-bit fixed-point (0x4000 = 90 degrees).
@@ -638,10 +626,6 @@ int16_t arcsin(int16_t value) {
     }
     return 0x4000;
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  Ellipsoid Projection
- * ══════════════════════════════════════════════════════════════ */
 
 /* ellipse_calculate_squash_432E08
  * Computes squash ratios for ellipsoid rendering.

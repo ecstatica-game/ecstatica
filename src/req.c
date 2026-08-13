@@ -18,7 +18,6 @@
 #include <string.h>
 #include <stdio.h>
 
-/* ── GUI / Requester state ── */
 int16_t active_requester = 0;
 int16_t req_finished = 0;
 int16_t esc_req_choice = 0;
@@ -46,16 +45,11 @@ request_t string_req = {0};
 
 #define MAX_SUBTITLES 20
 
-/* ── Static gadget instances (settings panel) ── */
 gadget_t subtitle_gadg = {0};
 gadget_t music_gadg = {0};
 gadget_t sound_fx_gadg = {0};
 gadget_t lod_gadg = {0};
 gadget_t lo_hi_res_gadg = {0};
-
-/* ══════════════════════════════════════════════════════════════
- *  Request State
- * ══════════════════════════════════════════════════════════════ */
 
 void draw_gadget(gadget_t *gadget);
 static void refresh_request(request_t *req);
@@ -145,10 +139,6 @@ void show_gadget(gadget_t *gadget) {
         text(db, gadget->gadget_text, 0);
     }
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  Main Request Handler
- * ══════════════════════════════════════════════════════════════ */
 
 /* req_do_request_42A0B8 — opens in-game pause menu/requester */
 void do_request(void) {
@@ -322,10 +312,6 @@ void request(request_t *req) {
         active_requester = 0;
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  Yes/No Dialog
- * ══════════════════════════════════════════════════════════════ */
-
 /* req_yes_no_requester  E1: ? | E2P: 0x42A328 */
 int yes_no_requester(const char *question) {
     request_t req;
@@ -403,10 +389,6 @@ int yes_no_requester(const char *question) {
     }
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  Text Input
- * ══════════════════════════════════════════════════════════════ */
-
 /* req_text_requester  E1: ? | E2P: 0x42A3F8 */
 int text_requester(const char *prompt, char *output, int max_len) {
     /* No-op: editor-only text input via gadget StringReq system.
@@ -422,10 +404,6 @@ int number_requester(const char *prompt) {
     (void)prompt;
     return 0;
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  Gadget System
- * ══════════════════════════════════════════════════════════════ */
 
 /* req_add_gadget  E1: ? | E2P: 0x42A598 */
 void add_gadget(gadget_t *gadget) {
@@ -479,10 +457,6 @@ int check_gadget_hit(gadget_t *gadget, int mx, int my) {
             my >= gadget->Y && my <= gadget->Y + gadget->height);
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  Game Over / Special Screens
- * ══════════════════════════════════════════════════════════════ */
-
 /* req_game_over  E1: ? | E2P: 0x42A8D8 */
 void game_over(void) {
     do_fade_to_black(0);
@@ -519,10 +493,6 @@ void show_end_sequence(void) {
 void show_credits(void) {
     /* No-op: zero callers. Likely dead/cut code. */
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  Subtitle System
- * ══════════════════════════════════════════════════════════════ */
 
 /* req_show_subtitle  E1: ? | E2P: 0x42AB48 */
 void show_subtitle(const char *text_str, int duration) {
@@ -778,14 +748,6 @@ void handle_ok(void) {
     }
 }
 
-/* req_handle_ok2  — not in binary, stub */
-void handle_ok2(void) {
-}
-
-/* req_handle_test  — not in binary, stub */
-void handle_test(void) {
-}
-
 /* req_init_gadget  E2: 0x43FDA4 */
 void init_gadget(gadget_t *gadget, int16_t x, int16_t y, int16_t w,
                  int16_t h, char *text_str, void (*handler)(void),
@@ -851,18 +813,6 @@ void install_to_disk(void) {
     /* Full CD-to-disk install routine.
        0x1098 bytes — copies directories, shows progress bar.
        Not needed for modern platforms. */
-}
-
-/* req_handle_strings_gadg  E2: 0x43C824 (no-op) */
-void handle_strings_gadg(void) {
-}
-
-/* req_handle_file_gadg  E2: 0x43C834 (no-op) */
-void handle_file_gadg(void) {
-}
-
-/* req_handle_uninstall  E2: 0x43D440 (no-op) */
-void handle_uninstall(void) {
 }
 
 /* req_handle_dir_gadg  E2: 0x43C430 */

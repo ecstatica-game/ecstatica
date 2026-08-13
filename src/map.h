@@ -3,11 +3,6 @@
 
 #include "types.h"
 
-/* ══════════════════════════════════════════════════════════════
- *  Structure Definitions
- * ══════════════════════════════════════════════════════════════ */
-
-/* ── Map area structure ── */
 #pragma pack(push, 1)
 struct map_area_s {
     uint16_t map_area_index;
@@ -16,7 +11,6 @@ struct map_area_s {
 };
 #pragma pack(pop)
 
-/* ── Map area element ── */
 #pragma pack(push, 1)
 typedef struct map_area_element_s {
     uint8_t def_height;
@@ -31,17 +25,9 @@ typedef struct map_area_element_s {
 } map_area_element_t;  /* 12 bytes */
 #pragma pack(pop)
 
-/* ══════════════════════════════════════════════════════════════
- *  Map Globals (extern)
- * ══════════════════════════════════════════════════════════════ */
-
 extern uint16_t new_map[128][128];
 extern map_area_element_t map_elements[60000];
 extern int32_t top_of_map_elements;
-
-/* ══════════════════════════════════════════════════════════════
- *  Function Declarations
- * ══════════════════════════════════════════════════════════════ */
 
 void check_view(int camera_index);
 void check_hot_spots(void);
@@ -58,7 +44,6 @@ void check_thing_name_vis(int actor_index);
 void add_to_display_list_held(actor_t *actor);
 void swap_in_actor(int actor_index);
 void make_invisible(actor_t *actor);
-void reposition_fixed_parts(void);
 int find_highest_camera_num(void);
 void copy_background2to01(void);
 void copy_background3to012(void);

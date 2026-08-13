@@ -28,10 +28,6 @@ static bool quit_flag;
 
 int16_t mask_distance[64];
 
-/* ══════════════════════════════════════════════════════════════
- *  Copy Defaults
- * ══════════════════════════════════════════════════════════════ */
-
 /* edit_copy_defaults_to_actual  E1: 0x422390 | E2: 0x425FE0 */
 void copy_defaults_to_actual(actor_t *actor) {
     if (!actor) return;
@@ -124,10 +120,6 @@ void copy_actual_to_defaults(actor_t *actor) {
         tri->triangle_flags = tri->tri_use_flag;
     }
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  Add Scene / Action / Thing
- * ══════════════════════════════════════════════════════════════ */
 
 /* edit_add_scene  E1: 0x4226A0 | E2: 0x4262F0 */
 scene_t *add_scene(void) {
@@ -418,12 +410,6 @@ void remove_from_display_list(actor_t *actor) {
     }
 
     if (left_display) {
-        DBG_LOG(1, "[DISP] remove_from_display_list: actor=%d '%s' flags=0x%x act_flags=0x%x kp=%d\n",
-                actor->name_index,
-                (actor->name_index >= 0 && actor->name_index < THING_TAB_SIZE && thing_names) ? thing_names[actor->name_index].field_0 : "?",
-                actor->flags,
-                actor->actor_act.flags,
-                actor->actor_act.key_progress);
         copy_vector(&actor_position[actor->name_index], &actor->position_vector);
         copy_vector(&actor_orientation[actor->name_index], &actor->rotate_vector);
         actor_rep_name[actor->name_index] = actor->actor_rep_index;
@@ -445,10 +431,6 @@ void remove_from_display_list(actor_t *actor) {
         actor->flags &= 0xFFFE;
     }
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  Key / Event Management
- * ══════════════════════════════════════════════════════════════ */
 
 /* edit_insert_key_41F80C — insert key sorted by position */
 key_state_t *insert_key(action_t *action, uint16_t position) {
@@ -489,10 +471,6 @@ void add_event_to_key(event_t *event, key_state_t *key) {
 
 /* edit_add_ellipse_to_key_41FA2C — defined in anim.c */
 
-/* ══════════════════════════════════════════════════════════════
- *  Main Game Loop
- * ══════════════════════════════════════════════════════════════ */
-
 /* edit_make_thing_4200E8 — the main game loop */
 void make_thing(void) {
     program_up_and_running = true;
@@ -521,10 +499,6 @@ void make_thing(void) {
         if (quit_flag || !program_up_and_running) break;
     }
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  Heap Allocation Helpers
- * ══════════════════════════════════════════════════════════════ */
 
 /* edit_free_all_heaps_420490 — game_free_all_heaps_452D3C
  * Marks every entry in every static heap array as "free" by setting
@@ -594,10 +568,6 @@ void free_all_heaps(void) {
      * setup, or by new_game()/initialise_game() during game resets.
      * Code and map_area lists persist across game resets. */
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  Code & Line-of-Code Allocation
- * ══════════════════════════════════════════════════════════════ */
 
 /* edit_add_code_4268A4 — allocate a code_t and prepend to code_list */
 code_t *add_code(void) {
@@ -672,11 +642,6 @@ void write_an_event(event_t *event, FILE *f) {
     putw_be(event->param1, f);
     putw_be(event->param2, f);
     putw_be(event->param3, f);
-}
-
-/* edit_write_event  E1: ? | E2P: 0x41FE8C */
-void write_event(event_t *event, FILE *f) {
-    write_an_event(event, f);
 }
 
 /* edit_write_parts  E1: ? | E2P: 0x41FF08 */
@@ -1122,8 +1087,6 @@ void update_act(act_t *act, actor_t *actor, int some_time) {
     if (act->act_action->action_flags & 2) {
         int some_duration = act->key_progress + some_time;
         if (actor->name_index == 33)
-            DBG_LOG(1, "[UA] actor=33 kp=%d st=%d dur=%d sd=%d aflags=0x%x\n",
-                    act->key_progress, some_time, act->duration, some_duration, act->flags);
         if (some_duration > act->duration) {
             complete_act(act, actor);
             act->key_progress = act->duration;

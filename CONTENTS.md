@@ -52,14 +52,13 @@
 | win.c            | Window/platform stubs, page flip, DirectDraw layer   |
 | platform_macos.m | macOS Cocoa window, NSView framebuffer, input/timing |
 | platform.h       | Platform abstraction interface                       |
-| stubs.c          | Placeholder implementations for undefined functions  |
 
-### Headers
+### Debug / Utility
 
-| File     | Description                   |
-|----------|-------------------------------|
-| funcs.h  | Function declarations         |
-| game.h   | Game structures and constants |
+| Module           | Description                                          |
+|------------------|------------------------------------------------------|
+| debug_overlay.c  | Runtime debug overlay rendering                      |
+| compat.h         | Compiler/platform compatibility macros               |
 
 ## Other Directories
 

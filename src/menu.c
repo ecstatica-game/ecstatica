@@ -30,18 +30,10 @@ void do_save_menu(void);
 void do_settings_menu(void);
 int  do_slot_select(const char *title);
 
-/* ══════════════════════════════════════════════════════════════
- *  Menu State
- * ══════════════════════════════════════════════════════════════ */
-
 static int menu_selection = 0;
 static int menu_active = 0;
 static int menu_result = -1;
 bool menu_no_continue = false;
-
-/* ══════════════════════════════════════════════════════════════
- *  Shared menu helpers
- * ══════════════════════════════════════════════════════════════ */
 
 static void menu_frame_start(void) {
     window_proc();
@@ -334,10 +326,6 @@ static void handle_main_menu_selection(void) {
     }
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  Load / Save Menus
- * ══════════════════════════════════════════════════════════════ */
-
 /* menu_do_load_menu  E1: ? | E2P: 0x42B480 */
 void do_load_menu(void) {
     int slot = do_slot_select("Load Game");
@@ -465,10 +453,6 @@ int do_slot_select(const char *title) {
         menu_frame_end();
     }
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  Settings Menu
- * ══════════════════════════════════════════════════════════════ */
 
 static const char *difficulty_names[] = {"Easy", "Medium", "Hard"};
 
@@ -659,10 +643,6 @@ void do_language(void) {
 void do_sound_settings(void) {
     do_settings_menu();
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  Scene Playback
- * ══════════════════════════════════════════════════════════════ */
 
 /* menu_delete_triangle  E1: 0x430650 | E2: 0x43A928 */
 void delete_triangle(tri_t *tri) {

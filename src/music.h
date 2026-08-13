@@ -3,11 +3,6 @@
 
 #include "types.h"
 
-/* ══════════════════════════════════════════════════════════════
- *  Structure Definitions
- * ══════════════════════════════════════════════════════════════ */
-
-/* ── Wave structure ── */
 #pragma pack(push, 1)
 typedef struct wave_s {
     int16_t field_0;
@@ -20,7 +15,6 @@ typedef struct wave_s {
 } wave_t;
 #pragma pack(pop)
 
-/* ── Sound entry ── */
 #pragma pack(push, 1)
 struct sound_s {
     int16_t sound_name_index;
@@ -35,10 +29,6 @@ struct sound_s {
     void *DSBuffer;
 };
 #pragma pack(pop)
-
-/* ══════════════════════════════════════════════════════════════
- *  Sound / Music Globals (extern)
- * ══════════════════════════════════════════════════════════════ */
 
 extern int16_t sound_driver;
 extern bool sound_is_on;
@@ -63,10 +53,6 @@ extern int32_t tune_offset[10][96];
 extern int16_t need_draw_graphics;
 extern int16_t need_clear_graphics;
 extern sound_t sound_heap_arr[SOUND_POOL_SIZE];
-
-/* ══════════════════════════════════════════════════════════════
- *  Function Declarations
- * ══════════════════════════════════════════════════════════════ */
 
 void remove_sound_driver_win95(void);
 void release_sound_buffer_win95(sound_t *sound);

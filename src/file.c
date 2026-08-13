@@ -33,7 +33,6 @@
 #include <dirent.h>
 #endif
 
-/* ── File pointers ── */
 FILE *file_pointer = NULL;
 FILE *file2_pointer = NULL;
 bool load_by_offset = false;
@@ -148,10 +147,6 @@ void file_read_sound(FILE *f);
 void file_read_repertoire(FILE *f);
 void file_read_map_area(FILE *f);
 void file_read_texture(FILE *f);
-
-/* ══════════════════════════════════════════════════════════════
- *  Name Index Search — find_name_index_sub_function
- * ══════════════════════════════════════════════════════════════ */
 
 /* file_find_name_index_sub_function  E1: ? | E2P: 0x441E38 */
 static int16_t find_name_index_sub(const char *name_to_find, name_text_t *names, int max_count) {
@@ -570,10 +565,6 @@ void print_scene(scene_t *scene, FILE *f) {
     }
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  File Open / Read
- * ══════════════════════════════════════════════════════════════ */
-
 /* Normalize Windows path separators to Unix for cross-platform support */
 static void normalize_path(const char *src, char *dst, int max_len) {
     int i;
@@ -587,7 +578,6 @@ static void normalize_path(const char *src, char *dst, int max_len) {
 void open_read_file(const char *filename) {
     char path[260];
     normalize_path(filename, path, sizeof(path));
-    DBG_LOG(1, "[FILE] open_read_file: '%s' -> '%s'\n", filename, path);
     if (file_pointer) fclose(file_pointer);
     file_pointer = fopen_ci(path, "rb");
     if (!file_pointer) {
@@ -622,7 +612,6 @@ void detect_game_version(void) {
         if (actors_dir) {
             fclose(actors_dir);
             game_version = GAME_VERSION_E1;
-            DBG_LOG(1, "[FILE] detect_game_version: no OFFSETS, ACTORS/ found -> E1 standalone\n");
             return;
         }
         game_version = GAME_VERSION_E2;
@@ -633,8 +622,6 @@ void detect_game_version(void) {
     fclose(f);
 
     game_version = (size <= 14100) ? GAME_VERSION_E1 : GAME_VERSION_E2;
-    DBG_LOG(1, "[FILE] detect_game_version: offsets_size=%ld -> %s\n",
-            size, game_version == GAME_VERSION_E1 ? "E1" : "E2");
 }
 
 /* file_read_offsets_file  E1: 0x43D81C | E2: 0x447CDC */
@@ -699,12 +686,7 @@ void read_offsets_file(void) {
 
     #undef READ_OFFSET_BE32
     free(buf);
-    DBG_LOG(1, "[FILE] read_offsets_file: loaded offsets OK\n");
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  Binary Read Helpers
- * ══════════════════════════════════════════════════════════════ */
 
 /* file_getl_425D18 — read 32-bit little-endian */
 int32_t getl(FILE *f) {
@@ -735,19 +717,13 @@ void putl(int32_t val, FILE *f) {
     fputc((val >> 24) & 0xFF, f);
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  .FAN Archive Loading
- * ══════════════════════════════════════════════════════════════ */
-
 /* file_merge_a_file_no_message  E1: 0x43AF9C | E2: 0x4452F8 */
 void merge_a_file_no_message(const char *filename, int quiet) {
-    DBG_LOG(1, "[FILE] merge_a_file_no_message: '%s' quiet=%d\n", filename, quiet);
     FILE *f = fopen_ci(filename, "rb");
     if (!f) {
         DBG_LOG(1, "[FILE] merge_a_file_no_message: FAILED to open '%s'\n", filename);
         return;
     }
-    DBG_LOG(1, "[FILE] merge_a_file_no_message: opened '%s' successfully\n", filename);
 
     merge_sought_file(f, quiet);
     fclose(f);
@@ -804,12 +780,7 @@ void merge_file_contents(FILE *f) {
             return;
         }
     }
-    DBG_LOG(1, "[FILE] merge_file_contents: loaded %d blocks\n", block_count);
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  Entity Read Functions
- * ══════════════════════════════════════════════════════════════ */
 
 /* file_read_thing  E1: ? | E2P: 0x425F28 */
 void file_read_thing(FILE *f) {
@@ -1084,7 +1055,6 @@ void file_read_code(FILE *f) {
     }
     code_tab[name_index] = code;
     if (name_index == 135)
-        DBG_LOG(1, "[FILE] file_read_code: STORED code_tab[135] tokens=%d\n", token_count);
     code->next_code = code_list;
     code_list = code;
 }
@@ -1152,7 +1122,6 @@ void file_read_repertoire(FILE *f) {
 
     /* Read action list for repertoire */
     int16_t num_actions = getw_be(f);
-    DBG_LOG(1, "[FILE] Repertoire %d: %d action_slots\n", name_index, num_actions);
     for (int i = 0; i < num_actions; i++) {
         int16_t action_index = getw_be(f);
         if (i < 208)
@@ -1225,10 +1194,6 @@ void file_read_texture(FILE *f) {
     tex->next = texture_list;
     texture_list = tex;
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  Offset-Based Reading
- * ══════════════════════════════════════════════════════════════ */
 
 /* file_load_by_offset  E1: ? | E2P: 0x4265A8 */
 void load_by_offset_index(int index) {
@@ -1622,7 +1587,6 @@ void save_game(int slot) {
     putwLoHi(0x1234, f);
 
     fclose(f);
-    DBG_LOG(1, "[SAVE] Saved game to %s\n", filename);
 }
 
 /* game_load_game  E1: 0x448B0C | E2: 0x45433C */
@@ -1871,8 +1835,6 @@ void load_game(int slot) {
     draw_magic_bar();
     if (current_tune >= 0 && music_on)
         play_tune(current_tune);
-
-    DBG_LOG(1, "[LOAD] Loaded game from %s\n", filename);
 }
 
 /* file_load_saved_thumbnail — read thumbnail from save file into buffer */
@@ -1985,10 +1947,6 @@ void wave_load_file(const char *filename) {
     if (pcm_data) free(pcm_data);
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  Part relative offsets
- * ══════════════════════════════════════════════════════════════ */
-
 /* file_calc_rel_offset  E1: 0x438658 | E2: 0x4428D4 */
 void calc_rel_offset(part_t *part) {
     part_t *parent = (part_t *)part->holding_actor;
@@ -2016,10 +1974,6 @@ void calc_rel_centre(part_t *part) {
             part->rel_offset.data[i] = 0;
     }
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  Name management helpers
- * ══════════════════════════════════════════════════════════════ */
 
 /* Generic: find or add a name in a name_text_t array, return index */
 static int16_t add_name_find_index_ex(const char *name, name_text_t *names, int max_count, bool *is_new) {
@@ -2116,7 +2070,6 @@ int16_t add_sound_name(const char *name) {
     int16_t idx = add_name_find_index_ex(name, sound_names, SOUND_TAB_SIZE, &is_new);
     if (is_new) {
         sound_tab[idx] = NULL;
-        DBG_LOG(1, "[SND] add_sound_name '%s' → idx=%d\n", name, idx);
     }
     return idx;
 }
@@ -2172,10 +2125,6 @@ void set_new_names_to_old(void) {
     for (int i = 0; i < TEXTURE_TAB_SIZE; ++i)  new_texture_name[i] = i;
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  Read helpers
- * ══════════════════════════════════════════════════════════════ */
-
 /* file_read_event_4413FC — allocate event from heap and read from stream */
 event_t *read_event(FILE *f) {
     event_t *event = find_free_event();
@@ -2200,10 +2149,6 @@ void start_things(void) {
         actor->full_actor_hp = 0;
     }
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  Merge event names — translate file-local indices to global
- * ══════════════════════════════════════════════════════════════ */
 
 /* file_merge_event_names  E1: 0x43CCB0 | E2: 0x447010 */
 void merge_event_names(event_t *evt) {
@@ -2345,18 +2290,14 @@ void merge_event_names(event_t *evt) {
         if (evt->param1 >= 0)
             evt->param1 = new_rep_name[evt->param1];
         break;
-    case THING_CODE: case THING_CODE_2: {
-        int16_t orig1 = evt->param1, orig2 = evt->param2, orig3 = evt->param3;
+    case THING_CODE: case THING_CODE_2:
         if (evt->param1)
             evt->param1 = new_code_name[evt->param1 - 1] + 1;
         if (evt->param2)
             evt->param2 = new_code_name[evt->param2 - 1] + 1;
         if (evt->param3)
             evt->param3 = new_code_name[evt->param3 - 1] + 1;
-        DBG_LOG(1, "[REMAP] THING_CODE: p1=%d->%d p2=%d->%d p3(init)=%d->%d\n",
-                orig1, evt->param1, orig2, evt->param2, orig3, evt->param3);
         break;
-    }
     case NO_EVENT: case PSEUDO_KEY: case ROTATE_THING:
     case MOVE_THING: case START_POSITION: case THING_FLAGS:
     case SCRIPT_MOVE: case SCRIPT_TURN: case REORIENT_THING:
@@ -2440,8 +2381,6 @@ check_add_thing:
         }
         free_event(event);
     } while (event_type);
-    if (actor_count > 0)
-        DBG_LOG(1, "[FILE] read_actors: done — %d actors, %d events\n", actor_count, event_count);
 }
 
 /* file_read_actions  E1: 0x43A31C | E2: 0x4445E8 */
@@ -2563,7 +2502,7 @@ static int16_t merge_token_names(int16_t token) {
 
 void read_code(FILE *f) {
     int16_t code_size = getw_be(f);
-    DBG_LOG(code_size>0?1:2, "[FILE] read_code: %d code blocks\n", code_size);
+    DBG_LOG(2, "[FILE] read_code: %d code blocks\n", code_size);
 
     for (int i = 0; i < code_size; i++) {
         int16_t file_code_idx = getw_be(f);
@@ -2599,11 +2538,6 @@ void read_code(FILE *f) {
             if (code_tab[code_name_idx] && code_tab[code_name_idx] != code)
                 delete_code(code_tab[code_name_idx]);
             code_tab[code_name_idx] = code;
-            if (code_name_idx == 135)
-                DBG_LOG(1, "[FILE] read_code: STORED code_tab[135] file_idx=%d\n", file_code_idx);
-        } else {
-            if (file_code_idx == 135)
-                DBG_LOG(1, "[FILE] read_code: file_idx=135 -> code_name_idx=%d (SKIPPED)\n", code_name_idx);
         }
 
         /* Read tokens */
@@ -2636,7 +2570,6 @@ void read_code(FILE *f) {
             code->token_store_index = top_of_tokens;
             token_store[top_of_tokens++] = CT_END_OF_INTRO;
             token_store[top_of_tokens++] = 0;
-            DBG_LOG(1, "[FILE] read_code: injected CT_END_OF_INTRO into code 527\n");
         }
 
         /* Read text lines */
@@ -2678,7 +2611,6 @@ void read_code(FILE *f) {
             token_store[top_of_tokens++] = CT_WANDERERS_ON;
             token_store[top_of_tokens++] = 0;
             code_tab[135] = code;
-            DBG_LOG(1, "[FILE] read_code: injected CT_WANDERERS_ON into code 135\n");
         }
     }
 }
@@ -2690,9 +2622,7 @@ void read_code(FILE *f) {
  * Loads PCM into sound_tab so sounds are playable immediately. */
 void read_sounds(FILE *f) {
     int sentinel = fgetc(f);
-    int sound_count = 0;
     while (sentinel && sentinel != EOF) {
-        sound_count++;
         int16_t name_index = getwLoHi(f);
         int16_t use_flag   = getwLoHi(f) | 1;
         int16_t rate       = getwLoHi(f);
@@ -2725,8 +2655,6 @@ void read_sounds(FILE *f) {
                 sound_tab[name_index] = sound;
                 sound->next = sound_list;
                 sound_list = sound;
-                DBG_LOG(1, "[FILE] read_sounds: loaded name=%d rate=%d len=%d vol=%d raw=%d\n",
-                        name_index, rate, pcm_length, volume, raw_size);
             } else {
                 if (raw_size >= 32) fseek(f, 32, SEEK_CUR);
                 if (pcm_length > 0) fseek(f, pcm_length, SEEK_CUR);
@@ -2738,7 +2666,6 @@ void read_sounds(FILE *f) {
 
         sentinel = fgetc(f);
     }
-    DBG_LOG(1, "[FILE] read_sounds: loaded %d sounds (ver=%d)\n", sound_count, file_version);
 }
 
 /* file_read_textures_4451A8
@@ -2762,7 +2689,7 @@ void read_textures(FILE *f) {
 
         sentinel = fgetc(f);
     }
-    DBG_LOG(tex_count>0?1:2, "[FILE] read_textures: %d textures\n", tex_count);
+    DBG_LOG(2, "[FILE] read_textures: %d textures\n", tex_count);
 }
 
 /* file_merge_new_map  E1: 0x43D258 | E2: 0x4475B8 */
@@ -2825,10 +2752,7 @@ void merge_new_map(FILE *f) {
             elem->wanderer_spawn = 0;
         }
     }
-    /* ── Load camera data ── */
     num_cameras = getwLoHi(f);
-    DBG_LOG(1, "[FILE] merge_new_map: top_of_map_elements=%d, num_cameras=%d\n",
-            top_of_map_elements, num_cameras);
     int cam_has_top_clip = (game_version == GAME_VERSION_E2 && file_version >= 36);
     for (int i = 0; i < num_cameras; ++i) {
         if (i >= 1200) {
@@ -2862,17 +2786,12 @@ void merge_new_map(FILE *f) {
                 camera[0].zoom_factor);
     }
 
-    /* ── Load map areas (version >= 20) ── */
     if (file_version >= 20) {
         while (fgetc(f)) {
             file_read_map_area(f);
         }
     }
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  File merging — main .FAN parser
- * ══════════════════════════════════════════════════════════════ */
 
 /* Helper: read null-terminated name from stream, strip trailing spaces */
 static int read_name_from_stream(FILE *f, char *buf, int max_len) {
@@ -2904,8 +2823,6 @@ void merge_sought_file(FILE *f, int quiet) {
     }
 
     file_version = getw_be(f);
-    DBG_LOG(1, "[FILE] merge_sought_file: FANT magic OK, version=%d, game=%s\n",
-            file_version, game_version == GAME_VERSION_E1 ? "E1" : "E2");
     int16_t new_name_sys = 0;
     if (file_version >= 26)
         new_name_sys = getw_be(f);
@@ -2922,8 +2839,6 @@ void merge_sought_file(FILE *f, int quiet) {
         for (int i = 0; i < CODE_TAB_SIZE; ++i)
             new_code_name[i] = i;
     }
-
-    DBG_LOG(1, "[FILE]   new_name_sys=%d file_version=%d\n", new_name_sys, file_version);
     if (new_name_sys) {
         set_new_names_to_old();
     } else {
@@ -2982,11 +2897,9 @@ void merge_sought_file(FILE *f, int quiet) {
             while (read_name_from_stream(f, name_buf, 50)) {
                 new_code_name[name_count] = add_code_name(name_buf);
                 if (new_code_name[name_count] == 135 || name_count == 135)
-                    DBG_LOG(1, "[FILE]   code_name[%d] = '%s' -> global %d\n", name_count, name_buf, new_code_name[name_count]);
                 ++name_count;
             }
         }
-        // DBG_LOG(1, "[FILE]   code names: %d (pos=%ld)\n", name_count, ftell(f));
 
         /* Repertoire names (version >= 12) */
         if (file_version >= 12) {
@@ -3078,16 +2991,12 @@ void merge_sought_file(FILE *f, int quiet) {
                 scene->scene_code_2 = event->param3;
             scene->last_scene_direction = last_scene_dir;
             scene_tab[scene->scene_index] = scene;
-            DBG_LOG(1, "[FILE] PSEUDO_SCENE: idx=%d cam=%d code2=%d\n",
-                    scene->scene_index, scene->camera_index, scene->scene_code_2);
             free_event(event);
             break;
 
         case PSEUDO_SCENE_2:
             if (scene) {
                 scene->scene_code_index = event->param1;
-                DBG_LOG(1, "[FILE] PSEUDO_SCENE_2: scene=%d code_idx=%d\n",
-                        scene->scene_index, event->param1);
             }
             free_event(event);
             break;
@@ -3209,7 +3118,5 @@ void merge_sought_file(FILE *f, int quiet) {
 
     /* Only log when load actually produced something interesting */
     if (selected_thing) {
-        DBG_LOG(1, "[FILE] merge_sought_file: DONE, selected_thing=%p, thing_list=%p\n",
-                (void*)selected_thing, (void*)thing_list);
     }
 }

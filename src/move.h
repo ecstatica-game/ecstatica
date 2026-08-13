@@ -4,7 +4,6 @@
 #include "types.h"
 
 void find_direction_and_distance(int16_t *dir, int16_t *dist, int16_t dx, int16_t dz);
-void find_direction_and_distance_zx(int16_t *dir, int16_t *dist, int16_t dz, int16_t dx);
 void find_dirn_and_dist(int16_t *dir, int16_t *dist, int16_t dx, int16_t dz);
 void make_dead(actor_t *actor);
 void behaviour(actor_t *actor, int game_time_arg);

@@ -3,11 +3,6 @@
 
 #include "types.h"
 
-/* ══════════════════════════════════════════════════════════════
- *  Structure Definitions
- * ══════════════════════════════════════════════════════════════ */
-
-/* ── Repertoire header ── */
 #pragma pack(push, 1)
 struct rephead_s {
     int16_t rep_index;
@@ -19,10 +14,6 @@ struct rephead_s {
     int32_t rep_time;
 };  /* 432 bytes */
 #pragma pack(pop)
-
-/* ══════════════════════════════════════════════════════════════
- *  File I/O Globals (extern)
- * ══════════════════════════════════════════════════════════════ */
 
 extern FILE *file_pointer;
 extern FILE *file2_pointer;
@@ -59,13 +50,8 @@ extern int16_t new_point_name[POINT_TAB_SIZE];
 extern int16_t new_triangle_name[TRIANGLE_TAB_SIZE];
 extern rephead_t rep_heap_arr[REP_POOL_SIZE];
 
-/* ══════════════════════════════════════════════════════════════
- *  Function Declarations
- * ══════════════════════════════════════════════════════════════ */
-
 void write_parts(actor_t *actor, FILE *f);
 void write_an_event(event_t *event, FILE *f);
-void write_event(event_t *event, FILE *f);
 event_t *read_event(FILE *f);
 int32_t getl(FILE *f);
 int32_t getlLoHi(FILE *f);

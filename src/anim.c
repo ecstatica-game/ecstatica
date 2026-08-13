@@ -17,10 +17,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* ══════════════════════════════════════════════════════════════
- *  Ellipse-to-Key Management
- * ══════════════════════════════════════════════════════════════ */
-
 /* anim_add_ellipse_to_key_430568
  * Appends an ellipse_t to the end of a key's ellipse list.
  */
@@ -49,33 +45,9 @@ ellipse_t *add_ellipse(void) {
     return new_ellipse;
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  Choice Box (editor feature)
- * ══════════════════════════════════════════════════════════════ */
-
-/* anim_clear_choice_box_4305D0 — editor-only UI feature */
-void clear_choice_box(void) {
-}
-
-/* anim_draw_choice_box_4305E0 — editor-only UI feature */
-void draw_choice_box(void) {
-}
-
-/* ══════════════════════════════════════════════════════════════
- *  Action Directory Loading
- * ══════════════════════════════════════════════════════════════ */
-
 /* anim_load_action_directory_430600 — loads action directory index from disk.
  * Not called at runtime; actions loaded via offset table or search functions. */
 void load_action_directory(void) {
-}
-
-/* anim_draw_view_cone_tri_430744 — E2: 0x430744 */
-void draw_view_cone_tri(void) {
-}
-
-/* anim_draw_world_square_42FE54 — E2: 0x42FE54 */
-void draw_world_square(void) {
 }
 
 /* anim_recalc_cam_42FDE0 — E2: 0x42FDE0 */

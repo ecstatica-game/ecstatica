@@ -14,7 +14,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-/* ── Sound / Music ── */
 int16_t sound_driver = 0;
 bool sound_is_on = false;
 bool music_on = false;
@@ -29,7 +28,6 @@ int32_t tune_buffer_length = 0;
 int16_t current_tune = -1;
 int32_t tune_position = 0;
 
-/* ── Ambient sound ── */
 int16_t num_ambients = 0;
 int ambiant_name[20] = {0};
 int16_t ambiant_vol[20] = {0};
@@ -37,7 +35,6 @@ int16_t ambiant_freq[20] = {0};
 int16_t ambiant_rand[20] = {0};
 int32_t ambiant_last[20] = {0};
 
-/* ── Tune offset table ── */
 int32_t tune_offset[10][96] = {{0}};
 
 /* E1 tune names — one per soundIndex, matched to MUSIC/<NAME>.<ext>.
@@ -70,10 +67,6 @@ static int32_t find_distance(vector_t *a, vector_t *b);
 /* Forward declarations */
 void load_a_sound(int sound_index);
 void stop_speech(void);
-
-/* ══════════════════════════════════════════════════════════════
- *  Music Playback
- * ══════════════════════════════════════════════════════════════ */
 
 /* ── Sound Images MIDI Driver tune → Standard MIDI conversion ──
  * Ecstatica ships tunes as .SCC/.LAP/.GUS/.AWE/.SBL (Sound Images
@@ -150,9 +143,6 @@ static uint8_t *si_to_smf(const uint8_t *src, int src_len, int *out_len) {
     if (!tpq) tpq = 24;
     if (!tempo_bpm) tempo_bpm = 120;
     if (!trk_count) return NULL;
-
-    DBG_LOG(1, "[TUNE] si_to_smf: len=%d %s tpq=%d bpm=%d tracks=%d\n",
-            src_len, wide ? "32bit" : "16bit", tpq, tempo_bpm, trk_count);
 
     int max_trk = trk_count < 64 ? trk_count : 64;
     if (wide) {
@@ -348,8 +338,6 @@ void play_tune(int tune_index) {
 
     /* Standard MIDI file — pass directly to platform player. */
     if (buf[0] == 'M' && buf[1] == 'T' && buf[2] == 'h' && buf[3] == 'd') {
-        DBG_LOG(1, "[TUNE] idx=%d standard MIDI, len=%d\n",
-                tune_index, tune_buffer_length);
         platform_midi_play(buf, tune_buffer_length, true);
         return;
     }
@@ -358,8 +346,6 @@ void play_tune(int tune_index) {
     int smf_len = 0;
     uint8_t *smf = si_to_smf(buf, tune_buffer_length, &smf_len);
     if (smf) {
-        DBG_LOG(1, "[TUNE] idx=%d si→smf %d→%d bytes\n",
-                tune_index, tune_buffer_length, smf_len);
         platform_midi_play(smf, smf_len, true);
         free(smf);
     } else {
@@ -410,10 +396,6 @@ void fade_tune(int target_volume, int speed) {
         stop_tune();
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  Sound Effect Management
- * ══════════════════════════════════════════════════════════════ */
-
 /* music_play_sound_effect  E1: ? | E2P: 0x430970 */
 void play_sound_effect(int sound_index, int volume) {
     if (!sound_fx_on) return;
@@ -458,10 +440,6 @@ void set_music_volume(int volume) {
     platform_set_music_volume(music_volume / 255.0f);
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  3D Sound Positioning
- * ══════════════════════════════════════════════════════════════ */
-
 /* music_play_sound_3d  E1: ? | E2P: 0x430D80 */
 void play_sound_3d(int sound_index, vector_t *position) {
     if (!sound_fx_on) return;
@@ -483,10 +461,6 @@ void play_actor_sound(int actor_index, int sound_index) {
     if (actor_index < 0 || actor_index >= ACTOR_POOL_SIZE) return;
     play_sound_3d(sound_index, &actor_position[actor_index]);
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  Speech / Voice
- * ══════════════════════════════════════════════════════════════ */
 
 static int s_speech_voice = -1;
 
@@ -512,24 +486,6 @@ void stop_speech(void) {
         platform_audio_stop_voice(s_speech_voice);
         s_speech_voice = -1;
     }
-}
-
-/* ══════════════════════════════════════════════════════════════
- *  Sound Driver Interface
- * ══════════════════════════════════════════════════════════════ */
-
-/* music_init_sound_channels_4310C0
- * Original initialized DirectSound mixing channels.
- * Platform audio layer (AudioUnit on macOS) handles channel management. */
-void init_sound_channels(void) {
-    platform_audio_init();
-}
-
-/* music_update_sound_mix_431190
- * Original mixed DirectSound channels in software.
- * Platform audio layer handles mixing in its render callback. */
-void update_sound_mix(void) {
-    process_tune();
 }
 
 /* Local helper: approximate 3D distance between two points */

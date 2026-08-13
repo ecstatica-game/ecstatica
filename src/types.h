@@ -12,15 +12,8 @@
 #  define UNUSED_ATTR __attribute__((unused))
 #endif
 
-/* ══════════════════════════════════════════════════════════════
- *  Compile-time Constants
- * ══════════════════════════════════════════════════════════════ */
-
-/* ── Fixed-point math constants ── */
 #define FIXED_POINT_SHIFT  14
 #define FIXED_POINT_ONE    (1 << FIXED_POINT_SHIFT)  /* 16384 */
-
-/* ── Compile-time feature flags ── */
 
 /* Skip the start logos (speeds up development) */
 /* #define SKIP_START_LOGO */
@@ -37,17 +30,14 @@
 /* App continues running when losing focus */
 #define APP_ALWAYS_ACTIVE
 
-/* ── Runtime game version ── */
 enum game_version_e {
     GAME_VERSION_E1 = 1,
     GAME_VERSION_E2 = 2
 };
 extern int game_version;
 
-/* ── Bitmap / buffer size ── */
 #define BITMAP_SIZE  0x4B281  /* 640*480 + header overhead */
 
-/* ── Pool and table sizes ── */
 #define ACTOR_POOL_SIZE      200
 #define PART_POOL_SIZE      4000
 #define ACTION_POOL_SIZE     400
@@ -87,12 +77,10 @@ extern int game_version;
 #define GRAPHICS_MAX        25
 #define MAX_OFFSETS         16000
 
-/* ── Scene flags ── */
 #define SCENE_STARTED   2
 #define SCENE_FINISHED  4
 #define SCENE_FLAGGED   8
 
-/* ── Actor flags ── */
 #define ACTOR_FLAG_ACTIVE       0x0001
 #define ACTOR_FLAG_VISIBLE      0x0008
 #define ACTOR_FLAG_HIDDEN       0x0080
@@ -101,19 +89,13 @@ extern int game_version;
 #define ACTOR_FLAG_CANT_BE_HIT  0x2000
 #define ACTOR_FLAG_CANT_STOP    0x4000
 
-/* ── Event flags ── */
 #define EVENT_FLAGS_PART        0x10
 #define EVENT_FLAGS_TRIANGLE    0x20
 #define EVENT_FLAGS_POINT       0x40
 #define EVENT_FLAGS_NO_SUPRESS  0x100
 
-/* ── Code tokens ── */
 #define CT_TOKENIZE_END    1
 #define CT_TOKENIZE_ERROR  2
-
-/* ══════════════════════════════════════════════════════════════
- *  Forward Declarations
- * ══════════════════════════════════════════════════════════════ */
 
 struct event_s;
 struct ellipse_s;
@@ -160,11 +142,6 @@ typedef struct key_s key_state_t;
 typedef struct act_s act_t;
 typedef struct camera_data_s camera_data_t;
 
-/* ══════════════════════════════════════════════════════════════
- *  Fundamental Type Definitions
- * ══════════════════════════════════════════════════════════════ */
-
-/* ── 3x3 Matrix (fixed-point, 14-bit fraction) ── */
 #pragma pack(push, 1)
 typedef struct matrix3x3_s {
     int16_t _11, _12, _13;
@@ -173,7 +150,6 @@ typedef struct matrix3x3_s {
 } matrix3x3_t;  /* 18 bytes */
 #pragma pack(pop)
 
-/* ── 3D Vector (16-bit signed components) ── */
 #pragma pack(push, 1)
 typedef struct vector_s {
     union {
@@ -187,12 +163,10 @@ typedef struct vector_s {
 } vector_t;  /* 6 bytes */
 #pragma pack(pop)
 
-/* ── Vector helpers ── */
 static inline void set_vector(vector_t *v, int16_t x, int16_t y, int16_t z) {
     v->X = x; v->Y = y; v->Z = z;
 }
 
-/* ── Long Vector (32-bit components) ── */
 #pragma pack(push, 1)
 typedef struct long_vector_s {
     int32_t l_X;
@@ -201,7 +175,6 @@ typedef struct long_vector_s {
 } long_vector_t;  /* 12 bytes */
 #pragma pack(pop)
 
-/* ── Palette entry (3 bytes: R, G, B) ── */
 #pragma pack(push, 1)
 typedef struct palette_entry_s {
     uint8_t R;
@@ -210,7 +183,6 @@ typedef struct palette_entry_s {
 } palette_entry_t;  /* 3 bytes */
 #pragma pack(pop)
 
-/* ── Sub-area (bounding rectangle) ── */
 #pragma pack(push, 1)
 typedef struct subarea_s {
     int16_t left;
@@ -220,7 +192,6 @@ typedef struct subarea_s {
 } subarea_t;
 #pragma pack(pop)
 
-/* ── Pointer tables for parts/triangles/points ── */
 typedef struct part_tab_s {
     struct part_s *field_0[555];
 } part_tab_t;
@@ -233,18 +204,12 @@ typedef struct point_tab_s {
     struct point_s *field_0[500];
 } point_tab_t;
 
-/* ── Action directory name ── */
 #pragma pack(push, 1)
 typedef struct action_dir_s {
     char field_0[26];
 } action_dir_t;
 #pragma pack(pop)
 
-/* ══════════════════════════════════════════════════════════════
- *  Enumerations
- * ══════════════════════════════════════════════════════════════ */
-
-/* ── Event types enum ── */
 typedef enum EVENTS {
     NO_EVENT = 0,
     ROTATE, OFFSET, COLOUR, VECTOR1, VECTOR2, VECTOR3,
@@ -268,7 +233,6 @@ typedef enum EVENTS {
     TRI_TEXTURE3, THING_CODE_2
 } EVENTS;
 
-/* ── Behavioral states ── */
 typedef enum BEHAVIORAL {
     BH_STOP = 0,
     BH_CHASE, BH_RETREAT, BH_WANDER, BH_JOYSTICK,
@@ -277,7 +241,6 @@ typedef enum BEHAVIORAL {
     BH_TURN_LEFT, BH_TURN_RIGHT, BH_EXTERNAL, BH_FOLLOW
 } BEHAVIORAL;
 
-/* ── Code tokens ── */
 typedef enum CODE_TOKENS {
     CT_IF = 3, CT_ELSE, CT_ELSE_IF, CT_END_IF,
     CT_PLAY_SCENE, CT_STARTED, CT_NOT_STARTED,
@@ -319,10 +282,6 @@ typedef enum CODE_TOKENS {
     CT_FRENCH, CT_GERMAN, CT_ITALIAN, CT_SPANISH,
     CT_POLISH, CT_JAPANESE, CT_MAX
 } CODE_TOKENS;
-
-/* ══════════════════════════════════════════════════════════════
- *  Debug Logging
- * ══════════════════════════════════════════════════════════════ */
 
 extern int debug_verbose;  /* 0 = quiet, 1 = important, 2 = verbose */
 extern FILE *debug_log_file;

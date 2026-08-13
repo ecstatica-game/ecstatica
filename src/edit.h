@@ -3,15 +3,7 @@
 
 #include "types.h"
 
-/* ══════════════════════════════════════════════════════════════
- *  Edit Globals (extern)
- * ══════════════════════════════════════════════════════════════ */
-
 extern int16_t mask_distance[64];
-
-/* ══════════════════════════════════════════════════════════════
- *  Function Declarations
- * ══════════════════════════════════════════════════════════════ */
 
 void advance_thing(actor_t *actor, int16_t game_time_arg);
 void copy_defaults_to_actual(actor_t *actor);
