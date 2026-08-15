@@ -60,6 +60,7 @@ int32_t poison_time = 0;
 int16_t hero_material = 0;
 int32_t mode_svga = 0;
 int32_t chosen_svga = 1;
+int32_t low_res_only = 0;
 int32_t select_flag = 0;
 int32_t eagle_card = 0;
 int16_t height_shift = 7;
@@ -3102,6 +3103,11 @@ void go_vga(void) {
 
 /* menu_go_svga  E2: 0x43ABE0 */
 void go_svga(void) {
+    /* E1 DOS ships only 320x200 backgrounds in VIEWS — there is no hi-res mode
+     * to switch to, and letting the constants go to 640x480 desynchronises the
+     * renderer from the platform blit size. */
+    if (low_res_only) return;
+
     bool was_on = mouse_pointer_on;
     flush_backgrounds();
     turn_mouse_pointer_off();
