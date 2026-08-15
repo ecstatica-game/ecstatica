@@ -9,6 +9,7 @@
 
 #include "icon.h"
 #include "display.h"
+#include "win.h"
 
 int16_t rate_box_left = 10;
 int16_t rate_box_top = 20;
@@ -31,6 +32,7 @@ void set_vga_constants(void) {
     vector_box_top  = 114;
     max_message_len = 26;
     vector_box_left = 121;
+    win_set_render_size(screen_width, screen_height);
 }
 
 /* icon_set_svga_constants  E1: 0x42F238 | E2: 0x439388 */
@@ -48,4 +50,5 @@ void set_svga_constants(void) {
     max_message_len = 52;
     vector_box_top  = 276;
     vector_box_left = 242;
+    win_set_render_size(screen_width, screen_height);
 }

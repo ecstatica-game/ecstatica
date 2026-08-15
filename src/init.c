@@ -172,8 +172,9 @@ void init(void) {
     detect_game_version();
     int16_t fan_ver = peek_fan_version();
     if (game_version == GAME_VERSION_E1 && fan_ver >= 0 && fan_ver <= 30) {
+        low_res_only = 1;
+        chosen_svga = 0;
         set_vga_constants();
-        win_set_render_size(screen_width, screen_height);
     } else {
         set_svga_constants();
     }
