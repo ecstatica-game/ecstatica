@@ -62,6 +62,7 @@
 | Escape | Menu (save, load, options, quit) |
 | Enter | Open inventory screen |
 | I | Toggle HUD icons on/off |
+| G | Switch graphics between Original (320×200) and Enhanced (640×480). Needs the Win95 data — no effect otherwise |
 
 ### Inventory Screen
 
@@ -192,6 +193,7 @@ Auto-detected — no configuration needed. Gamepad and keyboard can be used simu
 | RT / R2 | Left Ctrl | Attack modifier (alternative) |
 | Start | Escape | Pause menu |
 | Select / Back | I | Toggle HUD icons |
+| Right stick click (R3) | G | Original / Enhanced graphics (E1 with Win95 data) |
 
 ### Combat (E1)
 

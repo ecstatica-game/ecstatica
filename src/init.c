@@ -170,9 +170,18 @@ void init(void) {
     make_code_writable();
 
     detect_game_version();
+    init_data_roots();
+
+    /* E1 data predating the Win95 release ships only 320x200 backgrounds, so
+     * it boots in VGA. A nested W/ folder (or a HIRES set in the launch dir)
+     * supplies the hi-res assets the graphics toggle switches to. */
     int16_t fan_ver = peek_fan_version();
-    if (game_version == GAME_VERSION_E1 && fan_ver >= 0 && fan_ver <= 30) {
-        low_res_only = 1;
+    int vga_data = (game_version == GAME_VERSION_E1 && fan_ver >= 0 && fan_ver <= 30);
+
+    hires_available = hires_data_available();
+    low_res_only = vga_data && !hires_available;
+
+    if (vga_data) {
         chosen_svga = 0;
         set_vga_constants();
     } else {
@@ -182,7 +191,8 @@ void init(void) {
     set_up_bitmaps();
     flush_backgrounds();
     go_vga();
-    go_svga();
+    if (!vga_data)
+        go_svga();
 
     if (game_version != GAME_VERSION_E1) {
         load_logo("psyglogo.raw");

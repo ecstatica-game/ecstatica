@@ -12,7 +12,9 @@
 #include "debug_overlay.h"
 #include "display.h"
 #include "file.h"
+#include "game.h"
 #include "init.h"
+#include "menu.h"
 #include "platform.h"
 #include <string.h>
 #include <stdlib.h>
@@ -166,6 +168,19 @@ void window_proc(void) {
         platform_key_pressed(g_platform, PKEY_D))
         debug_overlay_active ^= 1;
 
+    /* G: switch between the original and enhanced graphics sets.
+     * Only while a game is actually running — set_enhanced_graphics rebuilds
+     * icons and parts, which have no meaning on the title screen or mid-intro.
+     * A no-op when there is no hi-res data to switch to. */
+    /* platform_key_hit consumes one latched press. It survives a tap whose
+     * down and up land in the same pump — on the title screen and during the
+     * intro, pumps are 50ms apart (present_delay), so a level or prev/now
+     * comparison drops most presses. Consuming the latch before the call also
+     * stops set_enhanced_graphics, which re-enters window_proc through
+     * make_game_screen, from seeing the same press again. */
+    if (platform_key_hit(g_platform, PKEY_G))
+        set_enhanced_graphics(!mode_svga);
+
     /* mouse */
     int mx, my;
     int mb = platform_mouse_state(g_platform, &mx, &my);
@@ -189,6 +204,7 @@ void window_proc(void) {
      *   Start                 → Escape: pause menu
      *   Select / Back         → I: toggle HUD icons
      *   Left stick click      → speed mode cycle (1→2→3)
+     *   Right stick click     → G: original / enhanced graphics
      */
     platform_gamepad_state_t gp;
     platform_gamepad_poll(g_platform, &gp);
@@ -265,6 +281,13 @@ void window_proc(void) {
          * Right stick vertical maps to hand pick/drop. */
         extra_keys_pressed[79] |= gp.right_y < -rs_dz;   /* Z / Num1 left hand */
         extra_keys_pressed[81] |= gp.right_y >  rs_dz;    /* C / Num3 right hand */
+
+        /* Right stick click: graphics set toggle (same as G) */
+        static bool rstick_was_pressed = false;
+        bool rstick_edge = gp.btn_rstick && !rstick_was_pressed;
+        rstick_was_pressed = gp.btn_rstick;   /* latch before the call */
+        if (rstick_edge)
+            set_enhanced_graphics(!mode_svga);
 
         /* Left stick click: cycle speed mode (sneak → walk → run) */
         static bool lstick_was_pressed = false;

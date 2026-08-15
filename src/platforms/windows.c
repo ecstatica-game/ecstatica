@@ -27,6 +27,7 @@ struct platform_t {
     bool quit_requested;
 
     bool key_state[MAX_KEYS];
+    bool key_hit[MAX_KEYS];
     bool key_prev[MAX_KEYS];
     int  mouse_x;
     int  mouse_y;
@@ -86,7 +87,10 @@ static LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
         case WM_KEYDOWN:
         case WM_SYSKEYDOWN: {
             int sc = win32_scancode(lParam, wParam);
-            if (sc >= 0 && sc < MAX_KEYS) p->key_state[sc] = true;
+            if (sc >= 0 && sc < MAX_KEYS) {
+                if (!p->key_state[sc]) p->key_hit[sc] = true;
+                p->key_state[sc] = true;
+            }
             return 0;
         }
 
@@ -269,6 +273,13 @@ bool platform_pump_events(platform_t *p) {
 bool platform_key_down(platform_t *p, int keycode) {
     if (!p || keycode < 0 || keycode >= MAX_KEYS) return false;
     return p->key_state[keycode];
+}
+
+bool platform_key_hit(platform_t *p, int keycode) {
+    if (!p || keycode < 0 || keycode >= MAX_KEYS) return false;
+    bool hit = p->key_hit[keycode];
+    p->key_hit[keycode] = false;
+    return hit;
 }
 
 bool platform_key_pressed(platform_t *p, int keycode) {

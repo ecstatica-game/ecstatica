@@ -34,6 +34,7 @@ struct platform_t {
 
     bool key_state[MAX_KEYS];
     bool key_prev[MAX_KEYS];
+    bool key_hit[MAX_KEYS];
     int  mouse_x;
     int  mouse_y;
     int  mouse_buttons;
@@ -79,6 +80,7 @@ static int x11_keysym_to_pkey(KeySym ks) {
         case XK_w: case XK_W: return PKEY_W;
         case XK_q: case XK_Q: return PKEY_Q;
         case XK_e: case XK_E: return PKEY_E;
+        case XK_g: case XK_G: return PKEY_G;
         case XK_i: case XK_I: return PKEY_I;
         case XK_p: case XK_P: return PKEY_P;
         case XK_c: case XK_C: return PKEY_C;
@@ -315,7 +317,10 @@ bool platform_pump_events(platform_t *p) {
             case KeyPress: {
                 KeySym ks = XLookupKeysym(&ev.xkey, 0);
                 int k = x11_keysym_to_pkey(ks);
-                if (k >= 0 && k < MAX_KEYS) p->key_state[k] = true;
+                if (k >= 0 && k < MAX_KEYS) {
+                    if (!p->key_state[k]) p->key_hit[k] = true;
+                    p->key_state[k] = true;
+                }
                 break;
             }
             case KeyRelease: {
@@ -388,6 +393,13 @@ bool platform_pump_events(platform_t *p) {
 bool platform_key_down(platform_t *p, int keycode) {
     if (!p || keycode < 0 || keycode >= MAX_KEYS) return false;
     return p->key_state[keycode];
+}
+
+bool platform_key_hit(platform_t *p, int keycode) {
+    if (!p || keycode < 0 || keycode >= MAX_KEYS) return false;
+    bool hit = p->key_hit[keycode];
+    p->key_hit[keycode] = false;
+    return hit;
 }
 
 bool platform_key_pressed(platform_t *p, int keycode) {

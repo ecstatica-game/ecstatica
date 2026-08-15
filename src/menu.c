@@ -506,6 +506,7 @@ enum {
     SETT_MUSIC,
     SETT_SOUNDFX,
     SETT_SUBTITLES,
+    SETT_GRAPHICS,
     SETT_MAX
 };
 
@@ -527,6 +528,7 @@ static void settings_get_value(int id, char *buf, int bufsz) {
     case SETT_MUSIC:     snprintf(buf, bufsz, "%s", music_on ? "On" : "Off"); break;
     case SETT_SOUNDFX:   snprintf(buf, bufsz, "%s", sound_fx_on ? "On" : "Off"); break;
     case SETT_SUBTITLES: snprintf(buf, bufsz, "%s", subtitles_on ? "On" : "Off"); break;
+    case SETT_GRAPHICS:  snprintf(buf, bufsz, "%s", mode_svga ? "Enhanced" : "Original"); break;
     }
 }
 
@@ -556,11 +558,14 @@ static void settings_adjust(int id, int dir) {
     case SETT_SUBTITLES:
         subtitles_on = !subtitles_on;
         break;
+    case SETT_GRAPHICS:
+        set_enhanced_graphics(!mode_svga);
+        break;
     }
 }
 
 static const char *settings_labels[] = {
-    "Difficulty", "Language", "Music", "Sound FX", "Subtitles"
+    "Difficulty", "Language", "Music", "Sound FX", "Subtitles", "Graphics"
 };
 
 /* menu_do_settings_menu  E1: ? | E2P: 0x42B6F0 */
@@ -574,17 +579,21 @@ void do_settings_menu(void) {
     items[num_items++] = SETT_MUSIC;
     items[num_items++] = SETT_SOUNDFX;
     items[num_items++] = SETT_SUBTITLES;
+    if (hires_available)
+        items[num_items++] = SETT_GRAPHICS;
 
     int sel = 0;
 
-    int item_h = tx_h + 8;
-    int item_w = 30 * tx_w;
-    int panel_w = item_w + 16;
-    int panel_h = num_items * item_h + 28;
-    int px = (screen_width - panel_w) / 2;
-    int py = (screen_height - panel_h) / 2;
-
     for (;;) {
+        /* Recomputed every frame: the graphics toggle changes screen_width
+         * and screen_height under us. */
+        int item_h = tx_h + 8;
+        int item_w = 30 * tx_w;
+        int panel_w = item_w + 16;
+        int panel_h = num_items * item_h + 28;
+        int px = (screen_width - panel_w) / 2;
+        int py = (screen_height - panel_h) / 2;
+
         menu_frame_start();
 
         draw_panel(px, py, panel_w, panel_h);
@@ -618,7 +627,8 @@ void do_settings_menu(void) {
 
         if (menu_confirm()) {
             int id = items[sel];
-            if (id == SETT_MUSIC || id == SETT_SOUNDFX || id == SETT_SUBTITLES)
+            if (id == SETT_MUSIC || id == SETT_SOUNDFX || id == SETT_SUBTITLES ||
+                id == SETT_GRAPHICS)
                 settings_adjust(id, 1);
             platform_delay(150);
         }
