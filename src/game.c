@@ -571,6 +571,26 @@ int execute_boolean(int16_t **pp, actor_t *actor) {
 /* Forward declaration for check_actor_loaded_by_index */
 void check_actor_loaded_by_index(int16_t actor_index);
 
+/* Deliberate deviation from the original.
+ *
+ * A few one-shot event scenes were authored as CT_REPEAT_SCENE. That token
+ * restarts a scene once it is marked finished (scene_name_flags bit 4), so
+ * the event replays every time the player re-enters the zone. Listing a
+ * scene here makes it honour the "already started" bit instead, matching
+ * CT_PLAY_SCENE semantics.
+ *
+ * Scene ids are per-game — do not share this list between E1 and E2. */
+static int scene_is_play_once(int16_t scene_id) {
+    static const int16_t e1_once[] = { 146 };   /* skinny1 / table6 / head_ski */
+
+    if (game_version != GAME_VERSION_E1)
+        return 0;
+    for (size_t i = 0; i < sizeof(e1_once) / sizeof(e1_once[0]); i++)
+        if (e1_once[i] == scene_id)
+            return 1;
+    return 0;
+}
+
 void do_execute_code(code_t *code, actor_t *actor) {
     if (!code) return;
 
@@ -710,6 +730,8 @@ void do_execute_code(code_t *code, actor_t *actor) {
                 if (scene) {
                     if (!check_scene_ok_to_start(scene)) break;
                     check_actors_in_scene_loaded(scene);
+                    DBG_LOG(1, "[SS] PLAY_SCENE scene=%d flags=0x%x\n",
+                            scene_id, scene_name_flags[scene_id]);
                     start_scene(scene);
                 } else {
                     do_info2_req("Missing scene", file_find_scene_name(scene_id));
@@ -730,12 +752,18 @@ void do_execute_code(code_t *code, actor_t *actor) {
                 } else if (scene_name_flags[scene_id] & 4) {
                     should_start = true;
                 }
+                if (should_start && scene_is_play_once(scene_id) &&
+                    (scene_name_flags[scene_id] & 2)) {
+                    should_start = false;
+                }
                 if (should_start) {
                     check_scene_loaded(scene_id);
                     scene = scene_tab[scene_id];
                     if (scene) {
                         if (!check_scene_ok_to_start(scene)) break;
                         check_actors_in_scene_loaded(scene);
+                        DBG_LOG(1, "[SS] REPEAT_SCENE scene=%d flags=0x%x\n",
+                                scene_id, scene_name_flags[scene_id]);
                         start_scene(scene);
                     } else {
                         do_info2_req("Missing scene", file_find_scene_name(scene_id));
@@ -4269,11 +4297,13 @@ void start_scene(scene_t *scene) {
 
     /* Pass 1: Assign actors to scene */
     for (script_t *script = scene->scene_script_list; script; script = script->next_script) {
-        DBG_LOG(1, "[SS]   P1 script actor=%d '%s' aflags=0x%x in_tab=%d\n",
+        DBG_LOG(1, "[SS]   scene=%d P1 script actor=%d '%s' aflags=0x%x in_tab=%d %s\n",
+                scene->scene_index,
                 script->script_actor_index,
                 (script->script_actor_index >= 0 && script->script_actor_index < THING_TAB_SIZE && thing_names) ? thing_names[script->script_actor_index].field_0 : "?",
                 script->script_action.action_flags,
-                (script->script_actor_index >= 0 && script->script_actor_index < THING_TAB_SIZE) ? (thing_tab[script->script_actor_index] != NULL) : -1);
+                (script->script_actor_index >= 0 && script->script_actor_index < THING_TAB_SIZE) ? (thing_tab[script->script_actor_index] != NULL) : -1,
+                (script->script_action.action_flags & 0x20) ? "SKIP" : "run");
         if (!(script->script_action.action_flags & 0x20) && script->script_actor_index >= 0) {
             actor_t *actor = thing_tab[script->script_actor_index];
             if (actor) {
