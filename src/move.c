@@ -1734,8 +1734,9 @@ void find_dirn_and_dist(int16_t *dir, int16_t *dist, int16_t dx, int16_t dz) {
  * NOTE: asm computes int32 d, then truncates to int16 BEFORE taking abs.
  * Doing abs in full int width then truncating yields wrong sign when |d|
  * overflows int16 such that low-16 sign-extension flips polarity. */
+/* Unlike find_dirn_and_dist (X = sin, Z = cos), this uses X = cos, Z = sin. */
 void find_direction_and_distance(int16_t *dir, int16_t *dist, int16_t dx, int16_t dz) {
-    uint16_t angle = arctan(dx, dz);
+    uint16_t angle = arctan(dz, dx);
     *dir = (int16_t)angle;
 
     if (!dx && !dz) {
@@ -1744,11 +1745,11 @@ void find_direction_and_distance(int16_t *dir, int16_t *dist, int16_t dx, int16_
     }
 
     int d;
-    if (abs(dz) <= abs(dx)) {
-        int value = sine_table[angle];
+    if (abs(dx) > abs(dz)) {
+        int value = cosn_table[angle];
         d = value ? ((int)dx << 14) / value : 0;
     } else {
-        int value = cosn_table[angle];
+        int value = sine_table[angle];
         d = value ? ((int)dz << 14) / value : 0;
     }
     int16_t low = (int16_t)d;
