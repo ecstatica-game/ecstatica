@@ -1,4 +1,4 @@
-# Ecstatica
+# Ečstatica
 
 Decompilation and portable C99 reimplementation of **Ecstatica 1 & 2**, the 1994/1997 ellipsoid-rendered adventure games by Andrew Spencer Studios.
 
