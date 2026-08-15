@@ -1272,7 +1272,10 @@ void load_a_repertoire(int rep_index) {
  *    sentinel 0x1234.
  * ══════════════════════════════════════════════════════════════ */
 
-#define SAVE_VERSION 4
+/* Bump when appending to the save stream. Older files stay loadable as long
+ * as new sections are appended after the sentinel and read version-gated. */
+#define SAVE_VERSION 5
+#define SAVE_VERSION_MIN 4   /* oldest layout load_game can still read */
 #define SAVE_MAX_SLOTS 11
 #define SAVE_NAME_LEN 26
 #define THUMB_W 80
@@ -1588,6 +1591,11 @@ void save_game(int slot) {
     /* 15. Sentinel */
     putwLoHi(0x1234, f);
 
+    /* 16. Scene flags (v5+). Appended after the sentinel so that saves written
+     * by this build stay readable by any loader that stops at the sentinel. */
+    for (int i = 0; i < SCENE_TAB_SIZE; i++)
+        putwLoHi(scene_name_flags[i], f);
+
     fclose(f);
 }
 
@@ -1605,7 +1613,7 @@ void load_game(int slot) {
 
     /* 2. Check version */
     int16_t version = getwLoHi(f);
-    if (version < SAVE_VERSION) {
+    if (version < SAVE_VERSION_MIN || version > SAVE_VERSION) {
         fclose(f);
         do_info_req("Game was saved in old version");
         return;
@@ -1613,6 +1621,13 @@ void load_game(int slot) {
 
     /* 3. Reset game state */
     new_game();
+
+    /* new_game() leaves scene_name_flags alone, so without this a load would
+     * inherit the running session's started/finished bits. Same mask as
+     * initialise_game(). v5+ saves overwrite these from file in step 16. */
+    for (int i = 0; i < SCENE_TAB_SIZE; i++)
+        scene_name_flags[i] &= (int16_t)0xFFF1;
+
     free_all_heaps();
     active_camera = NULL;
     clear_subtitles = 1;
@@ -1809,6 +1824,14 @@ void load_game(int slot) {
     int16_t sentinel = getwLoHi(f);
     if (sentinel != 0x1234)
         DBG_LOG(1, "[LOAD] Warning: bad sentinel 0x%04X\n", (unsigned)sentinel);
+
+    /* 16. Scene flags (v5+). Pre-v5 saves end at the sentinel; the flags then
+     * keep whatever the running session had, which is the existing behaviour
+     * (new_game() clears the *_tab arrays but not scene_name_flags). */
+    if (version >= 5) {
+        for (int i = 0; i < SCENE_TAB_SIZE && !feof(f); i++)
+            scene_name_flags[i] = getwLoHi(f);
+    }
 
     fclose(f);
 
