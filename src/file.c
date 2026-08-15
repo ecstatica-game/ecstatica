@@ -1145,21 +1145,24 @@ void file_read_repertoire(FILE *f) {
 void file_read_map_area(FILE *f) {
     if (!f) return;
 
-    int16_t name_index = getw_be(f);
-    if (name_index < 0 || name_index >= MAP_AREA_TAB_SIZE) return;
-
+    /* The record must be consumed whole even when it can't be stored, or the
+     * stream desyncs for everything read after it. */
     map_area_t *area = (map_area_t *)calloc(1, sizeof(map_area_t));
-    if (!area) return;
 
-    area->map_area_index = name_index;
-    /* Read element references */
-    int16_t num_elements = getw_be(f);
-    if (num_elements > 10) num_elements = 10;
-    for (int i = 0; i < num_elements; i++) {
-        area->map_area_element_num[i] = getw_be(f);
+    int16_t raw_index = getwLoHi(f);
+    int16_t name_index = (raw_index >= 0 && raw_index < MAP_AREA_TAB_SIZE)
+                         ? new_map_area_name[raw_index] : -1;
+    if (area) area->map_area_index = name_index;
+
+    int16_t num_elements = getwLoHi(f);
+    for (int i = 0; i < num_elements && !feof(f); i++) {
+        int16_t val = getwLoHi(f);
+        if (area && i < 10) area->map_area_element_num[i] = val;
     }
 
-    map_area_tab[name_index] = area;
+    if (!area) return;
+    if (name_index >= 0 && name_index < MAP_AREA_TAB_SIZE)
+        map_area_tab[name_index] = area;
     area->next = map_area_list;
     map_area_list = area;
 }
@@ -2785,10 +2788,21 @@ void merge_new_map(FILE *f) {
                 camera[0].zoom_factor);
     }
 
+    DBG_LOG(2, "[MAP] file_version=%d game_version=%d elems=%d cameras=%d\n",
+            file_version, game_version, top_of_map_elements, num_cameras);
+
     if (file_version >= 20) {
-        while (fgetc(f)) {
+        int area_count = 0;
+        for (;;) {
+            int c = fgetc(f);
+            if (c == EOF || c == 0) break;
+            if (++area_count > MAP_AREA_TAB_SIZE) {
+                DBG_LOG(1, "[MAP] map area overrun — stream desync\n");
+                break;
+            }
             file_read_map_area(f);
         }
+        DBG_LOG(2, "[MAP] map_areas=%d eof=%d\n", area_count, feof(f) ? 1 : 0);
     }
 }
 
