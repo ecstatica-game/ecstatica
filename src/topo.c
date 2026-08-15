@@ -649,9 +649,21 @@ int load_raw(void) {
 
     char source[64];
 
-    snprintf(source, sizeof(source), "HIRES/%04d.RAW", selected_camera);
-    FILE *stream = fopen_ci(source, "rb");
-    if (!stream) {
+    /* The two view sets are different resolutions, so the source must follow
+     * the active mode — a 640x480 HIRES background loaded while in VGA (or a
+     * 320x200 VIEWS background loaded while in SVGA) overruns the row stride
+     * and tiles the image. Cameras with no HIRES entry return failure so the
+     * caller can reload in VGA and upscale via copy_vga_to_svga(). */
+    FILE *stream = NULL;
+    if (mode_svga) {
+        snprintf(source, sizeof(source), "HIRES/%04d.RAW", selected_camera);
+        stream = fopen_ci(source, "rb");
+        if (!stream) {
+            DBG_LOG(2, "[LR] cam=%d no HIRES view, deferring to VGA upscale\n",
+                    selected_camera);
+            return -1;
+        }
+    } else {
         snprintf(source, sizeof(source), "VIEWS/%04d.RAW", selected_camera);
         stream = fopen_ci(source, "rb");
     }
@@ -695,9 +707,19 @@ int load_raw(void) {
 /* topo_load_raw_graphic  E1: 0x43FA24 | E2: 0x44A0C8 */
 char *load_raw_graphic(const char *source, int *size_x, int *size_y) {
     char destination[52];
-    snprintf(destination, sizeof(destination), "graphics/%s", source);
+    FILE *stream = NULL;
 
-    FILE *stream = fopen_ci(destination, "rb");
+    /* The Win95 data splits title/end art: GRAPHICS holds the 640x480 set and
+     * LOWGRAPH the 320x200 one. DOS data has only GRAPHICS, already lo-res, so
+     * the LOWGRAPH lookup simply misses and falls through. */
+    if (!mode_svga) {
+        snprintf(destination, sizeof(destination), "LOWGRAPH/%s", source);
+        stream = fopen_ci(destination, "rb");
+    }
+    if (!stream) {
+        snprintf(destination, sizeof(destination), "graphics/%s", source);
+        stream = fopen_ci(destination, "rb");
+    }
     if (!stream) return NULL;
 
     bitmap_hdr_t header;
@@ -847,7 +869,7 @@ void load_visibility_map(void) {
     if (game_version == GAME_VERSION_E1) {
         char vis_path[64];
         snprintf(vis_path, sizeof(vis_path), "VISIB/%04d.VIS", selected_camera);
-        vis_fp = fopen(vis_path, "rb");
+        vis_fp = fopen_ci(vis_path, "rb");
         if (!vis_fp) return;
 
         char signature[4];

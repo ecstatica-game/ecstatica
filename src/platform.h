@@ -40,6 +40,7 @@ enum {
     PKEY_W      = 0x11,
     PKEY_Q      = 0x10,
     PKEY_E      = 0x12,
+    PKEY_G      = 0x22,
     PKEY_I      = 0x17,
     PKEY_P      = 0x19,
     PKEY_C      = 0x2E,
@@ -130,6 +131,21 @@ bool platform_key_down(platform_t *p, int keycode);
  * @param keycode     PKEY_xxx constant
  */
 bool platform_key_pressed(platform_t *p, int keycode);
+
+/**
+ * Consume a latched key-down. Returns true once per physical press and clears
+ * the latch.
+ *
+ * Unlike platform_key_pressed(), which compares this frame's level against
+ * last frame's, this survives a tap whose press and release land in the same
+ * event pump — the case that makes quick presses vanish during present_delay,
+ * where pumps are 50ms apart. Auto-repeat does not re-latch: the flag is only
+ * set on a genuine false->true transition.
+ *
+ * @param p           Platform handle
+ * @param keycode     PKEY_xxx constant
+ */
+bool platform_key_hit(platform_t *p, int keycode);
 
 /**
  * Get current mouse state.

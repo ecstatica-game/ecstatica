@@ -61,6 +61,7 @@ int16_t hero_material = 0;
 int32_t mode_svga = 0;
 int32_t chosen_svga = 1;
 int32_t low_res_only = 0;
+int32_t hires_available = 0;
 int32_t select_flag = 0;
 int32_t eagle_card = 0;
 int16_t height_shift = 7;
@@ -3120,6 +3121,69 @@ void go_svga(void) {
     set_palette(colour_map);
     if (was_on) turn_mouse_pointer_on();
     make_game_screen();
+}
+
+/* Switch the presentation set between the original 320x200 assets and the
+ * enhanced 640x480 ones, mid-session.
+ *
+ * Only the asset search order and the render constants change — the loaded
+ * database (FAN, OFFSETS, FILES) stays put, so actors, scenes, camera and
+ * inventory carry across untouched. go_vga/go_svga clear active_camera, which
+ * makes the next check_view reload the background from the new root. */
+void set_enhanced_graphics(int enabled) {
+    if (!hires_available) return;
+    if ((mode_svga != 0) == (enabled != 0)) return;
+
+    /* go_vga/go_svga reach window_proc through make_game_screen, so a hotkey
+     * held across the switch would otherwise recurse back into here. */
+    static int switching = 0;
+    if (switching) return;
+    switching = 1;
+
+    /* go_vga/go_svga reset selected_camera to -1; keep it so the view can be
+     * reloaded for the same camera afterwards. */
+    /* game_up_and_running goes true before the title screen is even shown, so
+     * it cannot tell "in a scene" from "on a menu". An active camera can:
+     * everything that needs rebuilding — icons, magic bar, actors, the
+     * background — only exists once a view is loaded. */
+    int16_t prev_camera = selected_camera;
+    bool have_view = (prev_camera > 0);
+
+    if (have_view)
+        remove_all_graphics();
+
+    /* Set before the mode switch: make_game_screen() loads art on the way. */
+    enhanced_graphics = enabled ? 1 : 0;
+
+    if (enabled)
+        go_svga();
+    else
+        go_vga();
+
+    chosen_svga = mode_svga;
+
+    if (have_view) {
+        remove_all_graphics();
+        update_game_icons();
+        draw_magic_bar();
+
+        /* Reload the background for the camera we were already on. Must be
+         * check_view and not check_camera: check_camera re-runs the map
+         * lookup, and a lookup that misses yields camera 0, which triggers
+         * play_dead_scene(7) — dropping the player into the dragon scene. */
+        check_view(prev_camera);
+
+        prepare_parts();
+        draw_stuck_parts();
+        draw_parts();
+        show_parts();
+    } else {
+        /* Title / menu screens: nothing to rebuild but the backdrop, which is
+         * resolution-specific (TITLE_S.RAW at 320, TSCREEN.RAW at 640). */
+        load_background_title();
+    }
+
+    switching = 0;
 }
 
 /* game_init_gadgets  E1: ? | E2P: 0x42DB58 */

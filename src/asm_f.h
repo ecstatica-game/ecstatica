@@ -21,6 +21,13 @@ int my_rand(void);
 /* Case-insensitive file open */
 FILE *fopen_ci(const char *path, const char *mode);
 
+/* Read-only asset search roots. enhanced_graphics picks which root wins for
+ * the swappable presentation directories (HIRES/VIEWS/VISIB/GRAPHICS/
+ * LOWGRAPH/MUSIC). The database unit is never searched across roots. */
+extern int32_t enhanced_graphics;
+void init_data_roots(void);
+int hires_data_available(void);
+
 /* VGA plane control (no-op in SDL port) */
 void set_read_plane(int plane);
 

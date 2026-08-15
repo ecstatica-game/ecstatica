@@ -32,6 +32,7 @@ struct platform_t {
     /* input */
     bool key_state[MAX_KEYS];
     bool key_prev[MAX_KEYS];
+    bool key_hit[MAX_KEYS];
     int  mouse_x;
     int  mouse_y;
     int  mouse_buttons;
@@ -112,6 +113,7 @@ static int macos_vk_to_pkey(unsigned short vk) {
         case 13:  return PKEY_W;
         case 12:  return PKEY_Q;
         case 14:  return PKEY_E;
+        case 5:   return PKEY_G;
         case 34:  return PKEY_I;
         case 35:  return PKEY_P;
         case 8:   return PKEY_C;
@@ -138,8 +140,10 @@ static int macos_vk_to_pkey(unsigned short vk) {
 - (BOOL)performKeyEquivalent:(NSEvent *)event {
     int k = macos_vk_to_pkey(event.keyCode);
     if (k >= 0 && k < MAX_KEYS) {
-        if (event.type == NSEventTypeKeyDown)
+        if (event.type == NSEventTypeKeyDown) {
+            if (!self.platform->key_state[k]) self.platform->key_hit[k] = true;
             self.platform->key_state[k] = true;
+        }
         else if (event.type == NSEventTypeKeyUp)
             self.platform->key_state[k] = false;
         return YES;
@@ -149,7 +153,10 @@ static int macos_vk_to_pkey(unsigned short vk) {
 
 - (void)keyDown:(NSEvent *)event {
     int k = macos_vk_to_pkey(event.keyCode);
-    if (k >= 0 && k < MAX_KEYS) self.platform->key_state[k] = true;
+    if (k >= 0 && k < MAX_KEYS) {
+        if (!self.platform->key_state[k]) self.platform->key_hit[k] = true;
+        self.platform->key_state[k] = true;
+    }
 }
 
 - (void)keyUp:(NSEvent *)event {
@@ -379,6 +386,13 @@ bool platform_pump_events(platform_t *p) {
 bool platform_key_down(platform_t *p, int keycode) {
     if (!p || keycode < 0 || keycode >= MAX_KEYS) return false;
     return p->key_state[keycode];
+}
+
+bool platform_key_hit(platform_t *p, int keycode) {
+    if (!p || keycode < 0 || keycode >= MAX_KEYS) return false;
+    bool hit = p->key_hit[keycode];
+    p->key_hit[keycode] = false;
+    return hit;
 }
 
 bool platform_key_pressed(platform_t *p, int keycode) {

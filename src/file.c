@@ -70,34 +70,71 @@ int16_t new_texture_name[TEXTURE_TAB_SIZE];
 int16_t new_point_name[POINT_TAB_SIZE];
 int16_t new_triangle_name[TRIANGLE_TAB_SIZE];
 
-/* Case-insensitive fopen: tries exact path first, then scans directory
- * for a case-insensitive filename match. Handles nested subdirectories. */
-FILE *fopen_ci(const char *path, const char *mode) {
-    FILE *f = fopen(path, mode);
-    if (f) return f;
+/* Read-only search roots for the swappable presentation assets.
+ *
+ * Root 0 is always the launch directory. E1's Win95 data sits in a nested W/
+ * folder inside the DOS bundle; when present it becomes a second root, and
+ * enhanced_graphics decides which of the two is consulted first.
+ *
+ * The database unit (CODE/ECSTATIC.FAN, OFFSETS, OFF2, FILES/) is deliberately
+ * excluded — those files are index-paired, so mixing a DOS database with the
+ * Win95 offsets shifts scene and sound indices under a running game. Only the
+ * directories in swappable_dirs[] are looked up across roots. */
+static const char *swappable_dirs[] = {
+    "HIRES", "VIEWS", "VISIB", "GRAPHICS", "LOWGRAPH", "MUSIC",
+    /* Root-level title art. The two resolutions live in different roots:
+     * DOS ships only TITLE_S.RAW (320x200), Win95 only TSCREEN.RAW
+     * (640x480), so load_background_title needs to see across both. */
+    "TITLE_S.RAW", "TSCREEN.RAW"
+};
 
+static char alt_data_root[256] = "";
+int32_t enhanced_graphics = 0;
+
+/* Path's first component names a directory that may come from either root. */
+static int is_swappable_asset(const char *path) {
+    if (!alt_data_root[0]) return 0;
+
+    size_t len = 0;
+    while (path[len] && path[len] != '/' && path[len] != '\\') len++;
+
+    for (size_t i = 0; i < sizeof(swappable_dirs) / sizeof(swappable_dirs[0]); i++) {
+        if (strlen(swappable_dirs[i]) == len &&
+            strncasecmp(path, swappable_dirs[i], len) == 0)
+            return 1;
+    }
+    return 0;
+}
+
+/* Walk each path component under base, resolving case at every level.
+ * Returns 1 and fills out on success. */
+static int resolve_ci(const char *base, const char *path, char *out, size_t outsz) {
     char buf[512];
-    if (strlen(path) >= sizeof(buf)) return NULL;
+    if (strlen(path) >= sizeof(buf)) return 0;
     strcpy(buf, path);
 
     /* Normalize backslashes */
     for (char *p = buf; *p; p++)
         if (*p == '\\') *p = '/';
 
-    /* Walk each path component, resolving case at each level */
-    char resolved[512] = "";
+    char resolved[512];
+    if (base && base[0])
+        snprintf(resolved, sizeof(resolved), "%s", base);
+    else
+        resolved[0] = '\0';
+
     char *rest = buf;
     while (*rest) {
         char *slash = strchr(rest, '/');
         char component[256];
         if (slash) {
             size_t len = slash - rest;
-            if (len >= sizeof(component)) return NULL;
+            if (len >= sizeof(component)) return 0;
             memcpy(component, rest, len);
             component[len] = '\0';
             rest = slash + 1;
         } else {
-            if (strlen(rest) >= sizeof(component)) return NULL;
+            if (strlen(rest) >= sizeof(component)) return 0;
             strcpy(component, rest);
             rest += strlen(rest);
         }
@@ -109,7 +146,7 @@ FILE *fopen_ci(const char *path, const char *mode) {
             strcpy(search_dir, ".");
 
         DIR *dir = opendir(search_dir);
-        if (!dir) return NULL;
+        if (!dir) return 0;
 
         int found = 0;
         struct dirent *ent;
@@ -125,10 +162,77 @@ FILE *fopen_ci(const char *path, const char *mode) {
             }
         }
         closedir(dir);
-        if (!found) return NULL;
+        if (!found) return 0;
     }
 
+    snprintf(out, outsz, "%s", resolved);
+    return 1;
+}
+
+static FILE *fopen_ci_root(const char *base, const char *path, const char *mode) {
+    char direct[512];
+    if (base && base[0])
+        snprintf(direct, sizeof(direct), "%s/%s", base, path);
+    else
+        snprintf(direct, sizeof(direct), "%s", path);
+
+    FILE *f = fopen(direct, mode);
+    if (f) return f;
+
+    char resolved[512];
+    if (!resolve_ci(base, path, resolved, sizeof(resolved))) return NULL;
     return fopen(resolved, mode);
+}
+
+/* Case-insensitive fopen: tries exact path first, then scans directory
+ * for a case-insensitive filename match. Handles nested subdirectories.
+ * Swappable asset directories are searched across both data roots. */
+FILE *fopen_ci(const char *path, const char *mode) {
+    if (is_swappable_asset(path)) {
+        const char *first = enhanced_graphics ? alt_data_root : "";
+        const char *second = enhanced_graphics ? "" : alt_data_root;
+
+        FILE *f = fopen_ci_root(first, path, mode);
+        if (f) return f;
+        return fopen_ci_root(second, path, mode);
+    }
+
+    return fopen_ci_root("", path, mode);
+}
+
+/* Probe for a nested enhanced-data root (E1's W/). Called once at init,
+ * before any asset load. */
+void init_data_roots(void) {
+    alt_data_root[0] = '\0';
+    enhanced_graphics = 0;
+
+    char resolved[512];
+    if (!resolve_ci("", "W/CODE/ECSTATIC.FAN", resolved, sizeof(resolved))) return;
+
+    FILE *probe = fopen(resolved, "rb");
+    if (!probe) return;
+    fclose(probe);
+
+    /* Store the case-resolved W directory, not the literal "W". */
+    char *slash = strchr(resolved, '/');
+    if (!slash) return;
+    *slash = '\0';
+    snprintf(alt_data_root, sizeof(alt_data_root), "%s", resolved);
+}
+
+/* True when a HIRES background set resolves through either root. */
+int hires_data_available(void) {
+    int was_enhanced = enhanced_graphics;
+    enhanced_graphics = 1;
+
+    char resolved[512];
+    int found = resolve_ci(alt_data_root[0] ? alt_data_root : "", "HIRES",
+                           resolved, sizeof(resolved));
+    if (!found)
+        found = resolve_ci("", "HIRES", resolved, sizeof(resolved));
+
+    enhanced_graphics = was_enhanced;
+    return found;
 }
 
 /* Forward declarations */
