@@ -54,13 +54,19 @@ void shade_ellipse_win95(part_t *part, int plane) {
     /* Compute projected half-sizes in pixels */
     int projection = (zoom_factor >> 4) / part->vector_persp.Z;
     int half_x = (int)((int64_t)part->projected_axes.X * projection * screen_width / 320 >> 6);
+    /* Both modes take 7/8 of the projection on the vertical axes; only the
+     * SVGA path adds the 12/5 aspect term. asm 0x429AA1-0x429AC4 (VGA) and
+     * 0x42A15F-0x42A179 (win95). The VGA branch was missing the 7/8, which
+     * left vertical half-axes 14% oversized — invisible on compact parts,
+     * large on a slanted one whose half_z dominates the column sweep. */
+    int projection78 = projection - projection / 8;
     int half_y, half_z;
     if (screen_width <= 320) {
-        half_y = (part->projected_axes.Y * projection) >> 6;
-        half_z = (part->projected_axes.Z * projection) >> 6;
+        half_y = (part->projected_axes.Y * projection78) >> 6;
+        half_z = (part->projected_axes.Z * projection78) >> 6;
     } else {
-        half_y = ((part->projected_axes.Y * 12 / 5) * (projection - projection / 8)) >> 6;
-        half_z = ((part->projected_axes.Z * 12 / 5) * (projection - projection / 8)) >> 6;
+        half_y = ((part->projected_axes.Y * 12 / 5) * projection78) >> 6;
+        half_z = ((part->projected_axes.Z * 12 / 5) * projection78) >> 6;
     }
     /* Skip ellipsoids smaller than 4 pixels */
     if (half_y < 4 || half_x < 4) {
@@ -68,16 +74,20 @@ void shade_ellipse_win95(part_t *part, int plane) {
         return;
     }
 
-    int col_top_fp = (pos_y - (half_y + half_z) + 16 * screen_centre_y) << 16;
-    int dy_per_col = (half_z << 20) / half_x;
+    int col_top_fp = (int)(((int64_t)(pos_y - (half_y + half_z)) + 16 * screen_centre_y) << 16);
+    /* 32-bit `half_z << 20` wraps once |half_z| reaches 2048, flipping the sign
+     * of the per-column slant. SVGA carries a 2.1x factor on half_z, so a long
+     * slanted part crosses that limit as it nears the camera while the same
+     * part stays well under it in VGA. Widened rather than reproduced. */
+    int dy_per_col = (int)(((int64_t)half_z << 20) / half_x);
 
     int step_y = 0x4000000 / half_y;
     int step_x = 0x4000000 / half_x;
 
     int16_t ellipse_left = (screen_centre_x << 4) + pos_x - half_x;
 
-    int z_step_x = (z_off_x << 20) / half_x;
-    int z_step_y = (z_off_y << 20) / half_y;
+    int z_step_x = (int)(((int64_t)z_off_x << 20) / half_x);
+    int z_step_y = (int)(((int64_t)z_off_y << 20) / half_y);
 
     half_z = abs(half_z);
 

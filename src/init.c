@@ -178,6 +178,10 @@ void init(void) {
     int16_t fan_ver = peek_fan_version();
     int vga_data = (game_version == GAME_VERSION_E1 && fan_ver >= 0 && fan_ver <= 30);
 
+    /* Fixed for the session: it describes the loaded database, which the
+     * graphics toggle never changes. Drives the SFX sample rate. */
+    e1_dos_data = vga_data;
+
     hires_available = hires_data_available();
     low_res_only = vga_data && !hires_available;
 
