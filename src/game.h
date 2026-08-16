@@ -217,6 +217,7 @@ extern int32_t mode_svga;
 extern int32_t chosen_svga;
 extern int32_t low_res_only;
 extern int32_t hires_available;
+extern int32_t e1_dos_data;
 extern int32_t select_flag;
 extern int32_t eagle_card;
 extern int16_t height_shift;
