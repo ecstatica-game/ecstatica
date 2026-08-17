@@ -682,6 +682,35 @@ void advance_thing(actor_t *actor, int16_t game_time) {
     free_spent_acts(actor);
 }
 
+/* ECSTATICA_TRACE_SQUASH=<actor_name_index>: every VECTOR1 touching any part of
+ * that actor, with the blend factor, the keyframe target and the value it
+ * starts from, so an animated squash can be told apart from a miscomputed one. */
+void squash_trace(const char *who, const part_t *part, int blend,
+                  const event_t *event, const vector_t *cur,
+                  const action_t *action) {
+    static int idx = -2;
+    static int n = 0;
+    if (idx == -2) {
+        const char *e = getenv("ECSTATICA_TRACE_SQUASH");
+        idx = (e && *e) ? atoi(e) : -1;
+    }
+    if (idx < 0 || !part || !part->parent_actor
+        || part->parent_actor->name_index != idx || n >= 2000) return;
+    n++;
+    fprintf(stderr, "[SQ] %s part=%d act=%d adur=%d aflags=%04x anext=%d ev_idx=%d blend=%d "
+                    "target=(%d,%d,%d) cur=(%d,%d,%d) def=(%d,%d,%d)\n",
+            who, part->name_index,
+            action ? action->action_index : -1,
+            action ? action->act_duration : -1,
+            action ? action->action_flags : 0,
+            action ? action->next_action_index : -1,
+            event->event_index, blend,
+            event->param1, event->param2, event->param3,
+            cur->X, cur->Y, cur->Z,
+            part->def_Squash.X, part->def_Squash.Y, part->def_Squash.Z);
+    fflush(stderr);
+}
+
 /* edit_advance_part_420158 — event-driven part animation update */
 void advance_part(event_t *event, int16_t blend, actor_t *actor, action_t *action) {
     if (!event || !actor) return;
@@ -823,6 +852,7 @@ void advance_part(event_t *event, int16_t blend, actor_t *actor, action_t *actio
     case VECTOR1: {
         if (!work_part) break;
         vector_t target = work_part->VECTOR_Squash;
+        squash_trace("adv", work_part, blend, event, &target, action);
         work_part->VECTOR_Squash.X += MULINT_X();
         work_part->VECTOR_Squash.Y += MULINT_Y();
         work_part->VECTOR_Squash.Z += MULINT_Z();

@@ -10,7 +10,7 @@
 ### Bugs
 [x] - Rotation issues when transitions views
 [ ] - Player not able to trigger certain events (like reading books, place object that trigger actions)
-[ ] - Actor walk animations not playing (but they move)
+[x] - Actor walk animations not playing (but they move)
 
 ## Ecstatica 2
 ### Bugs
