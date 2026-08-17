@@ -2064,20 +2064,8 @@ void modify_part(event_t *event, actor_t *actor, int some_time, action_t *action
         part_t *p = add_part(actor);
         if (!p) return;
         p->name_index = event->param1;
-        static int apt_log = 0;
-        if (apt_log < 10)
-            fprintf(stderr, "[EVT] ADD_PART actor=%p _PartTab=%p name_idx=%d part=%p stored? ",
-                (void*)actor, (void*)actor->_PartTab, event->param1, (void*)p);
-        if (actor->_PartTab) {
+        if (actor->_PartTab)
             actor->_PartTab->field_0[event->param1] = p;
-            if (apt_log < 10)
-                fprintf(stderr, "YES verify[%d]=%p\n", event->param1,
-                    (void*)actor->_PartTab->field_0[event->param1]);
-        } else {
-            if (apt_log < 10)
-                fprintf(stderr, "NO _PartTab\n");
-        }
-        apt_log++;
         return;
     }
     default:
@@ -2191,8 +2179,6 @@ void modify_part(event_t *event, actor_t *actor, int some_time, action_t *action
         break;
     case START_POSITION:
         set_vector(&actor->start_position, event->param1, event->param2, event->param3);
-        fprintf(stderr, "[EVT] START_POSITION actor=%p pos=(%d,%d,%d)\n",
-            (void*)actor, event->param1, event->param2, event->param3);
         break;
     case HELD_OFFSET:
         set_vector(&actor->held_offset, event->param1, event->param2, event->param3);
@@ -2272,13 +2258,6 @@ void modify_part(event_t *event, actor_t *actor, int some_time, action_t *action
         set_vector(&part->displacement_point, event->param1, event->param2, event->param3);
         break;
     case VECTOR1: {
-        static int v1_log = 0;
-        if (v1_log < 10)
-            fprintf(stderr, "[EVT] VECTOR1 actor=%p part=%p ev_idx=%d _PartTab=%p val=(%d,%d,%d)\n",
-                (void*)actor, (void*)part, event->event_index,
-                actor ? (void*)actor->_PartTab : NULL,
-                event->param1, event->param2, event->param3);
-        v1_log++;
         if (!part) break;
         set_vector(&part->VECTOR_Squash, event->param1, event->param2, event->param3);
         calculate_squash(part);
@@ -2476,11 +2455,6 @@ void modify_part(event_t *event, actor_t *actor, int some_time, action_t *action
         }
         return; /* INTERACT returns directly, like reference */
     case ADD_PART: {
-        static int ap_log = 0;
-        if (ap_log < 20)
-            fprintf(stderr, "[EVT] ADD_PART ev_idx=%d param1=%d part=%p actor=%p\n",
-                event->event_index, event->param1, (void*)part, (void*)actor);
-        ap_log++;
         if (!part) break;
         int16_t part_id = event->param1;
         if (part->parent_actor && part->parent_actor->_PartTab &&
