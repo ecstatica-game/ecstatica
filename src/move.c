@@ -28,6 +28,36 @@
 
 static int16_t e1_pick_up_hand = 0;
 
+/* Walk/action diagnostics. Inert unless ECSTATICA_TRACE_WALK is set;
+ * ECSTATICA_TRACE_WALK_ACTOR=<name_index> adds per-frame lines for one NPC. */
+static int walk_trace_on(void) {
+    static int on = -1;
+    if (on < 0) {
+        const char *e = getenv("ECSTATICA_TRACE_WALK");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    return on;
+}
+static int walk_trace_actor(void) {
+    static int idx = -2;
+    if (idx == -2) {
+        const char *e = getenv("ECSTATICA_TRACE_WALK_ACTOR");
+        idx = (e && *e) ? atoi(e) : -1;
+    }
+    return idx;
+}
+static FILE *walk_trace_fp(void) {
+    static FILE *fp = NULL;
+    if (!fp) {
+        const char *p = getenv("ECSTATICA_TRACE_WALK_OUT");
+        fp = fopen(p && *p ? p : "walk_trace.log", "w");
+    }
+    return fp;
+}
+#define WTRACE(...) do { \
+    if (walk_trace_on()) { FILE *f_ = walk_trace_fp(); if (f_) { fprintf(f_, __VA_ARGS__); fflush(f_); } } \
+} while (0)
+
 /* move_do_movement_427998 — called every frame from game loop */
 void do_movement(void) {
     int some_time = x_time;
@@ -453,6 +483,9 @@ void behaviour(actor_t *actor, int game_time_arg) {
             if (actor->actor_behavior != BH_RECOVERING &&
                 actor->actor_behavior != BH_GET_HIT)
                 actor->flags &= ~0x2000;
+            /* asm anim_behaviour_428914+140: cleared for every action_type,
+             * not only the forced one. */
+            actor->force_action_to_execute = NULL;
             actor->flags &= ~0x40;
         } else {
             actor->flags = (actor->flags | 0x2000) & ~0x40;
@@ -680,7 +713,26 @@ void behaviour(actor_t *actor, int game_time_arg) {
     if (actor->interact_cooldown > 0) actor->interact_cooldown -= game_time_arg;
     if (actor->interact_cooldown < 0) actor->interact_cooldown = 0;
 
-    actor->action_variant = -1;
+    /* asm anim_behaviour_428914+3CE: action_variant is a per-actor cooldown on
+     * re-deciding next_move. While it is still >= 0 the actor keeps its current
+     * move_type, so the behaviour AI cannot flip between e.g. walk and turn on
+     * consecutive frames and restart the action each time. Only the player and
+     * the hit/death states re-decide unconditionally. */
+    if (game_version == GAME_VERSION_E1) {
+        if (actor == selected_thing
+            || actor->actor_behavior == BH_GET_HIT
+            || actor->actor_behavior == BH_DYING
+            || actor->actor_behavior == BH_DEAD
+            || actor->actor_behavior == BH_RECOVERING
+            || ((actor->actor_behavior == BH_CHASE || actor->actor_behavior == BH_GO_CLOSER)
+                && actor->event_timer)) {
+            actor->action_variant = -1;
+        } else if (actor->action_variant >= 0) {
+            actor->action_variant = (int16_t)(actor->action_variant - game_time_arg);
+        }
+    } else {
+        actor->action_variant = -1;
+    }
     if (actor->actor_behavior != BH_WANDER) {
         if ((actor->actor_behavior != BH_CHASE && actor->actor_behavior != BH_GO_CLOSER)
             || !actor->event_timer)
@@ -1478,6 +1530,14 @@ center_function:
             }
 
             if (current_action) {
+                WTRACE("RESTART actor=%d nm=%d mt=%d act=%d dur=%d aflags=%04x bh=%d rel=%d rotY=%d tdir=%d wd=%d tdist=%d evt=%d ist=%04x tflags=%04x kp=%u\n",
+                       actor->name_index, next_move, actor->move_type,
+                       current_action->action_index, current_action->act_duration,
+                       current_action->action_flags, actor->actor_behavior,
+                       rel_angle, actor->rotate_vector.Y, target_direction,
+                       actor->wander_direction, target_distance, actor->event_timer,
+                       actor->interact_state, actor->flags,
+                       actor->actor_act.key_progress);
                 actor->actor_act.act_action = current_action;
                 actor->actor_act.duration = current_action->act_duration;
                 if (game_version != GAME_VERSION_E1 && actor->actor_Speed_factor != 100)
@@ -1527,7 +1587,19 @@ label_917:
         if (cur_action->key_list && cur_action->key_list->key_event_list)
             actor_last_act[actor->name_index] = cur_action->next_action_index + 1;
     }
+    uint16_t kp_before = actor->actor_act.key_progress;
     advance_act(&actor->actor_act, actor, game_time_arg);
+    if (walk_trace_on() && (actor == selected_thing || actor->name_index == walk_trace_actor())) {
+        act_t *a = &actor->actor_act;
+        WTRACE("FRAME actor=%d gt=%d nm=%d mt=%d act=%d dur=%d kp %u->%u aflags=%04x tflags=%04x sflags=%04x bh=%d rel=%d rotY=%d tdir=%d wd=%d tdist=%d key=%d\n",
+               actor->name_index, game_time_arg, next_move, actor->move_type,
+               a->act_action ? a->act_action->action_index : -1,
+               a->duration, kp_before, a->key_progress, a->flags, actor->flags,
+               actor->state_flags, actor->actor_behavior, rel_angle,
+               actor->rotate_vector.Y, target_direction, actor->wander_direction,
+               target_distance,
+               a->actor_keys_list ? (int)a->actor_keys_list->KEY_position : -1);
+    }
     if (actor->actor_act.act_action) {
         if ((int32_t)actor->actor_act.duration * actor->actor_act.key_progress >> 16 > 20) {
             if (actor->actor_reperture && actor->actor_reperture->action_slots[9] >= 0)
