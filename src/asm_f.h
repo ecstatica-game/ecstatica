@@ -28,6 +28,11 @@ extern int32_t enhanced_graphics;
 void init_data_roots(void);
 int hires_data_available(void);
 
+/* Prefix prepended to every relative asset path. Platforms without a
+ * per-process working directory (openfpgaOS) set it to their data mount
+ * before any asset load; desktop builds leave it empty. */
+void file_set_data_root(const char *root);
+
 /* VGA plane control (no-op in SDL port) */
 void set_read_plane(int plane);
 
