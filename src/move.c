@@ -440,11 +440,13 @@ void behaviour(actor_t *actor, int game_time_arg) {
     if (action) {
         actor->actor_act.act_action = action;
         actor->actor_act.duration = action->act_duration;
-        if (actor->actor_Speed_factor != 100)
+        if (game_version != GAME_VERSION_E1 && actor->actor_Speed_factor != 100)
             actor->actor_act.duration = 100 * actor->actor_act.duration / actor->actor_Speed_factor;
         actor->actor_act.key_progress = 0;
         actor->actor_act.actor_keys_list = action->key_list;
-        actor->actor_act.flags = (action->action_flags & 0xFE) | 0xC0;
+        /* asm anim_behaviour_428914+107: E1 ors in 0x40 only, no 0x80. */
+        actor->actor_act.flags = (action->action_flags & 0xFE)
+            | (game_version == GAME_VERSION_E1 ? 0x40 : 0xC0);
         update_thing(actor);
         actor->move_type = -1;
         if (game_version == GAME_VERSION_E1) {
@@ -586,7 +588,14 @@ void behaviour(actor_t *actor, int game_time_arg) {
             target_distance = 0x7FFF;
         }
 
-        int16_t facing = (int16_t)arctan(part->matrix_1._13, part->matrix_1._33);
+        /* asm anim_behaviour_428914+36D: E1 takes the facing straight from
+         * rotate_vector.Y. arctan() returns an int8 table entry << 8, so
+         * deriving it from the part matrix instead quantises the angle to
+         * 256-unit steps — rel_angle then sticks on the 4096 turn threshold
+         * and chatters, restarting the walk action every other frame. */
+        int16_t facing = (game_version == GAME_VERSION_E1)
+            ? actor->rotate_vector.Y
+            : (int16_t)arctan(part->matrix_1._13, part->matrix_1._33);
         rel_angle = facing - (int16_t)target_direction;
 
         if (actor->interact_state & 2) {
@@ -1380,28 +1389,35 @@ center_function:
             }
 
             action_t *current_action = NULL;
-            if (actor->end_action_index < 0) {
+            if (game_version == GAME_VERSION_E1) {
+                /* asm anim_behaviour_428914+D9E: E1 has no end_action_index
+                 * path here, and swaps the idle slot base while space is held. */
+                if (actor->actor_reperture) {
+                    int action_idx_rand = (int16_t)((6 * (uint16_t)(2 * my_rand())) >> 16);
+                    int idle_base = joy_button ? 23 : 17;
+                    int16_t actor_action = actor->actor_reperture->action_slots[idle_base + action_idx_rand];
+                    if (actor_action >= 0) {
+                        check_action_loaded(actor_action);
+                        current_action = action_tab[actor_action];
+                    }
+                }
+            } else if (actor->end_action_index < 0) {
                 if (actor->actor_reperture) {
                     int action_idx_rand;
-                    if (game_version == GAME_VERSION_E1) {
-                        action_idx_rand = (int16_t)((6 * (uint16_t)(2 * my_rand())) >> 16);
-                    } else {
-                        int random_value = 100 * (2 * my_rand()) >> 16;
-                        if (random_value < 30) action_idx_rand = 0;
-                        else if (random_value < 55) action_idx_rand = 1;
-                        else if (random_value < 72) action_idx_rand = 2;
-                        else if (random_value < 85) action_idx_rand = 3;
-                        else if (random_value < 95) action_idx_rand = 4;
-                        else action_idx_rand = 5;
+                    int random_value = 100 * (2 * my_rand()) >> 16;
+                    if (random_value < 30) action_idx_rand = 0;
+                    else if (random_value < 55) action_idx_rand = 1;
+                    else if (random_value < 72) action_idx_rand = 2;
+                    else if (random_value < 85) action_idx_rand = 3;
+                    else if (random_value < 95) action_idx_rand = 4;
+                    else action_idx_rand = 5;
 
-                        if (action_idx_rand == actor->action_index) {
-                            action_idx_rand = actor->action_index + 1;
-                            if (action_idx_rand > 5) action_idx_rand = 0;
-                        }
+                    if (action_idx_rand == actor->action_index) {
+                        action_idx_rand = actor->action_index + 1;
+                        if (action_idx_rand > 5) action_idx_rand = 0;
                     }
                     actor->action_index = (int16_t)action_idx_rand;
-                    int idle_base = (game_version == GAME_VERSION_E1) ? 17 : 18;
-                    int16_t actor_action = actor->actor_reperture->action_slots[idle_base + action_idx_rand];
+                    int16_t actor_action = actor->actor_reperture->action_slots[18 + action_idx_rand];
                     if (actor_action >= 0) {
                         check_action_loaded(actor_action);
                         current_action = action_tab[actor_action];
@@ -1415,14 +1431,16 @@ center_function:
             if (current_action) {
                 actor->actor_act.act_action = current_action;
                 actor->actor_act.duration = current_action->act_duration;
-                if (actor->actor_Speed_factor != 100)
+                if (game_version != GAME_VERSION_E1 && actor->actor_Speed_factor != 100)
                     actor->actor_act.duration = 100 * current_action->act_duration / actor->actor_Speed_factor;
                 actor->actor_act.key_progress = 0;
                 actor->actor_act.actor_keys_list = current_action->key_list;
                 actor->actor_act.flags = current_action->action_flags & 0xFFFE;
-                if (actor->end_action_index >= 0)
-                    actor->actor_act.flags |= 0x20;
-                actor->end_action_index = -1;
+                if (game_version != GAME_VERSION_E1) {
+                    if (actor->end_action_index >= 0)
+                        actor->actor_act.flags |= 0x20;
+                    actor->end_action_index = -1;
+                }
             } else {
                 actor->actor_act.act_action = NULL;
             }
@@ -1450,7 +1468,10 @@ center_function:
             action_t *current_action = NULL;
             if (actor->actor_reperture) {
                 int16_t actor_action = actor->actor_reperture->action_slots[next_move];
-                if (actor->actor_reperture->rep_index >= 0) {
+                int slot_ok = (game_version == GAME_VERSION_E1)
+                    ? (actor_action >= 0)
+                    : (actor->actor_reperture->rep_index >= 0);
+                if (slot_ok) {
                     check_action_loaded(actor_action);
                     current_action = action_tab[actor_action];
                 }
@@ -1459,18 +1480,20 @@ center_function:
             if (current_action) {
                 actor->actor_act.act_action = current_action;
                 actor->actor_act.duration = current_action->act_duration;
-                if (actor->actor_Speed_factor != 100)
+                if (game_version != GAME_VERSION_E1 && actor->actor_Speed_factor != 100)
                     actor->actor_act.duration = 100 * current_action->act_duration / actor->actor_Speed_factor;
                 actor->actor_act.key_progress = 0;
                 actor->actor_act.actor_keys_list = current_action->key_list;
                 actor->actor_act.flags = current_action->action_flags;
-                if (actor->actor_behavior == BH_RECOVERING)
+                if (game_version != GAME_VERSION_E1 && actor->actor_behavior == BH_RECOVERING)
                     actor->actor_act.flags &= 0xFFFE;
                 if (game_version == GAME_VERSION_E1) {
+                    /* asm anim_behaviour_428914+F1D: unconditional `or 40h`, and
+                     * the -1 lands on the action's following-action index, not
+                     * the actor's end_action_index. */
                     if (next_move >= 36 && next_move <= 45) {
-                        if (!(actor->actor_act.flags & 1))
-                            actor->actor_act.flags |= 0x40;
-                        actor->end_action_index = -1;
+                        actor->actor_act.flags |= 0x40;
+                        current_action->next_action_index = -1;
                     }
                 } else {
                     if ((next_move >= 36 && next_move <= 45) || one_shot_action) {

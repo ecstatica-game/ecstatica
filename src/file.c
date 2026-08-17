@@ -1061,6 +1061,7 @@ void file_read_action(FILE *f) {
     action->thing_name_index = getw_be(f);     /* thing name index */
     action->act_duration = getw_be(f);
     action->action_flags = getw_be(f);
+    action->next_action_index = -1;
 
     /* Read key list */
     int16_t num_keys = getw_be(f);
@@ -2556,6 +2557,11 @@ void read_actions(FILE *f) {
             break;
         default:
             if (event_type) {
+                if (event_type == FLAGS && file_version < 31 &&
+                    ((event->param1 & event->param2) & 0x40)) {
+                    do_info_req("Found FIXED event in action");
+                    event->param2 &= ~0x40;
+                }
                 add_event_to_key(event, inserted_key);
             } else {
                 free_event(event);

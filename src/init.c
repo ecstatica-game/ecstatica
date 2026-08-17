@@ -668,8 +668,9 @@ int32_t my_time(void) {
     return deterministic_time++;
 #else
     /* Use platform ticks — convert ms to game time units */
-    /* Original: 70 * clock / 100 */
-    return (int32_t)(platform_ticks(NULL) * 70 / 1000);
+    /* Original: E1 = 60 * clock / 100, E2 = 70 * clock / 100 */
+    int32_t rate = (game_version == GAME_VERSION_E1) ? 60 : 70;
+    return (int32_t)(platform_ticks(NULL) * rate / 1000);
 #endif
 }
 
