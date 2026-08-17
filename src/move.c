@@ -58,6 +58,53 @@ static FILE *walk_trace_fp(void) {
     if (walk_trace_on()) { FILE *f_ = walk_trace_fp(); if (f_) { fprintf(f_, __VA_ARGS__); fflush(f_); } } \
 } while (0)
 
+static int action_has_hit_event(action_t *action) {
+    if (!action) return 0;
+    for (key_state_t *k = action->key_list; k; k = k->next)
+        for (event_t *e = k->key_event_list; e; e = e->next)
+            if (e->event_type == INTERACT && e->param1 == 0)
+                return 1;
+    return 0;
+}
+
+static void walk_trace_dump_rep(actor_t *actor) {
+    static unsigned char done[REPERTOIRE_TAB_SIZE];
+    if (!walk_trace_on() || !actor || !actor->actor_reperture) return;
+    rephead_t *rep = actor->actor_reperture;
+    int ri = rep->rep_index;
+    if (ri < 0 || ri >= REPERTOIRE_TAB_SIZE || done[ri]) return;
+    done[ri] = 1;
+    WTRACE("REPDUMP actor=%d rep=%d thing=%d flags=%04x\n",
+           actor->name_index, ri, rep->thing_index, rep->rep_flags);
+    for (int i = 0; i < 60; i++) {
+        int16_t ai = rep->action_slots[i];
+        if (ai < 0) continue;
+        check_action_loaded(ai);
+        action_t *a = (ai < ACTION_TAB_SIZE) ? action_tab[ai] : NULL;
+        WTRACE("  slot %3d -> act %4d %s hit=%d dur=%d flags=%04x\n",
+               i, ai, a ? "loaded" : "MISSING",
+               action_has_hit_event(a), a ? a->act_duration : -1,
+               a ? a->action_flags : 0);
+    }
+}
+
+static void walk_trace_dump_action(action_t *action) {
+    static unsigned char done[ACTION_TAB_SIZE];
+    if (!walk_trace_on() || !action) return;
+    int idx = action->action_index;
+    if (idx < 0 || idx >= ACTION_TAB_SIZE || done[idx]) return;
+    done[idx] = 1;
+    WTRACE("ACTDUMP act=%d dur=%d flags=%04x next=%d thing=%d\n",
+           idx, action->act_duration, action->action_flags,
+           action->next_action_index, action->thing_name_index);
+    for (key_state_t *k = action->key_list; k; k = k->next) {
+        WTRACE("  key pos=%u f=%d\n", k->KEY_position, k->field_E);
+        for (event_t *e = k->key_event_list; e; e = e->next)
+            WTRACE("    ev type=%d idx=%d p1=%d p2=%d p3=%d\n",
+                   e->event_type, e->event_index, e->param1, e->param2, e->param3);
+    }
+}
+
 /* move_do_movement_427998 — called every frame from game loop */
 void do_movement(void) {
     int some_time = x_time;
@@ -610,6 +657,23 @@ void behaviour(actor_t *actor, int game_time_arg) {
             ? abs(dz) / 2 + abs(dx)
             : abs(dx) / 2 + abs(dz));
 
+        if (game_version == GAME_VERSION_E1) {
+            /* asm anim_behaviour_428914+36D..+3A1. E1 is only this much: the
+             * facing comes straight from rotate_vector.Y (arctan() returns an
+             * int8 table entry << 8, so routing it through the part matrix
+             * would quantise the angle to 256-unit steps and make rel_angle
+             * chatter on the 4096 turn threshold), and a single vertical
+             * cutoff. There is no line-of-sight raycast, no interact_state or
+             * interact_timer bookkeeping and no repertoire switch — all of
+             * that is E2 (E2 behaviour_427554 calls find_height_now_vis). */
+            rel_angle = actor->rotate_vector.Y - (int16_t)target_direction;
+            if (abs(dy) > 768) {
+                target_distance = 0x7FFF;
+                rel_angle = 0;
+            }
+            goto have_target;
+        }
+
         if (abs(dy) <= 768 || abs(dy) <= target_distance) {
             if (target_distance / 3 >= abs(dy))
                 vertical_direction = 0;
@@ -621,15 +685,8 @@ void behaviour(actor_t *actor, int game_time_arg) {
             target_distance = 0x7FFF;
         }
 
-        /* asm anim_behaviour_428914+36D: E1 takes the facing straight from
-         * rotate_vector.Y. arctan() returns an int8 table entry << 8, so
-         * deriving it from the part matrix instead quantises the angle to
-         * 256-unit steps — rel_angle then sticks on the 4096 turn threshold
-         * and chatters, restarting the walk action every other frame. */
-        int16_t facing = (game_version == GAME_VERSION_E1)
-            ? actor->rotate_vector.Y
-            : (int16_t)arctan(part->matrix_1._13, part->matrix_1._33);
-        rel_angle = facing - (int16_t)target_direction;
+        rel_angle = (int16_t)arctan(part->matrix_1._13, part->matrix_1._33)
+                  - (int16_t)target_direction;
 
         if (actor->interact_state & 2) {
             los_blocked = 1;
@@ -704,6 +761,7 @@ void behaviour(actor_t *actor, int game_time_arg) {
         }
     }
 
+have_target:
     if (actor->event_timer > 0) actor->event_timer -= game_time_arg;
     if (actor->event_timer < 0) actor->event_timer = 0;
     if (actor->hold_timer > 0) actor->hold_timer -= game_time_arg;
@@ -1007,33 +1065,34 @@ void behaviour(actor_t *actor, int game_time_arg) {
             next_move = actor->move_type;
             if (next_move >= 9 && next_move != 1000 && !(actor->flags & 0x40))
                 goto center_function;
-            if (!los_blocked) {
+            /* E1 has no LOS test here (anim_behaviour_428914+981 goes straight
+             * from the move_type check to the distance tiers). Gating on
+             * los_blocked suppressed attacks at close range, because with
+             * 64 <= max_dim < 128 the raycast runs exactly one step without
+             * dividing the step vector, so its only sample lands on the target
+             * itself and always reports blocked. */
+            if (game_version == GAME_VERSION_E1 || !los_blocked) {
                 /* NPC attack next_move selection */
                 if (game_version == GAME_VERSION_E1) {
-                    /* E1: two tiers — close (<700) and mid (700-900) */
-                    if (target_distance >= 700) {
-                        uint16_t random_value = 2 * my_rand();
+                    /* asm anim_behaviour_428914+981: three tiers. Beyond 900 the
+                     * actor keeps whatever move_type it already had — the port
+                     * previously folded that into the mid tier and used the
+                     * close tier's thresholds for it. */
+                    uint16_t random_value = 2 * my_rand();
+                    if (target_distance < 700) {
+                        if (random_value > 0xC000u)      next_move = 9;
+                        else if (random_value > 0x8000u) next_move = 10;
+                        else if (random_value > 0x4000u) next_move = 11;
+                        else                             next_move = 1000;
+                    } else if (target_distance < 900) {
                         if (random_value > 0xC000u) {
                             next_move = 1;
                             actor->actor_behavior = BH_GO_CLOSER;
-                        } else if (random_value > 0x8000u) {
-                            one_shot_action = 1; next_move = 9;
-                        } else if (random_value > 0x4000u) {
-                            one_shot_action = 1; next_move = 10;
-                        } else {
-                            one_shot_action = 1; next_move = 11;
                         }
-                    } else {
-                        uint16_t random_value = 2 * my_rand();
-                        if (random_value > 0xC000u) {
-                            one_shot_action = 1; next_move = 9;
-                        } else if (random_value > 0x8000u) {
-                            one_shot_action = 1; next_move = 10;
-                        } else if (random_value > 0x4000u) {
-                            one_shot_action = 1; next_move = 11;
-                        } else {
-                            next_move = 1000;
-                        }
+                        else if (random_value > 0x9000u) next_move = 9;
+                        else if (random_value > 0x6000u) next_move = 10;
+                        else if (random_value > 0x3000u) next_move = 11;
+                        else                             next_move = 1000;
                     }
                 } else {
                     /* E2: three tiers with ranged attacks */
@@ -1530,6 +1589,8 @@ center_function:
             }
 
             if (current_action) {
+                walk_trace_dump_rep(actor);
+                walk_trace_dump_action(current_action);
                 WTRACE("RESTART actor=%d nm=%d mt=%d act=%d dur=%d aflags=%04x bh=%d rel=%d rotY=%d tdir=%d wd=%d tdist=%d evt=%d ist=%04x tflags=%04x kp=%u\n",
                        actor->name_index, next_move, actor->move_type,
                        current_action->action_index, current_action->act_duration,
@@ -1981,6 +2042,12 @@ void modify_part(event_t *event, actor_t *actor, int some_time, action_t *action
     if (!event) return;
 
     int16_t et_flags = event_type_flags[event->event_type];
+    if (event->event_type == INTERACT)
+        WTRACE("MP INTERACT actor=%d act=%d etflags=%04x ev_idx=%d p1=%d p2=%d parttab=%p\n",
+               actor ? actor->name_index : -1,
+               action ? action->action_index : -1, et_flags, event->event_index,
+               event->param1, event->param2,
+               (actor && actor->_PartTab) ? (void *)actor->_PartTab->field_0[event->event_index < 0 ? 0 : event->event_index] : NULL);
 
     /* Handle creation events that don't require an existing actor/part lookup */
     switch (event->event_type) {
@@ -2315,7 +2382,9 @@ void modify_part(event_t *event, actor_t *actor, int some_time, action_t *action
         /* Interaction events dispatched by sub-type */
         switch (event->param1) {
         case 0: /* CheckPartHit */
-            if (part) check_part_hit(part);
+            WTRACE("EVT CheckPartHit actor=%d part=%p p2=%d p3=%d\n",
+                   actor->name_index, (void *)part, event->param2, event->param3);
+            if (part) check_part_hit(part, event->param2);
             break;
         case 1: /* CheckPickUp */
             if (part) check_pick_up(part, event->param2);
@@ -2656,7 +2725,7 @@ void play_sound_ecstatica(actor_t *actor, int sound_index, int volume_flags, int
  * Called with a hitting part; iterates all actors and checks if the part
  * intersects.  On hit: sets behavior to GetHit, computes damage, runs
  * hit-code scripts.  Ref: move.c SeeIfAnyhingHit (line 4768). */
-void see_if_anything_hit(part_t *part) {
+void see_if_anything_hit(part_t *part, int16_t hit_param) {
     if (!part || !part->parent_actor) return;
 
     actor_t *hitter_actor = part->parent_actor;
@@ -2669,21 +2738,31 @@ void see_if_anything_hit(part_t *part) {
 
     DBG_LOG(2, "[HIT] see_if_anything_hit: hitter=%d holder=%d\n",
             hitter_actor->name_index, holder ? holder->name_index : -1);
+    WTRACE("SIAH hitter=%d holder=%d hitcode=%d jp=(%d,%d,%d)\n",
+           hitter_actor->name_index, holder ? holder->name_index : -1,
+           hitter_actor->actor_hit_code, part->joint_position.X,
+           part->joint_position.Y, part->joint_position.Z);
+#define HREJ(why) do { \
+    if (target == selected_thing) \
+        WTRACE("  SKIP hero: %s\n", why); \
+    } while (0)
 
     for (actor_t *target = root_thing; target; target = target->next_in_display_list) {
         if (target == selected_thing && (target->flags & 0x2000)) {
         }
         /* Skip self, holder, and ally actors */
-        if (target == hitter_actor) continue;
-        if (target == holder) continue;
-        if (target->name_index == hitter_actor->spawner_index) continue;
+        if (target == hitter_actor) { HREJ("self"); continue; }
+        if (target == holder) { HREJ("holder"); continue; }
+        if (target->name_index == hitter_actor->spawner_index) { HREJ("spawner"); continue; }
 
         /* Skip if target is held by the hitter */
         if (target->part_heap_link &&
-            target->part_heap_link->parent_actor == hitter_actor) continue;
+            target->part_heap_link->parent_actor == hitter_actor) { HREJ("held-by-hitter"); continue; }
 
         /* Skip if target has no repertoire or no Interact action */
-        if (!target->actor_reperture || target->actor_reperture->action_slots[34] < 0) continue;
+        if (!target->actor_reperture || target->actor_reperture->action_slots[34] < 0) {
+            HREJ("no-interact-slot(34)"); continue;
+        }
 
         /* Distance check: horizontal */
         int16_t direction, distance;
@@ -2691,32 +2770,34 @@ void see_if_anything_hit(part_t *part) {
             part->joint_position.X - target->position_vector.X,
             part->joint_position.Z - target->position_vector.Z);
         if (distance >= target->actor_box_size) {
+            if (target == selected_thing)
+                WTRACE("  SKIP hero: dist %d >= box %d\n", distance, target->actor_box_size);
             continue;
         }
 
         /* Distance check: vertical */
         int16_t vert = part->joint_position.Y - target->position_vector.Y;
         if (vert <= -2560 || vert >= 512) {
-            continue;
+            HREJ("vert out of range"); continue;
         }
 
         /* Skip dying/dead actors */
         if (target->actor_behavior == BH_DYING || target->actor_behavior == BH_DEAD) {
-            continue;
+            HREJ("dying/dead"); continue;
         }
 
         /* Skip actors with CannotBeHit flag (0x2000) */
         if (target->flags & 0x2000) {
-            continue;
+            HREJ("flags&0x2000 CannotBeHit"); continue;
         }
 
         /* Skip scene-linked actors */
         if (target->actor_scene) {
-            continue;
+            HREJ("in scene"); continue;
         }
 
         if (target->actor_act.act_action && (target->actor_act.flags & 0x80)) {
-            continue;
+            HREJ("act.flags&0x80"); continue;
         }
 
         /* Scene 8 filter: if scene 8 has started, hitter has spawner_index >= 0,
@@ -2727,6 +2808,10 @@ void see_if_anything_hit(part_t *part) {
             target != selected_thing) {
             continue;
         }
+        if (target == selected_thing)
+            WTRACE("  HIT hero: hitcode=%d hpcode=%d hp=%d\n",
+                   hitter_actor->actor_hit_code, target->code_at_hp_change,
+                   target->actor_hitpoints);
 
         /* --- HIT CONFIRMED --- */
 
@@ -2740,6 +2825,41 @@ void see_if_anything_hit(part_t *part) {
         if (game_version == 2 && sound_fx_on && sound_is_on) {
             int snd = ((2 * my_rand()) <= 0x8000) ? 13 : 12;
             play_sound_ecstatica(hitter_actor, snd, 0, 0);
+        }
+
+        if (game_version == GAME_VERSION_E1) {
+            /* asm move_see_if_anyhing_hit_427A10+1BF: E1 has no effective-hitter
+             * resolution (always part->parent_actor), no strength/weapon/armour
+             * scaling and no difficulty scaling — every hit is a flat 40. */
+            if (hitter_actor->actor_hit_code >= 0) {
+                code_t *code = code_tab[hitter_actor->actor_hit_code];
+                if (code)
+                    execute_code(code, target);
+                else
+                    target->actor_hitpoints -= 40;
+            } else if (hit_param) {
+                code_t *code = (hit_param > 0 && hit_param <= CODE_TAB_SIZE)
+                    ? code_tab[hit_param - 1] : NULL;
+                if (code)
+                    execute_code(code, NULL);
+                else
+                    do_info_req("Can't find code in Hit");
+                continue;
+            } else {
+                target->flags |= 0x2000;
+                target->actor_behavior = BH_GET_HIT;
+                if (target != selected_thing || !no_die)
+                    target->actor_hitpoints -= 40;
+            }
+
+            if (target->code_at_hp_change >= 0) {
+                code_t *code = code_tab[target->code_at_hp_change];
+                if (code)
+                    execute_code(code, target);
+            }
+            if (target == selected_thing)
+                draw_life_bar();
+            continue;
         }
 
         /* Determine the effective hitter.
@@ -2840,6 +2960,8 @@ void see_if_anything_hit(part_t *part) {
 
         /* Update life bar if hero was hit */
         if (target == selected_thing) {
+            WTRACE("  HERO after: hp=%d bh=%d flags=%04x\n",
+                   target->actor_hitpoints, target->actor_behavior, target->flags);
             draw_life_bar();
         }
     }
@@ -3440,7 +3562,7 @@ void fire_bullet(part_t *part) {
 }
 
 /* move_check_part_hit  E1: 0x427CE0 | E2: 0x42FA6C */
-void check_part_hit(part_t *part) {
+void check_part_hit(part_t *part, int16_t hit_param) {
     if (part->flags & 0x20) {
         /* TwoPartsLimb: walk 3-part chain */
         part_t *second = (part_t *)part->actor_parts_list;
@@ -3458,9 +3580,9 @@ void check_part_hit(part_t *part) {
         extremity->next_in_path = NULL;
 
         find_positions_on_path(extremity->parent_actor);
-        see_if_anything_hit(part);
-        see_if_anything_hit(second);
-        see_if_anything_hit(extremity);
+        see_if_anything_hit(part, hit_param);
+        see_if_anything_hit(second, hit_param);
+        see_if_anything_hit(extremity, hit_param);
     } else {
     single_part:
         ;
@@ -3472,7 +3594,7 @@ void check_part_hit(part_t *part) {
         part->next_in_path = NULL;
 
         find_positions_on_path(part->parent_actor);
-        see_if_anything_hit(part);
+        see_if_anything_hit(part, hit_param);
     }
 
     /* Check held thing */
@@ -3480,7 +3602,7 @@ void check_part_hit(part_t *part) {
         find_positions((actor_t *)part->actor_2_held, 0);
         part_t *hp = (part_t *)part->actor_2_held->actor_parts_list;
         for (; hp; hp = hp->next_in_display_list)
-            see_if_anything_hit(hp);
+            see_if_anything_hit(hp, hit_param);
     }
 }
 
