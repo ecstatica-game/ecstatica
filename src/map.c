@@ -159,7 +159,15 @@ void check_camera(void) {
     if (cam == active_camera) return;
 
     if (camera_idx <= 0) {
-        if (!(thing_name_flags[0] & 4))
+        DBG_LOG(1, "[CAM] camera_idx=%d from map_elem=%d pos=(%d,%d,%d) "
+                   "override=%d flags0=%04x -> dead scene 7\n",
+                camera_idx, map_elem_idx,
+                selected_thing->position_vector.X,
+                selected_thing->position_vector.Y,
+                selected_thing->position_vector.Z,
+                camera_override, thing_name_flags[0]);
+        /* asm map_check_camera_44C174+21C guards on editor mode too. */
+        if (!editor_mode && !(thing_name_flags[0] & 4))
             play_dead_scene(7);
     } else {
         selected_camera = camera_idx;
