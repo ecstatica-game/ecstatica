@@ -246,8 +246,51 @@ void initialise_actor(actor_t *actor) {
 }
 
 /* display_hold_thing_with_part  E1: 0x41D458 | E2: 0x420E94 */
+/* Env-gated: dump the geometry of a held actor once, so a malformed held item
+ * can be read off without guessing. ECSTATICA_TRACE_HELD=1 */
+static void trace_held_actor(actor_t *actor) {
+    static int on = -1;
+    static int16_t seen[64];
+    static int n_seen = 0;
+    if (on < 0) {
+        const char *e = getenv("ECSTATICA_TRACE_HELD");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (!on || !actor) return;
+    for (int i = 0; i < n_seen; i++)
+        if (seen[i] == actor->name_index) return;
+    if (n_seen < 64) seen[n_seen++] = actor->name_index;
+
+    fprintf(stderr, "[HELD] actor=%d '%s' flags=%04x sflags=%04x type=%d "
+                    "act=%d parts:\n",
+            actor->name_index,
+            (actor->name_index >= 0 && actor->name_index < THING_TAB_SIZE)
+                ? thing_names[actor->name_index].field_0 : "?",
+            actor->flags, actor->state_flags, actor->type,
+            actor->actor_act.act_action ? actor->actor_act.act_action->action_index : -1);
+    for (part_t *pp = actor->actor_parts_list; pp; pp = pp->next_in_display_list) {
+        fprintf(stderr, "  part=%3d type=%2d col=%4d dcol=%4d flags=%04x dflags=%04x "
+                        "sq=(%d,%d,%d) dsq=(%d,%d,%d) rc=(%d,%d,%d) off=(%d,%d,%d) "
+                        "p2p=%d kids=%d\n",
+                pp->name_index, pp->type, pp->color, pp->default_color,
+                pp->flags, pp->default_flags,
+                pp->VECTOR_Squash.X, pp->VECTOR_Squash.Y, pp->VECTOR_Squash.Z,
+                pp->def_Squash.X, pp->def_Squash.Y, pp->def_Squash.Z,
+                pp->VECTOR_RelCentre.X, pp->VECTOR_RelCentre.Y, pp->VECTOR_RelCentre.Z,
+                pp->Offset.X, pp->Offset.Y, pp->Offset.Z,
+                pp->field_12E_point_to_point
+                    ? pp->field_12E_point_to_point->point_index : -1,
+                pp->actor_parts_list ? 1 : 0);
+    }
+    int ntri = 0;
+    for (tri_t *t = actor->polygone_tri_list; t; t = t->next) ntri++;
+    fprintf(stderr, "  triangles=%d\n", ntri);
+    fflush(stderr);
+}
+
 void hold_thing_with_part(actor_t *actor, part_t *part) {
     if (!actor || !part) return;
+    trace_held_actor(actor);
 
     copy_vector(&actor->position_vector, &part->ellipse_center);
     copy_matrix(&actor->matrix_1, &part->matrix_1);
@@ -1820,14 +1863,22 @@ void put_a_cuboid(part_t *part) {
         draw_tri.point2 = &points[fvb[i]];
         draw_tri.point3 = &points[fvc[i]];
 
+        /* asm display_put_a_cuboid_424FE8+423: sets and clears bit 3 of
+         * tri_use_flag rather than assigning the whole field, so the rest of
+         * the flag survives across the twelve faces. */
         if (i & 1)
-            draw_tri.tri_use_flag = 1;
+            draw_tri.tri_use_flag |= 0x08;
         else
-            draw_tri.tri_use_flag = 0;
+            draw_tri.tri_use_flag &= (uint16_t)~0x08;
 
-        shade_tri.point1 = &points[fva[i]];
-        shade_tri.point2 = &points[fvb[i]];
-        shade_tri.point3 = &points[fvc[i]];
+        /* asm +3A7: the faces come in pairs making up one quad, and the shading
+         * triangle is always the first of the pair — the original indexes the
+         * vertex tables one entry back for odd i. Shading each half off its own
+         * vertices instead gave the two halves of every quad different shades. */
+        int si = (i & 1) ? i - 1 : i;
+        shade_tri.point1 = &points[fva[si]];
+        shade_tri.point2 = &points[fvb[si]];
+        shade_tri.point3 = &points[fvc[si]];
 
         if (tex && !eagle_card)
             draw_textured_tri(&draw_tri, plane, &shade_tri);
