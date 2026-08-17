@@ -203,13 +203,29 @@ void window_proc(void) {
      *   RT / R2               → Left Ctrl: attack modifier (alternative)
      *   Start                 → Escape: pause menu
      *   Select / Back         → I: toggle HUD icons
-     *   Left stick click      → speed mode cycle (1→2→3)
+     *   Left stick click      → speed mode cycle, E1 only (F1/F5/F9)
+     *   Right stick           → E1 numpad actions: swings and hand pick-up
      *   Right stick click     → G: original / enhanced graphics
      */
     platform_gamepad_state_t gp;
     platform_gamepad_poll(g_platform, &gp);
 
-    if (gp.connected) {
+    /* Edge latches live outside the connected test so unplugging a pad with a
+     * button held does not leave a latch stuck set, swallowing the first press
+     * after it comes back. */
+    static bool btn_south_was_pressed = false;
+    static bool btn_east_was_pressed = false;
+    static bool btn_start_was_pressed = false;
+    static bool btn_north_was_pressed = false;
+    static bool btn_select_was_pressed = false;
+    static bool rstick_was_pressed = false;
+    static bool lstick_was_pressed = false;
+
+    if (!gp.connected) {
+        btn_south_was_pressed = btn_east_was_pressed = btn_start_was_pressed =
+            btn_north_was_pressed = btn_select_was_pressed =
+            rstick_was_pressed = lstick_was_pressed = false;
+    } else {
         int dz = GAMEPAD_STICK_DEADZONE;
         bool gp_up    = gp.dpad_up    || gp.left_y >  dz;
         bool gp_down  = gp.dpad_down  || gp.left_y < -dz;
@@ -234,14 +250,11 @@ void window_proc(void) {
 
         /* A → Space (interact / pick up) — level + edge */
         space_pressed |= gp.btn_south;
-        static bool btn_south_was_pressed = false;
         if (gp.btn_south && !btn_south_was_pressed) space_was_pressed = true;
         btn_south_was_pressed = gp.btn_south;
         extra_keys_pressed[57] |= gp.btn_south;
 
         /* B / Start → Escape (menu) — edge-triggered */
-        static bool btn_east_was_pressed = false;
-        static bool btn_start_was_pressed = false;
         if (gp.btn_east && !btn_east_was_pressed) key_esc_was_pressed = true;
         if (gp.btn_start && !btn_start_was_pressed) key_esc_was_pressed = true;
         btn_east_was_pressed = gp.btn_east;
@@ -253,7 +266,6 @@ void window_proc(void) {
 
         /* Y → Enter (inventory) — edge-triggered */
         enter_pressed |= gp.btn_north;
-        static bool btn_north_was_pressed = false;
         if (gp.btn_north && !btn_north_was_pressed) {
             enter_was_pressed = true;
             key_return_was_pressed = true;
@@ -267,30 +279,30 @@ void window_proc(void) {
         ctrl_pressed |= gp.btn_rb || gp.btn_rt;
 
         /* Select → I (toggle HUD) — edge-triggered */
-        static bool btn_select_was_pressed = false;
         if (gp.btn_select && !btn_select_was_pressed) key_i_was_pressed = true;
         btn_select_was_pressed = gp.btn_select;
 
-        /* E1 combat: Q/E mapped to numpad7/numpad9.
-         * Right stick horizontal maps to combat swings. */
-        int rs_dz = GAMEPAD_STICK_DEADZONE;
-        extra_keys_pressed[71] |= gp.right_x < -rs_dz;  /* Q / Num7 left swing */
-        extra_keys_pressed[73] |= gp.right_x >  rs_dz;   /* E / Num9 right swing */
+        /* The numpad action keys only mean anything to E1's BH_JOYSTICK, and
+         * scancode 71/73 also suppress its diagonals, so leave the right stick
+         * out of it entirely under E2. */
+        if (game_version == GAME_VERSION_E1) {
+            int rs_dz = GAMEPAD_STICK_DEADZONE;
+            /* Combat: Q/E mapped to numpad7/numpad9 — right stick horizontal. */
+            extra_keys_pressed[71] |= gp.right_x < -rs_dz;  /* Q / Num7 left swing */
+            extra_keys_pressed[73] |= gp.right_x >  rs_dz;  /* E / Num9 right swing */
 
-        /* E1 item handling: Z/C mapped to numpad1/numpad3.
-         * Right stick vertical maps to hand pick/drop. */
-        extra_keys_pressed[79] |= gp.right_y < -rs_dz;   /* Z / Num1 left hand */
-        extra_keys_pressed[81] |= gp.right_y >  rs_dz;    /* C / Num3 right hand */
+            /* Item handling: Z/C mapped to numpad1/numpad3 — right stick vertical. */
+            extra_keys_pressed[79] |= gp.right_y < -rs_dz;  /* Z / Num1 left hand */
+            extra_keys_pressed[81] |= gp.right_y >  rs_dz;  /* C / Num3 right hand */
+        }
 
         /* Right stick click: graphics set toggle (same as G) */
-        static bool rstick_was_pressed = false;
         bool rstick_edge = gp.btn_rstick && !rstick_was_pressed;
         rstick_was_pressed = gp.btn_rstick;   /* latch before the call */
         if (rstick_edge)
             set_enhanced_graphics(!mode_svga);
 
         /* Left stick click: cycle speed mode (sneak → walk → run) */
-        static bool lstick_was_pressed = false;
         if (gp.btn_lstick && !lstick_was_pressed) {
             if (movement_speed_mode <= 3)
                 extra_keys_were_pressed[0x74] = 1;      /* F5: walk */

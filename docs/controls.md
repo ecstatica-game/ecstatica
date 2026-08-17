@@ -169,15 +169,17 @@
 
 ## Gamepad (Steam Deck / Xbox / PlayStation / Generic)
 
-Supported on all platforms: macOS (GameController.framework), Linux (evdev/joystick), Windows (XInput).
-Auto-detected — no configuration needed. Gamepad and keyboard can be used simultaneously.
+Supported on all platforms: macOS (GameController.framework), Linux (joystick API), Windows (XInput).
+Auto-detected and hot-pluggable — no configuration needed. Gamepad and keyboard can be
+used simultaneously. See [Troubleshooting](#troubleshooting-linux) if a button lands on
+the wrong action.
 
 ### Movement
 
 | Button | Action |
 |--------|--------|
 | Left Stick / D-pad | Walk (8-direction) |
-| Left Stick Click | Cycle speed mode (sneak → walk → run) |
+| Left Stick Click | Cycle speed mode (sneak → walk → run) — E1 only |
 
 ### Actions
 
@@ -218,3 +220,23 @@ Auto-detected — no configuration needed. Gamepad and keyboard can be used simu
 | Right Stick Down | Left hand pick up / drop (Numpad 1 / Z) |
 | Right Stick Up | Right hand pick up / drop (Numpad 3 / C) |
 | A / Cross | Auto pick up (Space — right hand first) |
+
+The right stick is E1-only: E2 has no numpad actions, and under E1 the same
+scancodes suppress the diagonal walk, so E2 leaves the stick unbound.
+
+### Troubleshooting (Linux)
+
+The joystick API reports button *codes*, not physical positions, and the two
+are not the same thing. `BTN_X` and `BTN_Y` are aliases for `BTN_NORTH` and
+`BTN_WEST`, so a driver that names its buttons in Xbox letter order (xpad,
+hid-steam — the Steam Deck's own pad — and every virtual pad Steam Input
+creates) reports the physical *left* button as north and the physical *top*
+button as west. Drivers written against the compass names (hid-playstation,
+hid-nintendo) do not. The device name decides which reading applies; override
+it if a pad guesses wrong:
+
+| Variable | Effect |
+|----------|--------|
+| `ECSTATICA_GAMEPAD_DEBUG=1` | Print the detected pad, its resolved button/axis slots, and any `/dev/input/js*` node rejected as not-a-gamepad |
+| `ECSTATICA_GAMEPAD_SWAP_FACE=0` | Force compass-name reading: X is west (use item), Y is north (inventory) |
+| `ECSTATICA_GAMEPAD_SWAP_FACE=1` | Force letter-name reading (the default for unrecognised pads) |
