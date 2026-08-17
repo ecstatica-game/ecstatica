@@ -269,7 +269,8 @@ static void trace_held_actor(actor_t *actor) {
             actor->flags, actor->state_flags, actor->type,
             actor->actor_act.act_action ? actor->actor_act.act_action->action_index : -1);
     for (part_t *pp = actor->actor_parts_list; pp; pp = pp->next_in_display_list) {
-        fprintf(stderr, "  part=%3d type=%2d col=%4d dcol=%4d flags=%04x dflags=%04x "
+        fprintf(stderr, "  name='%s' ", file_find_part_name_str(pp->name_index));
+        fprintf(stderr, "part=%3d type=%2d col=%4d dcol=%4d flags=%04x dflags=%04x "
                         "sq=(%d,%d,%d) dsq=(%d,%d,%d) rc=(%d,%d,%d) off=(%d,%d,%d) "
                         "p2p=%d kids=%d\n",
                 pp->name_index, pp->type, pp->color, pp->default_color,
