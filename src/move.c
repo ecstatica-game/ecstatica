@@ -2105,6 +2105,7 @@ void modify_part(event_t *event, actor_t *actor, int some_time, action_t *action
                     }
                     if (!part && event->event_type != INTERACT) return;
                 } else {
+                    actor_t *from = actor;
                     for (part_t *p = actor->actor_parts_list; p; p = p->next_in_display_list) {
                         if (p->actor_2_held && p->actor_2_held->_PartTab) {
                             part = p->actor_2_held->_PartTab->field_0[event->event_index];
@@ -2112,7 +2113,32 @@ void modify_part(event_t *event, actor_t *actor, int some_time, action_t *action
                         }
                     }
                     if (!part && event->event_type != INTERACT) return;
-                    if (part) actor = part->parent_actor;
+                    if (part) {
+                        actor = part->parent_actor;
+                        /* ECSTATICA_TRACE_REDIRECT=1: the owning actor has no part
+                         * with this index, so the event lands on a held object
+                         * instead. Faithful to 0x42B8C8, but if the owner is
+                         * supposed to have that part it means the part is missing. */
+                        static int on = -1, n = 0;
+                        if (on < 0) {
+                            const char *e = getenv("ECSTATICA_TRACE_REDIRECT");
+                            on = (e && *e && *e != '0') ? 1 : 0;
+                        }
+                        if (on && n < 400 && actor != from) {
+                            n++;
+                            fprintf(stderr, "[REDIR] ev_type=%d ev_idx=%d from actor=%d '%s' "
+                                            "-> held actor=%d '%s' part=%d\n",
+                                    event->event_type, event->event_index,
+                                    from->name_index,
+                                    (from->name_index >= 0 && from->name_index < THING_TAB_SIZE)
+                                        ? thing_names[from->name_index].field_0 : "?",
+                                    actor->name_index,
+                                    (actor->name_index >= 0 && actor->name_index < THING_TAB_SIZE)
+                                        ? thing_names[actor->name_index].field_0 : "?",
+                                    part->name_index);
+                            fflush(stderr);
+                        }
+                    }
                 }
             }
         }
@@ -2259,6 +2285,7 @@ void modify_part(event_t *event, actor_t *actor, int some_time, action_t *action
         break;
     case VECTOR1: {
         if (!part) break;
+        squash_trace("set", part, some_time, event, &part->VECTOR_Squash, action);
         set_vector(&part->VECTOR_Squash, event->param1, event->param2, event->param3);
         calculate_squash(part);
         update_relatives(part);

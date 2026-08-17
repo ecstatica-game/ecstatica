@@ -1801,6 +1801,40 @@ void view_transform_ellipse(part_t *part) {
     part->persp_origin.Y = part->vector_persp.Y;
 }
 
+/* ECSTATICA_PROBE_XY=x,y — report every draw whose screen bounding box covers
+ * that pixel, naming the actor and part responsible. Answers "what painted
+ * this?" directly rather than guessing at anomaly heuristics. */
+int geom_probe_active(int *px, int *py) {
+    static int parsed = 0, ok = 0, x = 0, y = 0;
+    if (!parsed) {
+        parsed = 1;
+        const char *e = getenv("ECSTATICA_PROBE_XY");
+        if (e && *e) {
+            const char *comma = strchr(e, ',');
+            if (comma) { x = atoi(e); y = atoi(comma + 1); ok = 1; }
+        }
+    }
+    if (!ok) return 0;
+    *px = x; *py = y;
+    return 1;
+}
+
+void geom_probe_hit(const char *kind, const actor_t *pa, int part_idx,
+                    int col, int lo_x, int hi_x, int lo_y, int hi_y,
+                    const char *extra) {
+    int px, py;
+    static int n = 0;
+    if (!geom_probe_active(&px, &py) || n >= 3000) return;
+    if (px < lo_x || px > hi_x || py < lo_y || py > hi_y) return;
+    fprintf(stderr, "[PROBE] %s actor=%d '%s' part=%d col=%d box=[%d..%d]x[%d..%d] %s\n",
+            kind, pa ? pa->name_index : -1,
+            (pa && pa->name_index >= 0 && pa->name_index < THING_TAB_SIZE)
+                ? thing_names[pa->name_index].field_0 : "?",
+            part_idx, col, lo_x, hi_x, lo_y, hi_y, extra ? extra : "");
+    fflush(stderr);
+    n++;
+}
+
 /* display_put_a_cuboid  E1: 0x421408 | E2: 0x424FE8 */
 void put_a_cuboid(part_t *part) {
     if (!part) return;
@@ -1866,51 +1900,24 @@ void put_a_cuboid(part_t *part) {
     tri_t shade_tri;
     memset(&shade_tri, 0, sizeof(shade_tri));
 
-    /* ECSTATICA_TRACE_CUBOID=<name_index>: one line per part per frame with the
-     * projected corners, the screen bbox, how many of the twelve faces survive
-     * the cross_z backface test, and which subarea the dirty rect lands in. */
     {
-        static int tidx = -2;
-        static int nlines = 0;
-        if (tidx == -2) {
-            const char *e = getenv("ECSTATICA_TRACE_CUBOID");
-            tidx = (e && *e) ? atoi(e) : -1;
-        }
-        if (tidx >= 0 && part->parent_actor
-            && part->parent_actor->name_index == tidx && nlines++ < 4000) {
+        int px, py;
+        if (geom_probe_active(&px, &py)) {
             int lo_x = 0x7FFF, hi_x = -0x7FFF, lo_y = 0x7FFF, hi_y = -0x7FFF;
-            int zero_z = 0;
             for (int i = 0; i < 8; i++) {
-                int X = points[i].screen_coord.X, Y = points[i].screen_coord.Y;
-                if (!points[i].screen_coord.Z) zero_z++;
+                int X = (points[i].screen_coord.X >> 4) + screen_centre_x;
+                int Y = (points[i].screen_coord.Y >> 4) + screen_centre_y;
                 if (X < lo_x) lo_x = X;
                 if (X > hi_x) hi_x = X;
                 if (Y < lo_y) lo_y = Y;
                 if (Y > hi_y) hi_y = Y;
             }
-            int front = 0, degen = 0;
-            for (int i = 0; i < 12; i++) {
-                const point_t *p1 = &points[fva[i]], *p2 = &points[fvb[i]], *p3 = &points[fvc[i]];
-                int cz = (p2->screen_coord.Y - p3->screen_coord.Y)
-                       * (p1->screen_coord.X - p3->screen_coord.X)
-                       - (p1->screen_coord.Y - p3->screen_coord.Y)
-                       * (p2->screen_coord.X - p3->screen_coord.X);
-                if (cz > 0) front++;
-                else if (cz == 0) degen++;
-            }
-            subarea_t *ac = part->parent_actor->area_to_clear;
-            const char *acw = !ac ? "NULL"
-                : (ac == &null_area_to_clear) ? "null_area"
-                : (ac >= &sub_area_to_clear[0] && ac < &sub_area_to_clear[20]) ? "SUBTITLE"
-                : (ac == &part->parent_actor->bounding_box) ? "bbox" : "cleartab";
-            fprintf(stderr, "[CUB] part=%3d col=%3d shade=%5d plane=%d tex=%d "
-                            "sq=(%d,%d,%d) sx=[%d..%d] sy=[%d..%d] z0=%d "
-                            "front=%d degen=%d ac=%s\n",
-                    part->name_index, part->color, part->color_shade, plane,
-                    tex ? (int)tex_idx : -1, sx, sy, sz,
-                    lo_x >> 4, hi_x >> 4, lo_y >> 4, hi_y >> 4, zero_z,
-                    front, degen, acw);
-            fflush(stderr);
+            char buf[96];
+            snprintf(buf, sizeof(buf), "sq=(%d,%d,%d) plane=%d tex=%d flags=%04x",
+                     sx, sy, sz, plane, tex ? (int)tex_idx : -1,
+                     (unsigned)(uint16_t)part->flags);
+            geom_probe_hit("CUB", part->parent_actor, part->name_index,
+                           part->color, lo_x, hi_x, lo_y, hi_y, buf);
         }
     }
 
@@ -1979,6 +1986,22 @@ void put_an_ellipse(part_t *part) {
 
     /* Compute ellipse on screen and shade */
     find_ellipse(part);
+    {
+        int px, py;
+        if (geom_probe_active(&px, &py)) {
+            int cx = (part->vector_persp.X >> 4) + screen_centre_x;
+            int cy = (part->vector_persp.Y >> 4) + screen_centre_y;
+            int rx = (abs(part->projected_axes.X) >> 4) + 1;
+            int ry = (abs(part->projected_axes.Y) >> 4) + 1;
+            char buf[128];
+            snprintf(buf, sizeof(buf), "sq=(%d,%d,%d) maxsq=%d axes=(%d,%d,%d) flags=%04x",
+                     part->VECTOR_Squash.X, part->VECTOR_Squash.Y, part->VECTOR_Squash.Z,
+                     part->max_squash, part->projected_axes.X, part->projected_axes.Y,
+                     part->projected_axes.Z, (unsigned)(uint16_t)part->flags);
+            geom_probe_hit("ELL", part->parent_actor, part->name_index, part->color,
+                           cx - rx, cx + rx, cy - ry, cy + ry, buf);
+        }
+    }
     {
         int plane = 1 - db;
         if (part->parent_actor && (part->parent_actor->flags & 0x400)) {

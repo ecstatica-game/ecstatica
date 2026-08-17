@@ -6,6 +6,9 @@
 extern int16_t mask_distance[64];
 
 void advance_thing(actor_t *actor, int16_t game_time_arg);
+void squash_trace(const char *who, const part_t *part, int blend,
+                  const event_t *event, const vector_t *cur,
+                  const action_t *action);
 void copy_defaults_to_actual(actor_t *actor);
 void copy_defaults_to_actual_not_flags(actor_t *actor);
 void copy_actual_to_defaults(actor_t *actor);
