@@ -1041,38 +1041,45 @@ void advance_def_modifieds(actor_t *actor, int blend) {
 }
 
 /* helper for update_thing */
+static void update_thing_body(actor_t *actor) {
+    for (part_t *part = actor->actor_parts_list; part; part = part->next_in_display_list) {
+        if (part->flags & 0x200)
+            make_part_relative(part);
+        part->def_pos_flags |= part->position_flags;
+        part->position_flags = 0;
+        part->flags &= 0xFEFF;
+    }
+    make_identity(&actor->matrix_1);
+    uint16_t angle = (uint16_t)actor->rotate_vector.Y;
+    if (angle) rotate_about_y(&actor->matrix_1, angle);
+    angle = (uint16_t)actor->rotate_vector.X;
+    if (angle) rotate_about_x(&actor->matrix_1, angle);
+    angle = (uint16_t)actor->rotate_vector.Z;
+    if (angle) rotate_about_z(&actor->matrix_1, angle);
+
+    copy_matrix(&actor->matrix33_2, &actor->matrix_1);
+    set_vector(&actor->Offset, 0, 0, 0);
+    set_vector(&actor->Rotate, 0, 0, 0);
+    copy_vector(&actor->actor_center, &actor->position_vector);
+}
+
 static void update_thing_sub(actor_t *actor, int is_part_heap_link) {
     int condition = actor->state_flags & 1;
     if (is_part_heap_link) condition = !condition;
-    if (!condition) {
-        for (part_t *part = actor->actor_parts_list; part; part = part->next_in_display_list) {
-            if (part->flags & 0x200)
-                make_part_relative(part);
-            part->def_pos_flags |= part->position_flags;
-            part->position_flags = 0;
-            part->flags &= 0xFEFF;
-        }
-        make_identity(&actor->matrix_1);
-        uint16_t angle = (uint16_t)actor->rotate_vector.Y;
-        if (angle) rotate_about_y(&actor->matrix_1, angle);
-        angle = (uint16_t)actor->rotate_vector.X;
-        if (angle) rotate_about_x(&actor->matrix_1, angle);
-        angle = (uint16_t)actor->rotate_vector.Z;
-        if (angle) rotate_about_z(&actor->matrix_1, angle);
-
-        copy_matrix(&actor->matrix33_2, &actor->matrix_1);
-        set_vector(&actor->Offset, 0, 0, 0);
-        set_vector(&actor->Rotate, 0, 0, 0);
-        copy_vector(&actor->actor_center, &actor->position_vector);
-    }
+    if (!condition)
+        update_thing_body(actor);
 }
 
-/* edit_update_thing  E1: ? | E2P: 0x420268 */
+/* edit_update_thing  E1: 0x42498C | E2P: 0x420268 */
 void update_thing(actor_t *actor) {
     if (!actor) return;
-    update_thing_sub(actor, 0);
-    if (actor->part_heap_link)
-        update_thing_sub(actor->part_heap_link->parent_actor, 1);
+    if (game_version == GAME_VERSION_E1) {
+        update_thing_body(actor);
+    } else {
+        update_thing_sub(actor, 0);
+        if (actor->part_heap_link)
+            update_thing_sub(actor->part_heap_link->parent_actor, 1);
+    }
 }
 
 /* edit_update_act  E1: ? | E2P: 0x4202A8 */
