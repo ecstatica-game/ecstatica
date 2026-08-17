@@ -74,9 +74,19 @@ int find_map_element(vector_t *position) {
     signed int test_height = -1;
     int col = (position->X >> 9) + 64;
     int row = (position->Z >> 9) + 64;
-    if (col < 0 || col >= 128 || row < 0 || row >= 128)
+
+    /* asm topo_find_map_element_448694+35: the original indexes new_map with the
+     * flat offset row*128 + col and does not range-check either axis, so a
+     * position just outside the grid wraps into the neighbouring row and still
+     * resolves to a usable element. Rejecting per-axis instead made any such
+     * position return -1, which check_camera turns into camera 0 and
+     * play_dead_scene(7) — the player getting eaten by the dragon after being
+     * nudged off the edge of the map by collision. Bound the flat index only,
+     * which keeps the wrap without reading out of bounds. */
+    int flat = row * 128 + col;
+    if (flat < 0 || flat >= 128 * 128)
         return -1;
-    int map_elem_idx = new_map[row][col];
+    int map_elem_idx = ((const uint16_t *)new_map)[flat];
     int norm_x = (position->X & 0x1FF) - 256;
     int norm_z = (position->Z & 0x1FF) - 256;
     int height_pos = 128 + ((-position->Y) >> height_shift);
@@ -138,9 +148,10 @@ signed int find_map_element_vis(vector_t *position) {
     signed int test_height = -1;
     int col = (position->X >> 9) + 64;
     int row = (position->Z >> 9) + 64;
-    if (col < 0 || col >= 128 || row < 0 || row >= 128)
+    int flat = row * 128 + col;
+    if (flat < 0 || flat >= 128 * 128)
         return -1;
-    uint16_t map_elem_idx = new_map[row][col];
+    uint16_t map_elem_idx = ((const uint16_t *)new_map)[flat];
     int norm_x = (position->X & 0x1FF) - 256;
     int norm_z = (position->Z & 0x1FF) - 256;
     int height_pos = 128 + ((-position->Y) >> height_shift);
