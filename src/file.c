@@ -91,6 +91,17 @@ static const char *swappable_dirs[] = {
 static char alt_data_root[256] = "";
 int32_t enhanced_graphics = 0;
 
+/* Prefix applied to every otherwise-relative asset path. Empty on desktop,
+ * where the game runs with the data directory as its working directory.
+ * openfpgaOS has no per-process cwd — the platform layer mounts the data
+ * ISO and points the root at the mount instead. */
+static char data_root[256] = "";
+
+void file_set_data_root(const char *root) {
+    if (!root) root = "";
+    snprintf(data_root, sizeof(data_root), "%s", root);
+}
+
 /* Path's first component names a directory that may come from either root. */
 static int is_swappable_asset(const char *path) {
     if (!alt_data_root[0]) return 0;
@@ -110,6 +121,7 @@ static int is_swappable_asset(const char *path) {
  * Returns 1 and fills out on success. */
 static int resolve_ci(const char *base, const char *path, char *out, size_t outsz) {
     char buf[512];
+    if (!base || !base[0]) base = data_root;
     if (strlen(path) >= sizeof(buf)) return 0;
     strcpy(buf, path);
 
@@ -171,6 +183,7 @@ static int resolve_ci(const char *base, const char *path, char *out, size_t outs
 
 static FILE *fopen_ci_root(const char *base, const char *path, const char *mode) {
     char direct[512];
+    if (!base || !base[0]) base = data_root;
     if (base && base[0])
         snprintf(direct, sizeof(direct), "%s/%s", base, path);
     else
@@ -544,12 +557,18 @@ char *make_file_dir_name(int index) {
 /* file_make_dir_if_not_exists  E2: 0x447EC4 */
 void make_dir_if_not_exists(const char *dirname) {
     if (!dirname || !*dirname) return;
+#ifdef OF_POCKET
+    /* Flat writable slots — nothing to create, and mkdir would surface a
+     * spurious requester on every save. */
+    return;
+#else
     struct stat st;
     if (stat(dirname, &st) != 0) {
         if (mkdir(dirname, 0755) != 0) {
             do_info_req("Can't create subdirectory");
         }
     }
+#endif
 }
 
 /* file_write_event  E2: 0x4412F0 — write event fields via putw_be */
@@ -1381,7 +1400,11 @@ void load_a_repertoire(int rep_index) {
  * as new sections are appended after the sentinel and read version-gated. */
 #define SAVE_VERSION 5
 #define SAVE_VERSION_MIN 4   /* oldest layout load_game can still read */
+#ifdef OF_POCKET
+#define SAVE_MAX_SLOTS 10   /* APF nonvolatile save slots 10..19 */
+#else
 #define SAVE_MAX_SLOTS 11
+#endif
 #define SAVE_NAME_LEN 26
 #define THUMB_W 80
 #define THUMB_H 60
@@ -1402,7 +1425,16 @@ void capture_save_thumbnail(void) {
 }
 
 static void make_save_filename(char *buf, int bufsz, int slot) {
+#ifdef OF_POCKET
+    /* openfpgaOS exposes saves as a flat set of pre-declared writable slot
+     * files; there are no directories to create under them. These names must
+     * match the data_slots entries in the core's instance JSON, and the two
+     * games get separate sets so an E1 and an E2 instance don't share slots. */
+    snprintf(buf, bufsz, "ecstatica%s_%d.sav",
+             game_version == GAME_VERSION_E2 ? "2" : "", slot);
+#else
     snprintf(buf, bufsz, "saved/%04d.ecs", slot);
+#endif
 }
 
 /* file_save_game_parts  E2: 0x443D3C

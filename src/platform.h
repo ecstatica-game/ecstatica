@@ -269,4 +269,16 @@ void platform_set_sfx_volume(float vol);
  */
 void platform_set_music_volume(float vol);
 
+#ifdef OF_POCKET
+/**
+ * Mount the game-data ISO from its APF data slot and point the file layer
+ * at it. Must run before any engine code touches the archives — that means
+ * before win_main_game(), since detect_game_version() reads CODE/ECSTATIC.FAN.
+ *
+ * Returns 0 when a data image was mounted, -1 when none was found (the
+ * engine then falls back to whatever flat slots the launcher exposed).
+ */
+int platform_openfpga_mount_data(void);
+#endif
+
 #endif /* PLATFORM_H */

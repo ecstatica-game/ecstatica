@@ -10,8 +10,11 @@
 #include <signal.h>
 #include <stdlib.h>
 #ifndef _WIN32
-#include <execinfo.h>
 #include <unistd.h>
+#endif
+#if !defined(_WIN32) && !defined(OF_POCKET)
+#include <execinfo.h>
+#define HAVE_BACKTRACE 1
 #endif
 
 int debug_verbose = 1;  /* 0=quiet, 1=important, 2=verbose */
@@ -19,7 +22,7 @@ FILE *debug_log_file = NULL;
 
 static void crash_handler(int sig) {
     fprintf(stderr, "\n=== CRASH sig=%d ===\n", sig);
-#ifndef _WIN32
+#ifdef HAVE_BACKTRACE
     void *bt[32];
     int n = backtrace(bt, 32);
     backtrace_symbols_fd(bt, n, 2);
@@ -46,7 +49,15 @@ int main(int argc, char *argv[]) {
 #endif
     signal(SIGABRT, crash_handler);
     setvbuf(stderr, NULL, _IONBF, 0); /* unbuffered stderr for diagnostics */
+
+#ifdef OF_POCKET
+    /* The data ISO has to be mounted before win_main_game(), which probes
+     * the archives to pick the game version. There is no writable working
+     * directory, so the debug log stays on stderr (the OS terminal). */
+    platform_openfpga_mount_data();
+#else
     debug_log_file = fopen("ecstatica_debug.log", "w");
+#endif
     if (debug_log_file) {
         setvbuf(debug_log_file, NULL, _IONBF, 0);
         fprintf(debug_log_file, "MAIN: debug_log_file=%p debug_verbose=%d\n", (void*)debug_log_file, debug_verbose);
