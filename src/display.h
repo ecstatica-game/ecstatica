@@ -247,6 +247,7 @@ void long_view_trans_ellipse(part_t *part);
 void put_a_line(part_t *part);
 void xxx_stick_to_background(actor_t *actor);
 void show_parts(void);
+void clear_expired_subtitles(void);
 void draw_subtitles(void);
 void show_subtitle(const char *text_str, int duration);
 void req_clear_subtitles(void);

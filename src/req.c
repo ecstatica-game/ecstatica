@@ -526,31 +526,51 @@ void req_clear_subtitles(void) {
 }
 
 /* req_draw_subtitles  E1: ? | E2P: 0x42ACE8 */
-void draw_subtitles(void) {
+/* asm display_prepare_parts_421198+116..+240. Runs from prepare_parts before
+ * the background restore, not from the subtitle renderer: the rects
+ * clear_a_subtitle appends to clear_tab have to be in place before
+ * clear_parts/clear_masking consume them, or they land a frame late.
+ *
+ * Blitting the background store straight into both draw planes (what this used
+ * to do) skips the mask and the clear_tab bookkeeping, so anything composited
+ * over the subtitle rect is lost. Stuck actors (flags & 0x0400) are only drawn
+ * once and left in the buffer, so any of them overlapping the rect must have
+ * its already-drawn bit cleared to make draw_stuck_parts render it again. */
+void clear_expired_subtitles(void) {
     if (!subtitles_on) return;
 
-    if ((game_time - subtitles_time - 420) > 0) {
+    if ((game_time - subtitles_time - 420) > 0)
         clear_subtitles = 1;
-    }
 
-    if (clear_subtitles) {
-        for (int i = 0; i < MAX_SUBTITLES; i++) {
-            if (subtitle_status[i] == 2) {
-                subarea_t area = sub_area_to_clear[i];
-                int w = area.right + 1 - area.left;
-                int h = area.bottom + 1 - area.top;
-                if (w > 0 && h > 0) {
-                    clip_blit(3, area.left, area.top, 2, area.left, area.top, w, h, 0);
-                    clip_blit(2, area.left, area.top, 0, area.left, area.top, w, h, 0);
-                    clip_blit(2, area.left, area.top, 1, area.left, area.top, w, h, 0);
-                }
-                subtitle_status[i] = 0;
-                subtitle_text[i] = NULL;
-                subtitle_length[i] = 0;
-            }
+    if (!clear_subtitles) return;
+
+    for (int i = 0; i < MAX_SUBTITLES; i++) {
+        subarea_t *sub = &sub_area_to_clear[i];
+        if (sub->left >= sub->right || sub->top >= sub->bottom)
+            continue;
+
+        for (actor_t *actor = root_thing; actor; actor = actor->next_in_display_list) {
+            subarea_t *a = actor->area_to_clear;
+            if (!a) continue;
+            if (a->left > sub->right || a->right < sub->left) continue;
+            if (a->top > sub->bottom || a->bottom < sub->top) continue;
+            if (!(actor->flags & 0x0400)) continue;
+            actor->flags &= ~0x0800;
         }
-        clear_subtitles = 0;
+
+        clear_a_subtitle(i);
+
+        if (subtitle_status[i] == 2)
+            subtitle_status[i] = 0;
+        subtitle_text[i] = NULL;
+        subtitle_length[i] = 0;
+        sub->left = sub->right = sub->top = sub->bottom = 0;
     }
+    clear_subtitles = 0;
+}
+
+void draw_subtitles(void) {
+    if (!subtitles_on) return;
 
     for (int i = 0; i < MAX_SUBTITLES; i++) {
         if (subtitle_status[i] != 1) continue;

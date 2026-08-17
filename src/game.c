@@ -3087,12 +3087,26 @@ void beep_message(const char *msg) {
     text(db, msg, len);
 }
 
+    /* A resolution change invalidates every pending dirty rect: clear_tab and
+     * sub_area_to_clear still hold coordinates from the old screen size, and
+     * clear_masking/clear_parts would mask and restore at those stale rects.
+     * prepare_parts only ever zeroes number_to_clear[db], so the other side
+     * would keep them indefinitely. */
+static void reset_dirty_rects(void) {
+    number_to_clear[0] = 0;
+    number_to_clear[1] = 0;
+    for (int i = 0; i < 20; i++)
+        sub_area_to_clear[i].left = sub_area_to_clear[i].right =
+        sub_area_to_clear[i].top = sub_area_to_clear[i].bottom = 0;
+}
+
 /* menu_go_vga  E2: 0x43AC6C */
 void go_vga(void) {
     bool was_on = mouse_pointer_on;
     flush_backgrounds();
     turn_mouse_pointer_off();
     mode_svga = 0;
+    reset_dirty_rects();
     active_camera = NULL;
     selected_camera = -1;
     set_vga_constants();
@@ -3114,6 +3128,7 @@ void go_svga(void) {
     flush_backgrounds();
     turn_mouse_pointer_off();
     mode_svga = 1;
+    reset_dirty_rects();
     active_camera = NULL;
     selected_camera = -1;
     set_svga_constants();
@@ -3174,10 +3189,17 @@ void set_enhanced_graphics(int enabled) {
          * play_dead_scene(7) — dropping the player into the dragon scene. */
         check_view(prev_camera);
 
-        prepare_parts();
-        draw_stuck_parts();
-        draw_parts();
-        show_parts();
+        /* check_view sets background_status = 2, which prepare_parts consumes
+         * one draw buffer per frame. The settings menu never calls
+         * prepare_parts, so without running the sequence for both sides here
+         * the buffer that is not current keeps the old-resolution image and
+         * shows through on the next flip. */
+        for (int side = 0; side < 2; side++) {
+            prepare_parts();
+            draw_stuck_parts();
+            draw_parts();
+            show_parts();
+        }
     } else {
         /* Title / menu screens: nothing to rebuild but the backdrop, which is
          * resolution-specific (TITLE_S.RAW at 320, TSCREEN.RAW at 640). */

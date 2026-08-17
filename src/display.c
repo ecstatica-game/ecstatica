@@ -398,6 +398,11 @@ void prepare_parts(void) {
         }
     }
 
+    /* asm display_prepare_parts_421198+116: expired subtitles are retired here,
+     * before the background restore, so their clear_tab rects are honoured by
+     * clear_parts/clear_masking in this same frame. */
+    clear_expired_subtitles();
+
     /* Clear previous frame's graphics */
     clear_db_mouse_cursor_win95();
 
@@ -421,6 +426,7 @@ void prepare_parts(void) {
     /* CT_SUBTITLE renderer. Delegates to req.c draw_subtitles
      * which writes text to bitmap 2 at fixed offsets. */
     draw_subtitles();
+
 
     number_to_clear[db] = 0;
 }
