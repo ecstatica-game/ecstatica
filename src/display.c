@@ -1814,6 +1814,14 @@ void put_a_cuboid(part_t *part) {
     int16_t sy = part->VECTOR_Squash.Y;
     int16_t sz = part->VECTOR_Squash.Z;
 
+    /* A zero half-extent gives the box no volume: the eight corners collapse
+     * into four coincident pairs, eight of the twelve faces become zero-area
+     * and get dropped by the backface test, and the four that survive are the
+     * two windings of the collapsed side face — which paint as a solid flat
+     * quad. Such parts are pivot/helper geometry and must not draw. */
+    if (!sx || !sy || !sz)
+        return;
+
     /* 8 corner vertices */
     point_t points[8];
     memset(points, 0, sizeof(points));
