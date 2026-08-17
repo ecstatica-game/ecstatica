@@ -166,8 +166,7 @@ void check_camera(void) {
                 selected_thing->position_vector.Y,
                 selected_thing->position_vector.Z,
                 camera_override, thing_name_flags[0]);
-        /* asm map_check_camera_44C174+21C guards on editor mode too. */
-        if (!editor_mode && !(thing_name_flags[0] & 4))
+        if (!(thing_name_flags[0] & 4))
             play_dead_scene(7);
     } else {
         selected_camera = camera_idx;
