@@ -10,8 +10,13 @@
 #include <signal.h>
 #include <stdlib.h>
 #ifndef _WIN32
-#include <execinfo.h>
 #include <unistd.h>
+#endif
+/* HAVE_EXECINFO comes from the build: glibc and macOS have backtrace(),
+ * musl does not. A capability, not a platform name. */
+#ifdef HAVE_EXECINFO
+#include <execinfo.h>
+#define HAVE_BACKTRACE 1
 #endif
 
 int debug_verbose = 1;  /* 0=quiet, 1=important, 2=verbose */
@@ -19,7 +24,7 @@ FILE *debug_log_file = NULL;
 
 static void crash_handler(int sig) {
     fprintf(stderr, "\n=== CRASH sig=%d ===\n", sig);
-#ifndef _WIN32
+#ifdef HAVE_BACKTRACE
     void *bt[32];
     int n = backtrace(bt, 32);
     backtrace_symbols_fd(bt, n, 2);
@@ -46,6 +51,13 @@ int main(int argc, char *argv[]) {
 #endif
     signal(SIGABRT, crash_handler);
     setvbuf(stderr, NULL, _IONBF, 0); /* unbuffered stderr for diagnostics */
+
+    /* Whatever has to exist before the first asset open. On targets with no
+     * working directory this is where the data root gets mounted, so it must
+     * precede win_main_game() — that probes the archives for the version. */
+    platform_early_init();
+
+    /* Fails harmlessly (leaving the log NULL) where the root is read-only. */
     debug_log_file = fopen("ecstatica_debug.log", "w");
     if (debug_log_file) {
         setvbuf(debug_log_file, NULL, _IONBF, 0);

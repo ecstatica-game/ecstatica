@@ -185,7 +185,17 @@ void init(void) {
     hires_available = hires_data_available();
     low_res_only = vga_data && !hires_available;
 
-    if (vga_data) {
+    /* Follows the database, so E2 and Win95 E1 come up in SVGA.
+     *
+     * Do not be tempted to force VGA on small-panel targets to save fill rate.
+     * E2's low-resolution asset set is incomplete: LOWGRAPH/ has no twin for
+     * ICONPAGE, NUMBER0-9, MAGIBAR, POWGEM*, SHIELD* or any inventory icon,
+     * so load_raw_graphic() falls through to the 640x480 GRAPHICS/ art and
+     * the whole HUD draws at the wrong size. Backgrounds would survive — E2's
+     * VIEWS/ is a genuine 320x200 set — but the interface does not. */
+    int boot_vga = vga_data;
+
+    if (boot_vga) {
         chosen_svga = 0;
         set_vga_constants();
     } else {
@@ -195,7 +205,7 @@ void init(void) {
     set_up_bitmaps();
     flush_backgrounds();
     go_vga();
-    if (!vga_data)
+    if (!boot_vga)
         go_svga();
 
     if (game_version != GAME_VERSION_E1) {
