@@ -18,6 +18,7 @@
 #include "platform.h"
 #include <string.h>
 #include <stdlib.h>
+#include <stdint.h>
 #ifndef _WIN32
 #include <unistd.h>
 #endif
@@ -191,24 +192,80 @@ void window_proc(void) {
 
     /* Gamepad — OR into existing key globals.
      *
-     * Mapping (matches controls.md):
-     *   Left stick / D-pad    → movement (up/down/left/right + diagonals)
-     *   A / Cross  (south)    → Space: pick up / interact
-     *   B / Circle (east)     → Escape: menu / back
-     *   X / Square (west)     → Left Alt: use item / flip / roll / magic
+     * The pad is laid out the way both games model the body: the left stick
+     * is the legs, and the shoulder row is the arms, left side for the left
+     * hand and right side for the right. The face buttons carry what is not
+     * limb-shaped — reach out, use, inventory, back.
+     *
+     * Shared (matches controls.md):
+     *   Left stick / D-pad    → legs: walk and turn, eight ways
+     *   A / Cross  (south)    → Space: reach out — pick up, interact, confirm
+     *   B / Circle (east)     → Escape: back / cancel
      *   Y / Triangle (north)  → Enter: inventory
+     *   X / Square (west)     → Left Alt: use what is held
      *   LB / L1               → Left Shift: jump
-     *   RB / R1               → Left Ctrl: run / attack modifier
-     *   LT / L2               → Left Alt: magic/special modifier (E2)
-     *   RT / R2               → Left Ctrl: attack modifier (alternative)
      *   Start                 → Escape: pause menu
      *   Select / Back         → I: toggle HUD icons
-     *   Left stick click      → speed mode cycle, E1 only (F1/F5/F9)
-     *   Right stick           → E1 numpad actions: swings and hand pick-up
      *   Right stick click     → G: original / enhanced graphics
+     *
+     * E1 — two hands the player drives independently:
+     *   LT / L2               → Numpad 1 / Z: LEFT hand pick up / drop
+     *   RT / R2               → Numpad 3 / C: RIGHT hand pick up / drop
+     *   RB / R1               → Left Ctrl: attack with the stick (incl. low)
+     *   Right stick ← / →     → Numpad 7 / 9: quick left and right swing
+     *   Left stick click      → speed mode cycle (F1 / F5 / F9)
+     *
+     * E2 — one pick-up action, modifiers instead of per-hand keys:
+     *   RB / R1, RT / R2      → Left Ctrl: run, and attack with the stick
+     *   LT / L2               → magic / special with the stick, and with
+     *                           RB held, an aimed attack
+     *
+     * LT under E2 raises alt_pressed WITHOUT scancode 56. BH_JOYSTICK tests
+     * that scancode before it tests alt_pressed, so a control that raises both
+     * — X here, Left Alt on the keyboard — always lands on use-item/roll and
+     * can never reach the magic (196..199) or aimed-attack (204..211) actions
+     * behind the later branches. Splitting them across two pad controls is what
+     * makes those actions reachable at all.
      */
     platform_gamepad_state_t gp;
     platform_gamepad_poll(g_platform, &gp);
+
+    /* ECSTATICA_GAMEPAD_DEBUG=2: dump the decoded pad state whenever it
+     * changes, so a mis-assigned control can be traced back to the slot it
+     * came from rather than guessed at from what the character did. */
+    static int pad_debug = -1;
+    if (pad_debug < 0) {
+        const char *e = getenv("ECSTATICA_GAMEPAD_DEBUG");
+        pad_debug = e ? atoi(e) : 0;
+    }
+    if (pad_debug >= 2) {
+        /* Sticks are snapped to a coarse step so analog jitter alone does not
+         * reprint the line every frame. */
+        int lx = gp.left_x / 4096, ly = gp.left_y / 4096;
+        int rx = gp.right_x / 4096, ry = gp.right_y / 4096;
+        int buttons =
+            (gp.btn_south << 0) | (gp.btn_east << 1) | (gp.btn_west << 2) |
+            (gp.btn_north << 3) | (gp.btn_lb << 4) | (gp.btn_rb << 5) |
+            (gp.btn_lt << 6) | (gp.btn_rt << 7) | (gp.btn_start << 8) |
+            (gp.btn_select << 9) | (gp.btn_lstick << 10) | (gp.btn_rstick << 11) |
+            (gp.dpad_up << 12) | (gp.dpad_down << 13) | (gp.dpad_left << 14) |
+            (gp.dpad_right << 15) | (gp.connected << 16);
+
+        static int prev_buttons = -1, prev_lx, prev_ly, prev_rx, prev_ry;
+        if (buttons != prev_buttons || lx != prev_lx || ly != prev_ly ||
+            rx != prev_rx || ry != prev_ry) {
+            fprintf(stderr, "[PAD] conn=%d L=%6d,%6d R=%6d,%6d dpad=%d%d%d%d "
+                    "S=%d E=%d W=%d N=%d LB=%d RB=%d LT=%d RT=%d "
+                    "start=%d sel=%d L3=%d R3=%d\n",
+                    gp.connected, gp.left_x, gp.left_y, gp.right_x, gp.right_y,
+                    gp.dpad_up, gp.dpad_down, gp.dpad_left, gp.dpad_right,
+                    gp.btn_south, gp.btn_east, gp.btn_west, gp.btn_north,
+                    gp.btn_lb, gp.btn_rb, gp.btn_lt, gp.btn_rt,
+                    gp.btn_start, gp.btn_select, gp.btn_lstick, gp.btn_rstick);
+        }
+        prev_buttons = buttons;
+        prev_lx = lx; prev_ly = ly; prev_rx = rx; prev_ry = ry;
+    }
 
     /* Edge latches live outside the connected test so unplugging a pad with a
      * button held does not leave a latch stuck set, swallowing the first press
@@ -226,11 +283,38 @@ void window_proc(void) {
             btn_north_was_pressed = btn_select_was_pressed =
             rstick_was_pressed = lstick_was_pressed = false;
     } else {
+        /* Resolve the stick radially, not one axis at a time. Thresholding
+         * each axis on its own makes the corners of the square the only place
+         * a diagonal lives and hands out a diagonal for anything else past the
+         * deadzone on both — under E2 that turns "walk forward" into "walk
+         * forward while turning" for most of the stick's travel. Distance
+         * decides whether the stick is pushed at all, then the angle picks one
+         * of eight 45-degree sectors: a secondary axis under tan(22.5) of the
+         * primary is the player aiming straight. */
         int dz = GAMEPAD_STICK_DEADZONE;
-        bool gp_up    = gp.dpad_up    || gp.left_y >  dz;
-        bool gp_down  = gp.dpad_down  || gp.left_y < -dz;
-        bool gp_left  = gp.dpad_left  || gp.left_x < -dz;
-        bool gp_right = gp.dpad_right || gp.left_x >  dz;
+        int ax = gp.left_x < 0 ? -gp.left_x : gp.left_x;
+        int ay = gp.left_y < 0 ? -gp.left_y : gp.left_y;
+        bool pushed = (int64_t)ax * ax + (int64_t)ay * ay > (int64_t)dz * dz;
+        /* 24/10 approximates tan(67.5) = 2.414 — the sector boundary. */
+        bool stick_vert = pushed && ay * 10 > ax * 24;
+        bool stick_horz = pushed && ax * 10 > ay * 24;
+        bool stick_diag = pushed && !stick_vert && !stick_horz;
+
+        bool gp_up    = gp.dpad_up    || ((stick_vert || stick_diag) && gp.left_y > 0);
+        bool gp_down  = gp.dpad_down  || ((stick_vert || stick_diag) && gp.left_y < 0);
+        bool gp_left  = gp.dpad_left  || ((stick_horz || stick_diag) && gp.left_x < 0);
+        bool gp_right = gp.dpad_right || ((stick_horz || stick_diag) && gp.left_x > 0);
+
+        if (pad_debug >= 2) {
+            static int prev_dir = -1;
+            int dir = (gp_up << 3) | (gp_down << 2) | (gp_left << 1) | gp_right;
+            if (dir != prev_dir) {
+                fprintf(stderr, "[PAD] dir up=%d down=%d left=%d right=%d "
+                        "(L=%d,%d)\n", gp_up, gp_down, gp_left, gp_right,
+                        gp.left_x, gp.left_y);
+                prev_dir = dir;
+            }
+        }
 
         /* Movement directions (same logic as keyboard arrows) */
         key8_pressed |= gp_up    && !gp_left && !gp_right;
@@ -260,9 +344,9 @@ void window_proc(void) {
         btn_east_was_pressed = gp.btn_east;
         btn_start_was_pressed = gp.btn_start;
 
-        /* X / LT → Left Alt (use item / magic) */
-        alt_pressed |= gp.btn_west || gp.btn_lt;
-        extra_keys_pressed[56] |= gp.btn_west || gp.btn_lt;
+        /* X → Left Alt: use what is held (or flip / roll with empty hands) */
+        alt_pressed |= gp.btn_west;
+        extra_keys_pressed[56] |= gp.btn_west;
 
         /* Y → Enter (inventory) — edge-triggered */
         enter_pressed |= gp.btn_north;
@@ -275,43 +359,97 @@ void window_proc(void) {
         /* LB → Left Shift (jump) */
         keys_pressed[42] |= gp.btn_lb;
 
-        /* RB / RT → Left Ctrl (run / attack modifier) */
-        ctrl_pressed |= gp.btn_rb || gp.btn_rt;
+        /* RB → Left Ctrl: run under E2, attack with a direction under both.
+         * RT joins it under E2, where the right trigger has no hand to drive;
+         * under E1 the triggers are the hands and RT must not double as Ctrl,
+         * or every right-hand pick-up would come out as an attack. */
+        ctrl_pressed |= gp.btn_rb || (gp.btn_rt && game_version != GAME_VERSION_E1);
 
         /* Select → I (toggle HUD) — edge-triggered */
         if (gp.btn_select && !btn_select_was_pressed) key_i_was_pressed = true;
         btn_select_was_pressed = gp.btn_select;
 
-        /* The numpad action keys only mean anything to E1's BH_JOYSTICK, and
-         * scancode 71/73 also suppress its diagonals, so leave the right stick
-         * out of it entirely under E2. */
         if (game_version == GAME_VERSION_E1) {
-            int rs_dz = GAMEPAD_STICK_DEADZONE;
-            /* Combat: Q/E mapped to numpad7/numpad9 — right stick horizontal. */
-            extra_keys_pressed[71] |= gp.right_x < -rs_dz;  /* Q / Num7 left swing */
-            extra_keys_pressed[73] |= gp.right_x >  rs_dz;  /* E / Num9 right swing */
+            /* The hands, on the side of the pad they are on the body: each
+             * trigger picks up with that hand, or puts down what it holds. */
+            extra_keys_pressed[79] |= gp.btn_lt;   /* Num1 / Z — left hand  */
+            extra_keys_pressed[81] |= gp.btn_rt;   /* Num3 / C — right hand */
 
-            /* Item handling: Z/C mapped to numpad1/numpad3 — right stick vertical. */
-            extra_keys_pressed[79] |= gp.right_y < -rs_dz;  /* Z / Num1 left hand */
-            extra_keys_pressed[81] |= gp.right_y >  rs_dz;  /* C / Num3 right hand */
+            /* Quick swings, without letting go of the movement stick. Only
+             * the horizontal axis: these scancodes suppress BH_JOYSTICK's
+             * diagonals, and the vertical axis used to sit on the hand keys,
+             * where a stick nudged while turning dropped whatever was held. */
+            int rs_dz = GAMEPAD_STICK_DEADZONE;
+            extra_keys_pressed[71] |= gp.right_x < -rs_dz;  /* Num7 / Q left swing  */
+            extra_keys_pressed[73] |= gp.right_x >  rs_dz;  /* Num9 / E right swing */
+        } else {
+            /* E2 has no per-hand keys; the left trigger is the magic and
+             * aimed-attack modifier instead. Deliberately not scancode 56 —
+             * see the header comment. */
+            alt_pressed |= gp.btn_lt;
         }
 
         /* Right stick click: graphics set toggle (same as G) */
         bool rstick_edge = gp.btn_rstick && !rstick_was_pressed;
         rstick_was_pressed = gp.btn_rstick;   /* latch before the call */
-        if (rstick_edge)
+        if (rstick_edge) {
+            if (pad_debug >= 2)
+                fprintf(stderr, "[PAD] R3: hires_available=%d mode_svga=%d -> %d\n",
+                        (int)hires_available, (int)mode_svga, (int)!mode_svga);
             set_enhanced_graphics(!mode_svga);
+            if (pad_debug >= 2)
+                fprintf(stderr, "[PAD] R3: now mode_svga=%d\n", (int)mode_svga);
+        }
 
-        /* Left stick click: cycle speed mode (sneak → walk → run) */
+        /* Left stick click: the legs again — speed mode under E1, where the
+         * F-key groups it drives are read, and the HUD toggle under E2, which
+         * has no speed modes and would otherwise leave the button dead.
+         *
+         * The step is counted here rather than read back from
+         * movement_speed_mode: get_joystick only writes that variable when the
+         * game data has no Key_F1_4 / Key_F5_8 / Key_F9_12 script code, and
+         * when it does — E1's data does — it runs the script and leaves the
+         * variable at its startup value. Deriving the next step from it sent
+         * the same F-key on every click. */
         if (gp.btn_lstick && !lstick_was_pressed) {
-            if (movement_speed_mode <= 3)
-                extra_keys_were_pressed[0x74] = 1;      /* F5: walk */
-            else if (movement_speed_mode <= 7)
-                extra_keys_were_pressed[0x78] = 1;      /* F9: run */
-            else
-                extra_keys_were_pressed[0x70] = 1;      /* F1: sneak */
+            if (game_version == GAME_VERSION_E1) {
+                /* F1 sneak, F5 walk, F9 run. The game starts in walk. */
+                static const int speed_fkey[3] = { 0x70, 0x74, 0x78 };
+                static int speed_step = 1;
+                speed_step = (speed_step + 1) % 3;
+                extra_keys_were_pressed[speed_fkey[speed_step]] = 1;
+                if (pad_debug >= 2)
+                    fprintf(stderr, "[PAD] L3: speed step %d (F%d)\n",
+                            speed_step, speed_step == 0 ? 1 : speed_step == 1 ? 5 : 9);
+            } else {
+                key_i_was_pressed = true;   /* I: toggle HUD icons */
+                if (pad_debug >= 2)
+                    fprintf(stderr, "[PAD] L3: HUD toggle\n");
+            }
         }
         lstick_was_pressed = gp.btn_lstick;
+
+        if (pad_debug >= 2) {
+            /* The game keys the mapping actually produced — the other half of
+             * tracing a control that lands on the wrong action. */
+            static int prev_keys = -1;
+            int keys =
+                (space_pressed << 0) | (ctrl_pressed << 1) | (alt_pressed << 2) |
+                (extra_keys_pressed[56] << 3) | (keys_pressed[42] << 4) |
+                (extra_keys_pressed[71] << 5) | (extra_keys_pressed[73] << 6) |
+                (extra_keys_pressed[79] << 7) | (extra_keys_pressed[81] << 8) |
+                (enter_pressed << 9);
+            if (keys != prev_keys) {
+                fprintf(stderr, "[PAD] keys space=%d ctrl=%d alt=%d sc56=%d "
+                        "shift=%d sc71=%d sc73=%d sc79=%d sc81=%d enter=%d\n",
+                        space_pressed, ctrl_pressed, alt_pressed,
+                        extra_keys_pressed[56], keys_pressed[42],
+                        extra_keys_pressed[71], extra_keys_pressed[73],
+                        extra_keys_pressed[79], extra_keys_pressed[81],
+                        enter_pressed);
+                prev_keys = keys;
+            }
+        }
     }
 }
 

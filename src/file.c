@@ -1163,6 +1163,19 @@ void file_read_code(FILE *f) {
     code_list = code;
 }
 
+/* The record's rate field is not the playback rate: it reads 21000 for every
+ * E1 sound and for most of E2, while the same utterance is stored at 11000 in
+ * the E1 DOS database and 22050 in the Win95 one. The real rate is a 16-bit LE
+ * field at offset 16 of the 32-byte MyNewDirectSoundBuffer header that precedes
+ * the PCM (11000 / 11025 / 22050 across both games). */
+static int16_t sound_rate_from_header(const char *hdr, int16_t fallback) {
+    uint32_t hdr_size = (uint8_t)hdr[0] | ((uint8_t)hdr[1] << 8) |
+                        ((uint8_t)hdr[2] << 16) | ((uint8_t)hdr[3] << 24);
+    int rate = (uint8_t)hdr[16] | ((uint8_t)hdr[17] << 8);
+    if (hdr_size != 32 || rate < 4000 || rate > 32767) return fallback;
+    return (int16_t)rate;
+}
+
 /* file_read_sound_4263A8 — all fields little-endian.
  * Header layout: name_index, use_flag|1, field_10, sound_length, volume;
  * then sound_length - 32 bytes of raw 8-bit PCM. Prior port had wrong
@@ -1191,6 +1204,8 @@ void file_read_sound(FILE *f) {
      * bytes of unsigned 8-bit PCM. */
     if (stored_length >= 32) {
         fread(sound->header, 1, 32, f);
+        sound->sample_rate = sound_rate_from_header(sound->header,
+                                                    sound->sample_rate);
     }
     if (pcm_length > 0) {
         sound->audio_ptr = (char *)calloc(pcm_length, 1);
@@ -2775,8 +2790,11 @@ void read_sounds(FILE *f) {
                 sound->sample_rate = rate;
                 sound->sound_length = pcm_length;
                 sound->volume = volume > 0 ? volume : 100;
-                if (raw_size >= 32)
+                if (raw_size >= 32) {
                     fread(sound->header, 1, 32, f);
+                    sound->sample_rate = sound_rate_from_header(sound->header,
+                                                               sound->sample_rate);
+                }
                 if (pcm_length > 0) {
                     sound->audio_ptr = (char *)calloc(pcm_length, 1);
                     if (sound->audio_ptr) {

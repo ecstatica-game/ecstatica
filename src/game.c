@@ -3239,12 +3239,6 @@ void play_sound_win95(sound_t *sound, int volume) {
     if (!sound_is_on || !sound_fx_on) return;
     if (!sound->audio_ptr || sound->sound_length <= 0) return;
     int rate = sound->sample_rate > 0 ? sound->sample_rate : 22050;
-    /* The DOS-era E1 samples are tagged 21000 but play at half that. Keyed on
-     * the loaded database, not screen_width: samples come from FILES/ECSTATIC,
-     * which the graphics toggle never swaps, so tying this to the display mode
-     * made every SFX change pitch when the resolution changed. */
-    if (e1_dos_data && rate == 21000)
-        rate = 11025;
     platform_audio_play_pcm(sound->audio_ptr, sound->sound_length,
                             rate, volume, 0, false);
 }
