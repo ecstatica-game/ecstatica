@@ -36,6 +36,7 @@ void flip_win95(void) {
     int pitch;
     char *plane_data = (char *)dd_lock(db, &pitch);
 
+#ifdef ENABLE_FRAME_DUMP
     /* F12 — manual dump. Also auto-dump frames 60, 120, 180 for headless validation. */
     static bool f12_was_pressed = false;
     bool f12_now = platform_key_down(g_platform, PKEY_F12);
@@ -66,6 +67,7 @@ void flip_win95(void) {
         }
     }
     f12_was_pressed = f12_now;
+#endif /* ENABLE_FRAME_DUMP */
 
     platform_blit(g_platform, (const uint8_t *)plane_data, (const uint8_t *)view_cmap);
     dd_unlock(db, plane_data);
