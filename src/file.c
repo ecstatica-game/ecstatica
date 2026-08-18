@@ -117,6 +117,86 @@ static int is_swappable_asset(const char *path) {
     return 0;
 }
 
+/* Cached directory listings for the case-resolving walk below.
+ *
+ * On a desktop the walk is cheap: the OS caches directory entries and a miss
+ * costs a syscall. On openfpgaOS every opendir/readdir pass reads the ISO
+ * through the SD bridge, and the directories are not small — E2 ships 1119
+ * files in VIEWS/ and 75 in MUSIC/. Loading one tune probes five extensions
+ * (only one exists), and with a second data root in play that is up to ten
+ * full scans of the same directory for a single asset.
+ *
+ * Asset roots are read-only for the life of the process — saves go through
+ * plain fopen(), never this path — so a listing, once read, stays valid. */
+#define DIRCACHE_SLOTS 6
+
+typedef struct {
+    char dir[512];
+    char *names;    /* packed, NUL-separated */
+    size_t used;
+    size_t cap;
+} dircache_t;
+
+static dircache_t dir_cache[DIRCACHE_SLOTS];
+static int dir_cache_next;
+
+static void dircache_drop(dircache_t *e) {
+    free(e->names);
+    e->names = NULL;
+    e->used = e->cap = 0;
+    e->dir[0] = '\0';
+}
+
+/* Listing for `dir`, read once and reused. NULL if the directory can't be
+ * opened; callers then treat it as "no match". */
+static dircache_t *dircache_get(const char *dir) {
+    for (int i = 0; i < DIRCACHE_SLOTS; i++)
+        if (dir_cache[i].names && strcmp(dir_cache[i].dir, dir) == 0)
+            return &dir_cache[i];
+
+    DIR *d = opendir(dir);
+    if (!d) return NULL;
+
+    dircache_t *e = &dir_cache[dir_cache_next];
+    dir_cache_next = (dir_cache_next + 1) % DIRCACHE_SLOTS;
+    dircache_drop(e);
+    snprintf(e->dir, sizeof(e->dir), "%s", dir);
+
+    struct dirent *ent;
+    while ((ent = readdir(d))) {
+        size_t n = strlen(ent->d_name) + 1;
+        if (e->used + n > e->cap) {
+            size_t cap = e->cap ? e->cap * 2 : 4096;
+            while (cap < e->used + n) cap *= 2;
+            char *grown = (char *)realloc(e->names, cap);
+            if (!grown) break;
+            e->names = grown;
+            e->cap = cap;
+        }
+        memcpy(e->names + e->used, ent->d_name, n);
+        e->used += n;
+    }
+    closedir(d);
+    return e->names ? e : NULL;
+}
+
+/* Case-insensitive lookup of `name` in a cached listing. Returns the entry's
+ * real spelling, or NULL. */
+static const char *dircache_match(const char *dir, const char *name) {
+    dircache_t *e = dircache_get(dir);
+    if (!e) return NULL;
+    for (size_t off = 0; off < e->used; off += strlen(e->names + off) + 1)
+        if (strcasecmp(e->names + off, name) == 0)
+            return e->names + off;
+    return NULL;
+}
+
+void file_flush_path_cache(void) {
+    for (int i = 0; i < DIRCACHE_SLOTS; i++)
+        dircache_drop(&dir_cache[i]);
+    dir_cache_next = 0;
+}
+
 /* Walk each path component under base, resolving case at every level.
  * Returns 1 and fills out on success. */
 static int resolve_ci(const char *base, const char *path, char *out, size_t outsz) {
@@ -157,43 +237,66 @@ static int resolve_ci(const char *base, const char *path, char *out, size_t outs
         else
             strcpy(search_dir, ".");
 
-        DIR *dir = opendir(search_dir);
-        if (!dir) return 0;
+        const char *match = dircache_match(search_dir, component);
+        if (!match) return 0;
 
-        int found = 0;
-        struct dirent *ent;
-        while ((ent = readdir(dir))) {
-            if (strcasecmp(ent->d_name, component) == 0) {
-                if (resolved[0])
-                    snprintf(resolved + strlen(resolved),
-                             sizeof(resolved) - strlen(resolved), "/%s", ent->d_name);
-                else
-                    snprintf(resolved, sizeof(resolved), "%s", ent->d_name);
-                found = 1;
-                break;
-            }
-        }
-        closedir(dir);
-        if (!found) return 0;
+        if (resolved[0])
+            snprintf(resolved + strlen(resolved),
+                     sizeof(resolved) - strlen(resolved), "/%s", match);
+        else
+            snprintf(resolved, sizeof(resolved), "%s", match);
     }
 
     snprintf(out, outsz, "%s", resolved);
     return 1;
 }
 
+static void join_root(const char *base, const char *rel, char *out, size_t outsz) {
+    if (base && base[0])
+        snprintf(out, outsz, "%s/%s", base, rel);
+    else
+        snprintf(out, outsz, "%s", rel);
+}
+
 static FILE *fopen_ci_root(const char *base, const char *path, const char *mode) {
     char direct[512];
     if (!base || !base[0]) base = data_root;
-    if (base && base[0])
-        snprintf(direct, sizeof(direct), "%s/%s", base, path);
-    else
-        snprintf(direct, sizeof(direct), "%s", path);
 
+    /* The engine mixes separators and cases: "CODE\\ECSTATIC.FAN",
+     * "files\\ECSTATIC", "graphics/iconpage.raw", "MUSIC/NAME.sbl". Every one
+     * of those missed the direct open and fell through to the directory walk,
+     * which is close to free on a desktop and expensive over an SD-backed ISO.
+     * Normalising the separator, then retrying in upper case, turns the common
+     * ones into first-try hits — ISO 9660 stores the names upper-cased. */
+    char norm[512];
+    snprintf(norm, sizeof(norm), "%s", path);
+    for (char *p = norm; *p; p++)
+        if (*p == '\\') *p = '/';
+
+    join_root(base, norm, direct, sizeof(direct));
     FILE *f = fopen(direct, mode);
     if (f) return f;
 
+    /* Read-only probe: opening for write must never invent a second spelling,
+     * or it would create the file under a name nothing else looks for. */
+    if (mode && mode[0] == 'r') {
+        char upper[512];
+        int changed = 0;
+        size_t i = 0;
+        for (; norm[i] && i < sizeof(upper) - 1; i++) {
+            upper[i] = (char)toupper((unsigned char)norm[i]);
+            if (upper[i] != norm[i]) changed = 1;
+        }
+        upper[i] = '\0';
+        if (changed) {
+            join_root(base, upper, direct, sizeof(direct));
+            f = fopen(direct, mode);
+            if (f) return f;
+        }
+    }
+
     char resolved[512];
-    if (!resolve_ci(base, path, resolved, sizeof(resolved))) return NULL;
+    if (!resolve_ci(base, norm, resolved, sizeof(resolved))) return NULL;
     return fopen(resolved, mode);
 }
 
@@ -557,18 +660,12 @@ char *make_file_dir_name(int index) {
 /* file_make_dir_if_not_exists  E2: 0x447EC4 */
 void make_dir_if_not_exists(const char *dirname) {
     if (!dirname || !*dirname) return;
-#ifdef OF_POCKET
-    /* Flat writable slots — nothing to create, and mkdir would surface a
-     * spurious requester on every save. */
-    return;
-#else
     struct stat st;
     if (stat(dirname, &st) != 0) {
         if (mkdir(dirname, 0755) != 0) {
             do_info_req("Can't create subdirectory");
         }
     }
-#endif
 }
 
 /* file_write_event  E2: 0x4412F0 — write event fields via putw_be */
@@ -1400,11 +1497,6 @@ void load_a_repertoire(int rep_index) {
  * as new sections are appended after the sentinel and read version-gated. */
 #define SAVE_VERSION 5
 #define SAVE_VERSION_MIN 4   /* oldest layout load_game can still read */
-#ifdef OF_POCKET
-#define SAVE_MAX_SLOTS 10   /* APF nonvolatile save slots 10..19 */
-#else
-#define SAVE_MAX_SLOTS 11
-#endif
 #define SAVE_NAME_LEN 26
 #define THUMB_W 80
 #define THUMB_H 60
@@ -1424,17 +1516,10 @@ void capture_save_thumbnail(void) {
     }
 }
 
+/* Slot layout is the platform's business: a desktop writes files into a
+ * directory, openfpgaOS hands out pre-declared nonvolatile slots. */
 static void make_save_filename(char *buf, int bufsz, int slot) {
-#ifdef OF_POCKET
-    /* openfpgaOS exposes saves as a flat set of pre-declared writable slot
-     * files; there are no directories to create under them. These names must
-     * match the data_slots entries in the core's instance JSON, and the two
-     * games get separate sets so an E1 and an E2 instance don't share slots. */
-    snprintf(buf, bufsz, "ecstatica%s_%d.sav",
-             game_version == GAME_VERSION_E2 ? "2" : "", slot);
-#else
-    snprintf(buf, bufsz, "saved/%04d.ecs", slot);
-#endif
+    platform_save_path(buf, bufsz, slot, game_version);
 }
 
 /* file_save_game_parts  E2: 0x443D3C
@@ -1569,9 +1654,9 @@ void save_game_thing(actor_t *actor, FILE *f) {
 
 /* game_save_game  E1: 0x448968 | E2: 0x4537B8 */
 void save_game(int slot) {
-    if (slot < 0 || slot >= SAVE_MAX_SLOTS) return;
+    if (slot < 0 || slot >= platform_save_slot_count()) return;
 
-    make_dir_if_not_exists("saved");
+    platform_save_prepare();
 
     char filename[32];
     make_save_filename(filename, sizeof(filename), slot);
@@ -1738,7 +1823,7 @@ void save_game(int slot) {
 
 /* game_load_game  E1: 0x448B0C | E2: 0x45433C */
 void load_game(int slot) {
-    if (slot < 0 || slot >= SAVE_MAX_SLOTS) return;
+    if (slot < 0 || slot >= platform_save_slot_count()) return;
 
     char filename[32];
     make_save_filename(filename, sizeof(filename), slot);
@@ -2001,7 +2086,7 @@ void load_game(int slot) {
 
 /* file_load_saved_thumbnail — read thumbnail from save file into buffer */
 int load_saved_thumbnail(int slot, uint8_t *thumb_buf) {
-    if (slot < 0 || slot >= SAVE_MAX_SLOTS || !thumb_buf) return 0;
+    if (slot < 0 || slot >= platform_save_slot_count() || !thumb_buf) return 0;
     char filename[32];
     make_save_filename(filename, sizeof(filename), slot);
     FILE *f = fopen(filename, "rb");
@@ -2014,7 +2099,7 @@ int load_saved_thumbnail(int slot, uint8_t *thumb_buf) {
 
 /* file_get_save_name — read save name from a save file */
 int get_save_name(int slot, char *buf, int buflen) {
-    if (slot < 0 || slot >= SAVE_MAX_SLOTS) return 0;
+    if (slot < 0 || slot >= platform_save_slot_count()) return 0;
     char filename[32];
     make_save_filename(filename, sizeof(filename), slot);
     FILE *f = fopen(filename, "rb");

@@ -4600,10 +4600,10 @@ void load_word(int16_t *val, FILE *f) {
 
 /* game_check_saved_game  E1: 0x448A64 | E2: 0x4542C8 */
 int check_saved_game(int slot) {
-    if (slot >= 11)
+    if (slot >= platform_save_slot_count())
         quit("load game no. out of range");
     char filename[32];
-    snprintf(filename, sizeof(filename), "saved/%04d.ecs", slot);
+    platform_save_path(filename, sizeof(filename), slot, game_version);
     FILE *f = fopen(filename, "rb");
     if (f) {
         fclose(f);
