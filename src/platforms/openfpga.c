@@ -9,14 +9,16 @@
  * read-only at /game and the file layer is pointed at that root, so the
  * engine's own case-insensitive path resolution works unchanged.
  *
- * Built by pocket/Makefile, which copies the engine sources flat into an
- * SDK app directory. Sources are flat there, hence "platform.h" and not
- * "../platform.h".
+ * Built by pocket/Makefile, which compiles this tree in place against the
+ * SDK's headers, musl and linker script. The of_* calls are confined to this
+ * file — the engine reaches openfpgaOS only through platform.h, the same way
+ * it reaches Cocoa through macos.m.
  */
 
 #include "of.h"
 #include "platform.h"
 #include "asm_f.h"
+#include "types.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -77,10 +79,16 @@ static void apply_video_mode(platform_t *p, int w, int h) {
     }
 
     if (best < 0) {
-        /* Source is larger than anything advertised — stay put and let the
-         * blit clip. Only reachable if the hi-res data set is installed on
-         * a core whose video.json omits 640x480. */
-        return;
+        /* Nothing advertised is big enough — E2 renders 640x480 and this core
+         * may only offer 320x240. Take the largest mode there is and let the
+         * blit downscale into it; clipping would show a quarter of the frame. */
+        for (int i = 0; i < n; i++)
+            if (best < 0 ||
+                (uint32_t)modes[i].width * modes[i].height >
+                (uint32_t)modes[best].width * modes[best].height)
+                best = i;
+        if (best < 0)
+            return;
     }
     if (modes[best].width == p->mode_w && modes[best].height == p->mode_h)
         return;
@@ -92,6 +100,45 @@ static void apply_video_mode(platform_t *p, int w, int h) {
     p->mode_h = modes[best].height;
     p->mode_stride = modes[best].stride ? modes[best].stride : p->mode_w;
     of_video_clear(0);
+}
+
+/* Shrink a source frame into a smaller scanout surface.
+ *
+ * Nearest-neighbour, and it has to be: these are palette indices, not colour.
+ * Averaging index 10 with index 200 gives index 105, an unrelated colour — a
+ * box filter would produce confetti. Where the OS can scan out the source size
+ * directly this never runs, and the Pocket's scaler does the reduction after
+ * the palette lookup, in RGB, which looks better than anything possible here.
+ *
+ * The engine's own upscale path is the other half of this: E2 with no HIRES/
+ * loads the 320x200 background and copy_vga_to_svga()s it up to 640x480, which
+ * this then reduces again. Ship HIRES/ if that round trip looks soft. */
+static void blit_downscale(platform_t *p, const uint8_t *src, uint8_t *fb) {
+    int dw = p->mode_w, dh = p->mode_h, stride = p->mode_stride;
+    int sw = p->render_w, sh = p->render_h;
+
+    /* 640x480 into 320x240 is the case that actually happens; a shift beats a
+     * fixed-point step on a 100 MHz core with no hardware divider in the loop. */
+    if (sw == dw * 2 && sh == dh * 2) {
+        for (int y = 0; y < dh; y++) {
+            const uint8_t *s = src + (size_t)(y * 2) * sw;
+            uint8_t *d = fb + (size_t)y * stride;
+            for (int x = 0; x < dw; x++)
+                d[x] = s[x * 2];
+        }
+        return;
+    }
+
+    uint32_t xs = ((uint32_t)sw << 16) / (uint32_t)dw;
+    uint32_t ys = ((uint32_t)sh << 16) / (uint32_t)dh;
+    uint32_t yf = 0;
+    for (int y = 0; y < dh; y++, yf += ys) {
+        const uint8_t *s = src + (size_t)(yf >> 16) * sw;
+        uint8_t *d = fb + (size_t)y * stride;
+        uint32_t xf = 0;
+        for (int x = 0; x < dw; x++, xf += xs)
+            d[x] = s[xf >> 16];
+    }
 }
 
 platform_t *platform_init(const char *title, int fb_width, int fb_height, int scale) {
@@ -149,6 +196,12 @@ void platform_blit(platform_t *p, const uint8_t *framebuffer, const uint8_t *pal
     uint8_t *fb = of_video_surface();
     if (!fb)
         return;
+
+    if (p->render_w > p->mode_w || p->render_h > p->mode_h) {
+        blit_downscale(p, framebuffer, fb);
+        of_video_flip();
+        return;
+    }
 
     int stride = p->mode_stride;
     int copy_w = p->render_w < p->mode_w ? p->render_w : p->mode_w;
@@ -432,11 +485,20 @@ static const uint8_t *pcm_to_signed(const void *src, int len) {
     return conv;
 }
 
+/* Runs while a blocking file read waits on its DMA. Loading a background is
+ * ~95 KB off the ISO and the main loop is stalled for all of it, which is
+ * exactly when a sound effect would otherwise cut out. Must not itself issue
+ * a blocking read — of_mixer_pump only touches the mixer. */
+static void audio_idle_hook(void) {
+    of_mixer_pump();
+}
+
 void platform_audio_init(void) {
     if (s_audio_ready)
         return;
     of_mixer_init(OF_MIXER_MAX_VOICES, OF_MIXER_OUTPUT_RATE);
     of_midi_init();
+    of_file_set_idle_hook(audio_idle_hook);
     s_audio_ready = true;
 }
 
@@ -553,11 +615,12 @@ void platform_set_music_volume(float vol) {
     of_midi_set_volume(v);
 }
 
-/* ── Boot: mount the game data ISO ──────────────────────────── */
+/* ── Platform capabilities ──────────────────────────────────── */
 
-/* Called from main() before any engine code runs — detect_game_version()
- * reads from the archives, so the root has to be live first. */
-int platform_openfpga_mount_data(void) {
+/* Mount the game-data image and point the file layer at it. There is no
+ * per-process working directory here, so this has to happen before the engine
+ * opens anything — detect_game_version() reads from the archives. */
+void platform_early_init(void) {
     static const char *const candidates[] = {
         "ecstatica.iso", "ecstatica2.iso", "game.iso",
         "e1.iso", "e2.iso", "data.iso",
@@ -570,10 +633,28 @@ int platform_openfpga_mount_data(void) {
         if (of_iso_mount(candidates[i], "/game") != 0)
             continue;
         file_set_data_root("/game");
-        return 0;
+        return;
     }
 
-    /* No ISO: fall back to whatever the launcher exposed as flat slots.
-     * Only the smallest single-archive setups will work this way. */
-    return -1;
+    /* No image: fall back to whatever the launcher exposed as flat slots.
+     * Only the smallest single-archive setups will work that way. */
+}
+
+/* APF nonvolatile slots 10..19. The region runs 0x20100000..0x20380000 and
+ * butts against shared config, so ten is the ceiling. */
+int platform_save_slot_count(void) {
+    return 10;
+}
+
+void platform_save_path(char *buf, int bufsz, int slot, int game_version) {
+    /* Must match the data_slots filenames in the core's instance JSON. The
+     * two games get separate sets so an E1 and an E2 instance of the same
+     * core never share a slot. */
+    snprintf(buf, bufsz, "ecstatica%s_%d.sav",
+             game_version == GAME_VERSION_E2 ? "2" : "", slot);
+}
+
+void platform_save_prepare(void) {
+    /* Slots are pre-declared by the launcher; there is nothing to create,
+     * and no directories to create it in. */
 }

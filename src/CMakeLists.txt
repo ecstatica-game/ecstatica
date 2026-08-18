@@ -27,6 +27,8 @@ set(C_SRCS
     main.c
 )
 
+list(APPEND C_SRCS platforms/desktop_common.c)
+
 if(APPLE)
     enable_language(OBJC)
     list(APPEND C_SRCS platforms/macos.m)
@@ -56,7 +58,13 @@ endif()
 
 target_compile_definitions(ecstatica PRIVATE
     $<$<CONFIG:Debug>:DEBUG>
+    ENABLE_FRAME_DUMP
 )
+
+# backtrace() lives in libc on glibc and macOS; musl has no execinfo.h.
+if(NOT WIN32)
+    target_compile_definitions(ecstatica PRIVATE HAVE_EXECINFO)
+endif()
 
 if(APPLE)
     find_library(COCOA_FRAMEWORK Cocoa REQUIRED)

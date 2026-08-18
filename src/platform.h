@@ -269,16 +269,42 @@ void platform_set_sfx_volume(float vol);
  */
 void platform_set_music_volume(float vol);
 
-#ifdef OF_POCKET
-/**
- * Mount the game-data ISO from its APF data slot and point the file layer
- * at it. Must run before any engine code touches the archives — that means
- * before win_main_game(), since detect_game_version() reads CODE/ECSTATIC.FAN.
- *
- * Returns 0 when a data image was mounted, -1 when none was found (the
- * engine then falls back to whatever flat slots the launcher exposed).
+/* ── Platform capabilities ────────────────────────────────────
+ * Things the engine needs that differ per platform but must not be spelled
+ * as #ifdefs in shared code. Every backend implements all of them; most are
+ * one-liners on a desktop.
  */
-int platform_openfpga_mount_data(void);
-#endif
+
+/**
+ * One-time setup that must complete before any engine code opens a data file.
+ *
+ * Called from main() ahead of win_main_game(), because detect_game_version()
+ * reads CODE/ECSTATIC.FAN. Desktop backends have nothing to do — the game runs
+ * with the data directory as its working directory. The openfpgaOS backend
+ * mounts the game-data image and points the file layer at the mount.
+ */
+void platform_early_init(void);
+
+/**
+ * Number of save slots this platform can store.
+ *
+ * Desktop platforms write files into a directory and have no real limit;
+ * openfpgaOS exposes a fixed set of pre-declared nonvolatile slots.
+ */
+int platform_save_slot_count(void);
+
+/**
+ * Build the path for save slot `slot`.
+ *
+ * @param game_version  GAME_VERSION_E1 / _E2 — platforms with a fixed slot
+ *                      set use it to keep the two games' saves apart.
+ */
+void platform_save_path(char *buf, int bufsz, int slot, int game_version);
+
+/**
+ * Create whatever a save needs to exist first — a directory, typically.
+ * Called before writing a save. A no-op where slots are pre-declared.
+ */
+void platform_save_prepare(void);
 
 #endif /* PLATFORM_H */
