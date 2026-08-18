@@ -47,6 +47,24 @@ enum {
     GA_LX, GA_LY, GA_RX, GA_RY, GA_LT, GA_RT, GA_DX, GA_DY, GA_COUNT
 };
 
+/* Every pad node is tracked, not just the first that looks usable. A Steam
+ * Deck or Steam Machine carries several at once — the physical pad, Steam
+ * Input's virtual X-Box 360 pad, and whatever else is plugged in — and only
+ * one of them is the one Steam is actually feeding. Picking the lowest index
+ * and stopping there lands on a silent node about as often as the live one. */
+#define JS_MAX_PADS 4
+
+typedef struct {
+    int      fd;
+    int      index;
+    int16_t  axes[JS_MAX_AXES];
+    int16_t  axes_rest[JS_MAX_AXES];
+    bool     axes_seen[JS_MAX_AXES];
+    uint8_t  buttons[JS_MAX_BUTTONS];
+    int8_t   btn[GB_COUNT];
+    int8_t   ax[GA_COUNT];
+} js_pad_t;
+
 struct platform_t {
     int fb_width;
     int fb_height;
@@ -72,13 +90,7 @@ struct platform_t {
     Atom     wm_delete;
     int      screen;
 
-    int      js_fd;
-    int16_t  js_axes[JS_MAX_AXES];
-    int16_t  js_axes_rest[JS_MAX_AXES];
-    bool     js_axes_seen[JS_MAX_AXES];
-    uint8_t  js_buttons[JS_MAX_BUTTONS];
-    int8_t   js_btn[GB_COUNT];
-    int8_t   js_ax[GA_COUNT];
+    js_pad_t js_pads[JS_MAX_PADS];
     uint32_t js_next_scan;
 };
 
@@ -213,12 +225,15 @@ platform_t *platform_init(const char *title, int fb_width, int fb_height, int sc
     /* Disable X11 key auto-repeat detection */
     XkbSetDetectableAutoRepeat(p->display, True, NULL);
 
-    /* The pad is opened by the first platform_gamepad_poll(), which is also
-     * what resolves the button and axis maps. Opening it here instead left
-     * js_btn[]/js_ax[] at their calloc'd zeroes, aiming every slot at button 0
+    /* Pads are opened by the first platform_gamepad_poll(), which is also
+     * what resolves the button and axis maps. Opening one here instead left
+     * btn[]/ax[] at their calloc'd zeroes, aiming every slot at button 0
      * and axis 0 — one face button pressed every action at once, and the left
      * stick drove both sticks and both triggers. */
-    p->js_fd = -1;
+    for (int i = 0; i < JS_MAX_PADS; i++) {
+        p->js_pads[i].fd = -1;
+        p->js_pads[i].index = -1;
+    }
 
     return p;
 }
@@ -496,7 +511,8 @@ void platform_shutdown(platform_t *p) {
     if (p->display) {
         XCloseDisplay(p->display);
     }
-    if (p->js_fd >= 0) close(p->js_fd);
+    for (int i = 0; i < JS_MAX_PADS; i++)
+        if (p->js_pads[i].fd >= 0) close(p->js_pads[i].fd);
     if (p->rgba_buffer) {
         free(p->rgba_buffer);
         p->rgba_buffer = NULL;
@@ -554,9 +570,9 @@ static bool js_face_buttons_swapped(int fd) {
  * ordering only when the ioctls are unavailable — a slot the driver did not
  * describe must stay unresolved, because backfilling it aliases some unrelated
  * axis or button onto a game action. */
-static void js_build_maps(platform_t *p) {
-    for (int i = 0; i < GB_COUNT; i++) p->js_btn[i] = -1;
-    for (int i = 0; i < GA_COUNT; i++) p->js_ax[i] = -1;
+static void js_build_maps(js_pad_t *pad) {
+    for (int i = 0; i < GB_COUNT; i++) pad->btn[i] = -1;
+    for (int i = 0; i < GA_COUNT; i++) pad->ax[i] = -1;
 
     uint16_t btnmap[KEY_MAX - BTN_MISC + 1];
     uint8_t  axmap[ABS_CNT];
@@ -564,36 +580,36 @@ static void js_build_maps(platform_t *p) {
     memset(btnmap, 0, sizeof(btnmap));
     memset(axmap, 0, sizeof(axmap));
 
-    int ok_b = (ioctl(p->js_fd, JSIOCGBUTTONS, &nbtn) >= 0)
-            && (ioctl(p->js_fd, JSIOCGBTNMAP, btnmap) >= 0);
-    int ok_a = (ioctl(p->js_fd, JSIOCGAXES, &naxes) >= 0)
-            && (ioctl(p->js_fd, JSIOCGAXMAP, axmap) >= 0);
-    bool swap_face = ok_b ? js_face_buttons_swapped(p->js_fd) : false;
+    int ok_b = (ioctl(pad->fd, JSIOCGBUTTONS, &nbtn) >= 0)
+            && (ioctl(pad->fd, JSIOCGBTNMAP, btnmap) >= 0);
+    int ok_a = (ioctl(pad->fd, JSIOCGAXES, &naxes) >= 0)
+            && (ioctl(pad->fd, JSIOCGAXMAP, axmap) >= 0);
+    bool swap_face = ok_b ? js_face_buttons_swapped(pad->fd) : false;
 
     if (ok_b) {
         if (nbtn > JS_MAX_BUTTONS) nbtn = JS_MAX_BUTTONS;
         for (int i = 0; i < nbtn; i++) {
             switch (btnmap[i]) {
-                case BTN_SOUTH:  p->js_btn[GB_SOUTH]  = (int8_t)i; break;
-                case BTN_EAST:   p->js_btn[GB_EAST]   = (int8_t)i; break;
+                case BTN_SOUTH:  pad->btn[GB_SOUTH]  = (int8_t)i; break;
+                case BTN_EAST:   pad->btn[GB_EAST]   = (int8_t)i; break;
                 case BTN_WEST:
-                    p->js_btn[swap_face ? GB_NORTH : GB_WEST] = (int8_t)i; break;
+                    pad->btn[swap_face ? GB_NORTH : GB_WEST] = (int8_t)i; break;
                 case BTN_NORTH:
-                    p->js_btn[swap_face ? GB_WEST : GB_NORTH] = (int8_t)i; break;
-                case BTN_TL:     p->js_btn[GB_LB]     = (int8_t)i; break;
-                case BTN_TR:     p->js_btn[GB_RB]     = (int8_t)i; break;
-                case BTN_TL2:    p->js_btn[GB_LT2]    = (int8_t)i; break;
-                case BTN_TR2:    p->js_btn[GB_RT2]    = (int8_t)i; break;
-                case BTN_SELECT: p->js_btn[GB_SELECT] = (int8_t)i; break;
-                case BTN_START:  p->js_btn[GB_START]  = (int8_t)i; break;
-                case BTN_THUMBL: p->js_btn[GB_LSTICK] = (int8_t)i; break;
-                case BTN_THUMBR: p->js_btn[GB_RSTICK] = (int8_t)i; break;
+                    pad->btn[swap_face ? GB_WEST : GB_NORTH] = (int8_t)i; break;
+                case BTN_TL:     pad->btn[GB_LB]     = (int8_t)i; break;
+                case BTN_TR:     pad->btn[GB_RB]     = (int8_t)i; break;
+                case BTN_TL2:    pad->btn[GB_LT2]    = (int8_t)i; break;
+                case BTN_TR2:    pad->btn[GB_RT2]    = (int8_t)i; break;
+                case BTN_SELECT: pad->btn[GB_SELECT] = (int8_t)i; break;
+                case BTN_START:  pad->btn[GB_START]  = (int8_t)i; break;
+                case BTN_THUMBL: pad->btn[GB_LSTICK] = (int8_t)i; break;
+                case BTN_THUMBR: pad->btn[GB_RSTICK] = (int8_t)i; break;
                 /* hid-steam and the Sony drivers report the D-pad as four
                  * digital buttons; there is no hat axis to read. */
-                case BTN_DPAD_UP:    p->js_btn[GB_DUP]    = (int8_t)i; break;
-                case BTN_DPAD_DOWN:  p->js_btn[GB_DDOWN]  = (int8_t)i; break;
-                case BTN_DPAD_LEFT:  p->js_btn[GB_DLEFT]  = (int8_t)i; break;
-                case BTN_DPAD_RIGHT: p->js_btn[GB_DRIGHT] = (int8_t)i; break;
+                case BTN_DPAD_UP:    pad->btn[GB_DUP]    = (int8_t)i; break;
+                case BTN_DPAD_DOWN:  pad->btn[GB_DDOWN]  = (int8_t)i; break;
+                case BTN_DPAD_LEFT:  pad->btn[GB_DLEFT]  = (int8_t)i; break;
+                case BTN_DPAD_RIGHT: pad->btn[GB_DRIGHT] = (int8_t)i; break;
                 default: break;
             }
         }
@@ -614,22 +630,22 @@ static void js_build_maps(platform_t *p) {
 
         for (int i = 0; i < naxes; i++) {
             switch (axmap[i]) {
-                case ABS_X:     p->js_ax[GA_LX] = (int8_t)i; break;
-                case ABS_Y:     p->js_ax[GA_LY] = (int8_t)i; break;
-                case ABS_RX:    p->js_ax[GA_RX] = (int8_t)i; break;
-                case ABS_RY:    p->js_ax[GA_RY] = (int8_t)i; break;
+                case ABS_X:     pad->ax[GA_LX] = (int8_t)i; break;
+                case ABS_Y:     pad->ax[GA_LY] = (int8_t)i; break;
+                case ABS_RX:    pad->ax[GA_RX] = (int8_t)i; break;
+                case ABS_RY:    pad->ax[GA_RY] = (int8_t)i; break;
                 case ABS_Z:
-                    p->js_ax[has_rstick ? GA_LT : GA_RX] = (int8_t)i; break;
+                    pad->ax[has_rstick ? GA_LT : GA_RX] = (int8_t)i; break;
                 case ABS_RZ:
-                    p->js_ax[has_rstick ? GA_RT : GA_RY] = (int8_t)i; break;
-                case ABS_HAT0X: p->js_ax[GA_DX] = (int8_t)i; break;
-                case ABS_HAT0Y: p->js_ax[GA_DY] = (int8_t)i; break;
+                    pad->ax[has_rstick ? GA_RT : GA_RY] = (int8_t)i; break;
+                case ABS_HAT0X: pad->ax[GA_DX] = (int8_t)i; break;
+                case ABS_HAT0Y: pad->ax[GA_DY] = (int8_t)i; break;
                 /* hid-steam puts its analog triggers here instead of Z/RZ. */
                 case ABS_HAT2X:
-                    if (p->js_ax[GA_RT] < 0) p->js_ax[GA_RT] = (int8_t)i;
+                    if (pad->ax[GA_RT] < 0) pad->ax[GA_RT] = (int8_t)i;
                     break;
                 case ABS_HAT2Y:
-                    if (p->js_ax[GA_LT] < 0) p->js_ax[GA_LT] = (int8_t)i;
+                    if (pad->ax[GA_LT] < 0) pad->ax[GA_LT] = (int8_t)i;
                     break;
                 default: break;
             }
@@ -640,41 +656,41 @@ static void js_build_maps(platform_t *p) {
     if (!ok_b) {
         static const int8_t fb_btn[GB_COUNT] =
             { 0, 1, 2, 3, 4, 5, 6, 7, 9, 10, -1, -1, -1, -1, -1, -1 };
-        memcpy(p->js_btn, fb_btn, sizeof(fb_btn));
+        memcpy(pad->btn, fb_btn, sizeof(fb_btn));
     }
     if (!ok_a) {
         static const int8_t fb_ax[GA_COUNT] = { 0, 1, 3, 4, 2, 5, 6, 7 };
-        memcpy(p->js_ax, fb_ax, sizeof(fb_ax));
+        memcpy(pad->ax, fb_ax, sizeof(fb_ax));
     }
 
     if (getenv("ECSTATICA_GAMEPAD_DEBUG")) {
         char name[128] = "?";
-        ioctl(p->js_fd, JSIOCGNAME(sizeof(name)), name);
+        ioctl(pad->fd, JSIOCGNAME(sizeof(name)), name);
         fprintf(stderr, "[PAD] '%s' buttons=%d axes=%d maps=%d/%d swap_face=%d\n",
                 name, nbtn, naxes, ok_b, ok_a, swap_face);
         fprintf(stderr, "[PAD] south=%d east=%d west=%d north=%d lb=%d rb=%d "
                         "select=%d start=%d lstick=%d rstick=%d lt2=%d rt2=%d "
                         "dpad=%d/%d/%d/%d\n",
-                p->js_btn[GB_SOUTH], p->js_btn[GB_EAST], p->js_btn[GB_WEST],
-                p->js_btn[GB_NORTH], p->js_btn[GB_LB], p->js_btn[GB_RB],
-                p->js_btn[GB_SELECT], p->js_btn[GB_START], p->js_btn[GB_LSTICK],
-                p->js_btn[GB_RSTICK], p->js_btn[GB_LT2], p->js_btn[GB_RT2],
-                p->js_btn[GB_DUP], p->js_btn[GB_DDOWN],
-                p->js_btn[GB_DLEFT], p->js_btn[GB_DRIGHT]);
+                pad->btn[GB_SOUTH], pad->btn[GB_EAST], pad->btn[GB_WEST],
+                pad->btn[GB_NORTH], pad->btn[GB_LB], pad->btn[GB_RB],
+                pad->btn[GB_SELECT], pad->btn[GB_START], pad->btn[GB_LSTICK],
+                pad->btn[GB_RSTICK], pad->btn[GB_LT2], pad->btn[GB_RT2],
+                pad->btn[GB_DUP], pad->btn[GB_DDOWN],
+                pad->btn[GB_DLEFT], pad->btn[GB_DRIGHT]);
         fprintf(stderr, "[PAD] lx=%d ly=%d rx=%d ry=%d lt=%d rt=%d dx=%d dy=%d\n",
-                p->js_ax[GA_LX], p->js_ax[GA_LY], p->js_ax[GA_RX], p->js_ax[GA_RY],
-                p->js_ax[GA_LT], p->js_ax[GA_RT], p->js_ax[GA_DX], p->js_ax[GA_DY]);
+                pad->ax[GA_LX], pad->ax[GA_LY], pad->ax[GA_RX], pad->ax[GA_RY],
+                pad->ax[GA_LT], pad->ax[GA_RT], pad->ax[GA_DX], pad->ax[GA_DY]);
     }
 }
 
-static uint8_t js_read_btn(const platform_t *p, int slot) {
-    int i = p->js_btn[slot];
-    return (i >= 0 && i < JS_MAX_BUTTONS) ? p->js_buttons[i] : 0;
+static uint8_t js_read_btn(const js_pad_t *pad, int slot) {
+    int i = pad->btn[slot];
+    return (i >= 0 && i < JS_MAX_BUTTONS) ? pad->buttons[i] : 0;
 }
 
-static int16_t js_read_axis(const platform_t *p, int slot) {
-    int i = p->js_ax[slot];
-    return (i >= 0 && i < JS_MAX_AXES) ? p->js_axes[i] : 0;
+static int16_t js_read_axis(const js_pad_t *pad, int slot) {
+    int i = pad->ax[slot];
+    return (i >= 0 && i < JS_MAX_AXES) ? pad->axes[i] : 0;
 }
 
 /* A trigger axis rests at either end of its range depending on the driver:
@@ -682,106 +698,148 @@ static int16_t js_read_axis(const platform_t *p, int slot) {
  * it. Comparing against the value the axis first reported — joydev synthesises
  * a JS_EVENT_INIT for every axis on open — is right either way, where a fixed
  * `> 0` reads half the pads as permanently half-pressed. */
-static bool js_axis_pulled(const platform_t *p, int slot) {
-    int i = p->js_ax[slot];
+static bool js_axis_pulled(const js_pad_t *pad, int slot) {
+    int i = pad->ax[slot];
     if (i < 0 || i >= JS_MAX_AXES) return false;
-    return (int)p->js_axes[i] - (int)p->js_axes_rest[i] > 16000;
+    return (int)pad->axes[i] - (int)pad->axes_rest[i] > 16000;
 }
 
 /* Accept a node only once the driver has described a left stick and a south
  * button. /dev/input/js* also carries accelerometers, flight yokes and the
  * Deck's own motion device, and treating one of those as the pad drives the
  * game from whatever its axes happen to be resting at. */
-static bool js_looks_like_pad(const platform_t *p) {
-    return p->js_btn[GB_SOUTH] >= 0 && p->js_ax[GA_LX] >= 0 && p->js_ax[GA_LY] >= 0;
+static bool js_looks_like_pad(const js_pad_t *pad) {
+    return pad->btn[GB_SOUTH] >= 0 && pad->ax[GA_LX] >= 0 && pad->ax[GA_LY] >= 0;
 }
 
-static void js_open(platform_t *p) {
-    for (int n = 0; n < 8; n++) {
+static bool js_index_open(const platform_t *p, int index) {
+    for (int i = 0; i < JS_MAX_PADS; i++)
+        if (p->js_pads[i].fd >= 0 && p->js_pads[i].index == index)
+            return true;
+    return false;
+}
+
+/* Open every /dev/input/js* node that describes a gamepad, up to JS_MAX_PADS.
+ * ECSTATICA_GAMEPAD_DEVICE pins a single node ("2", "js2" or a full path) for
+ * the case where a machine has so many that the useful one falls off the end. */
+static void js_scan(platform_t *p) {
+    const char *only = getenv("ECSTATICA_GAMEPAD_DEVICE");
+    int only_index = -1;
+    if (only && *only) {
+        const char *digits = only;
+        while (*digits && !isdigit((unsigned char)*digits)) digits++;
+        only_index = *digits ? atoi(digits) : -1;
+    }
+
+    for (int n = 0; n < 16; n++) {
+        if (only_index >= 0 && n != only_index) continue;
+        if (js_index_open(p, n)) continue;
+
+        int slot = -1;
+        for (int i = 0; i < JS_MAX_PADS; i++)
+            if (p->js_pads[i].fd < 0) { slot = i; break; }
+        if (slot < 0) return;
+
         char path[32];
         snprintf(path, sizeof(path), "/dev/input/js%d", n);
         int fd = open(path, O_RDONLY | O_NONBLOCK);
         if (fd < 0) continue;
 
-        p->js_fd = fd;
-        js_build_maps(p);
-        if (js_looks_like_pad(p)) {
-            memset(p->js_axes, 0, sizeof(p->js_axes));
-            memset(p->js_axes_rest, 0, sizeof(p->js_axes_rest));
-            memset(p->js_axes_seen, 0, sizeof(p->js_axes_seen));
-            memset(p->js_buttons, 0, sizeof(p->js_buttons));
-            return;
-        }
-        if (getenv("ECSTATICA_GAMEPAD_DEBUG"))
+        js_pad_t *pad = &p->js_pads[slot];
+        memset(pad, 0, sizeof(*pad));
+        pad->fd = fd;
+        pad->index = n;
+        js_build_maps(pad);
+        if (js_looks_like_pad(pad)) continue;
+
+        /* The rescan runs once a second and reopens every non-pad node it
+         * finds, so warn about each one only the first time. */
+        static uint32_t warned = 0;
+        if (getenv("ECSTATICA_GAMEPAD_DEBUG") && n < 32 && !(warned & (1u << n))) {
+            warned |= 1u << n;
             fprintf(stderr, "[PAD] %s is not a gamepad, skipping\n", path);
+        }
         close(fd);
-        p->js_fd = -1;
+        pad->fd = -1;
+        pad->index = -1;
     }
+}
+
+/* Fold one pad's decoded state into the state being returned. Buttons and
+ * directions are OR'd; a stick axis is taken from whichever pad is pushing it
+ * furthest, so an idle pad never cancels the one being held. */
+static void js_merge(const js_pad_t *pad, platform_gamepad_state_t *state) {
+    int16_t lx = js_read_axis(pad, GA_LX);
+    int16_t ly = (int16_t)(-js_read_axis(pad, GA_LY));
+    int16_t rx = js_read_axis(pad, GA_RX);
+    int16_t ry = (int16_t)(-js_read_axis(pad, GA_RY));
+    if (abs(lx) > abs(state->left_x))  state->left_x  = lx;
+    if (abs(ly) > abs(state->left_y))  state->left_y  = ly;
+    if (abs(rx) > abs(state->right_x)) state->right_x = rx;
+    if (abs(ry) > abs(state->right_y)) state->right_y = ry;
+
+    int16_t dx = js_read_axis(pad, GA_DX), dy = js_read_axis(pad, GA_DY);
+    state->dpad_left  |= dx < -16000 || js_read_btn(pad, GB_DLEFT);
+    state->dpad_right |= dx >  16000 || js_read_btn(pad, GB_DRIGHT);
+    state->dpad_up    |= dy < -16000 || js_read_btn(pad, GB_DUP);
+    state->dpad_down  |= dy >  16000 || js_read_btn(pad, GB_DDOWN);
+
+    /* Analog triggers report as axes on most pads and as BTN_TL2/BTN_TR2 on
+     * those that expose them digitally. */
+    state->btn_lt |= js_axis_pulled(pad, GA_LT) || js_read_btn(pad, GB_LT2);
+    state->btn_rt |= js_axis_pulled(pad, GA_RT) || js_read_btn(pad, GB_RT2);
+
+    state->btn_south  |= js_read_btn(pad, GB_SOUTH) != 0;
+    state->btn_east   |= js_read_btn(pad, GB_EAST) != 0;
+    state->btn_west   |= js_read_btn(pad, GB_WEST) != 0;
+    state->btn_north  |= js_read_btn(pad, GB_NORTH) != 0;
+    state->btn_lb     |= js_read_btn(pad, GB_LB) != 0;
+    state->btn_rb     |= js_read_btn(pad, GB_RB) != 0;
+    state->btn_select |= js_read_btn(pad, GB_SELECT) != 0;
+    state->btn_start  |= js_read_btn(pad, GB_START) != 0;
+    state->btn_lstick |= js_read_btn(pad, GB_LSTICK) != 0;
+    state->btn_rstick |= js_read_btn(pad, GB_RSTICK) != 0;
 }
 
 void platform_gamepad_poll(platform_t *p, platform_gamepad_state_t *state) {
     memset(state, 0, sizeof(*state));
     if (!p) return;
 
-    /* Rescan for a hotplugged pad, throttled — the scan is eight open()s. */
-    if (p->js_fd < 0) {
-        uint32_t now = platform_ticks(p);
-        if (now < p->js_next_scan) return;
+    /* Rescan for hotplugged pads, throttled — the scan is sixteen open()s. */
+    uint32_t now = platform_ticks(p);
+    if (now >= p->js_next_scan) {
         p->js_next_scan = now + 1000;
-        js_open(p);
-        if (p->js_fd < 0) return;
+        js_scan(p);
     }
 
-    /* Drain pending events */
-    struct js_event ev;
-    errno = 0;
-    while (read(p->js_fd, &ev, sizeof(ev)) == sizeof(ev)) {
-        ev.type &= ~JS_EVENT_INIT;
-        if (ev.type == JS_EVENT_BUTTON && ev.number < JS_MAX_BUTTONS) {
-            p->js_buttons[ev.number] = ev.value;
-        } else if (ev.type == JS_EVENT_AXIS && ev.number < JS_MAX_AXES) {
-            p->js_axes[ev.number] = ev.value;
-            if (!p->js_axes_seen[ev.number]) {
-                p->js_axes_seen[ev.number] = true;
-                p->js_axes_rest[ev.number] = ev.value;
+    for (int i = 0; i < JS_MAX_PADS; i++) {
+        js_pad_t *pad = &p->js_pads[i];
+        if (pad->fd < 0) continue;
+
+        struct js_event ev;
+        errno = 0;
+        while (read(pad->fd, &ev, sizeof(ev)) == sizeof(ev)) {
+            ev.type &= ~JS_EVENT_INIT;
+            if (ev.type == JS_EVENT_BUTTON && ev.number < JS_MAX_BUTTONS) {
+                pad->buttons[ev.number] = ev.value;
+            } else if (ev.type == JS_EVENT_AXIS && ev.number < JS_MAX_AXES) {
+                pad->axes[ev.number] = ev.value;
+                if (!pad->axes_seen[ev.number]) {
+                    pad->axes_seen[ev.number] = true;
+                    pad->axes_rest[ev.number] = ev.value;
+                }
             }
         }
+        if (errno == ENODEV) {
+            close(pad->fd);
+            pad->fd = -1;
+            pad->index = -1;
+            continue;
+        }
+
+        state->connected = true;
+        js_merge(pad, state);
     }
-    if (errno == ENODEV) {
-        close(p->js_fd);
-        p->js_fd = -1;
-        p->js_next_scan = platform_ticks(p) + 1000;
-        return;
-    }
-
-    state->connected = true;
-
-    state->left_x  = js_read_axis(p, GA_LX);
-    state->left_y  = (int16_t)(-js_read_axis(p, GA_LY));
-    state->right_x = js_read_axis(p, GA_RX);
-    state->right_y = (int16_t)(-js_read_axis(p, GA_RY));
-
-    int16_t dx = js_read_axis(p, GA_DX), dy = js_read_axis(p, GA_DY);
-    state->dpad_left  = dx < -16000 || js_read_btn(p, GB_DLEFT);
-    state->dpad_right = dx >  16000 || js_read_btn(p, GB_DRIGHT);
-    state->dpad_up    = dy < -16000 || js_read_btn(p, GB_DUP);
-    state->dpad_down  = dy >  16000 || js_read_btn(p, GB_DDOWN);
-
-    /* Analog triggers report as axes on most pads and as BTN_TL2/BTN_TR2 on
-     * those that expose them digitally. */
-    state->btn_lt = js_axis_pulled(p, GA_LT) || js_read_btn(p, GB_LT2);
-    state->btn_rt = js_axis_pulled(p, GA_RT) || js_read_btn(p, GB_RT2);
-
-    state->btn_south  = js_read_btn(p, GB_SOUTH);
-    state->btn_east   = js_read_btn(p, GB_EAST);
-    state->btn_west   = js_read_btn(p, GB_WEST);
-    state->btn_north  = js_read_btn(p, GB_NORTH);
-    state->btn_lb     = js_read_btn(p, GB_LB);
-    state->btn_rb     = js_read_btn(p, GB_RB);
-    state->btn_select = js_read_btn(p, GB_SELECT);
-    state->btn_start  = js_read_btn(p, GB_START);
-    state->btn_lstick = js_read_btn(p, GB_LSTICK);
-    state->btn_rstick = js_read_btn(p, GB_RSTICK);
 }
 
 /* Audio backend -- ALSA + software mixer in a pthread */
