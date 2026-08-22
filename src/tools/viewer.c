@@ -20,6 +20,7 @@
 #include "file.h"
 #include "game.h"
 #include "init.h"
+#include "map.h"
 #include "menu.h"
 #include "move.h"
 #include "music.h"
@@ -57,6 +58,7 @@ static const palette_entry_t bg_choices[] = {
 
 enum { PANE_MODELS = 0, PANE_ANIMS = 1 };
 enum { CAM_ORBIT = 0, CAM_FREE = 1 };
+enum { TOOL_MODELS = 0, TOOL_SCENES = 1 };
 
 /* An entry in the animation pane. `slot` is the repertoire slot the action
  * sits in, or -1 when the archive scan is what turned it up. */
@@ -78,6 +80,30 @@ static int      anim_sel;
 static int      anim_top;
 
 static int      pane = PANE_MODELS;
+static int      tool_mode = TOOL_MODELS;
+
+/* ── Scene mode ──────────────────────────────────────────────────
+ * A scene is a set of scripts, one per actor, each an action with
+ * action_flags & 2 — so update_act() runs them in absolute time to
+ * act->duration and stops, rather than looping a fraction like a
+ * repertoire action. Playback goes through the original editor's own
+ * preview path, advance_selected_scene_or_action(), which walks
+ * selected_scene's scripts when script_mode is set. */
+static int16_t *scene_ids;
+static int      scene_count;
+static int      scene_sel;
+static int      scene_top;
+static int      cast_sel;
+static int      cast_top;
+
+static scene_t *cur_scene;
+static int16_t  cur_scene_idx = -1;
+static int      scene_phase;      /* ticks into the scene */
+static int      scene_len = 1;    /* longest script action, in ticks */
+/* Scenes are framed by an authored camera with a painted background.
+ * Detaching swaps in the model viewer's orbit camera over a flat backdrop,
+ * which is the only way to see staging the scene's own shot hides. */
+static bool     cam_attached = true;
 
 static actor_t *cur_actor;
 static int16_t  cur_thing = -1;
@@ -154,6 +180,15 @@ static int thing_limit(void) {
 
 static int action_limit(void) {
     return (game_version == GAME_VERSION_E1) ? E1_ACTION_TAB_SIZE : ACTION_TAB_SIZE;
+}
+
+static int scene_limit(void) {
+    return (game_version == GAME_VERSION_E1) ? E1_SCENE_TAB_SIZE : SCENE_TAB_SIZE;
+}
+
+static const char *scene_name_of(int16_t i) {
+    if (i < 0 || i >= SCENE_TAB_SIZE || !scene_names) return "?";
+    return scene_names[i].field_0;
 }
 
 static const char *thing_name_of(int16_t i) {
@@ -342,9 +377,14 @@ static void update_camera(void) {
 
         vector_t fwd;
         camera_basis(NULL, NULL, &fwd);
-        view_pos.X = (int16_t)clampi(focus.X - (int)((int32_t)fwd.X * orbit_dist >> 14), -32000, 32000);
-        view_pos.Y = (int16_t)clampi(focus.Y - (int)((int32_t)fwd.Y * orbit_dist >> 14), -32000, 32000);
-        view_pos.Z = (int16_t)clampi(focus.Z - (int)((int32_t)fwd.Z * orbit_dist >> 14), -32000, 32000);
+        /* Deliberately not clamped. view_transform() subtracts view_pos from
+         * the world point in int16, so what has to fit is the difference, not
+         * the camera position itself — and two's complement wrap gives the
+         * right difference either way. E1's map reaches ±32000, where a clamp
+         * here silently drags the camera off its own aim point. */
+        view_pos.X = (int16_t)(focus.X - (int)((int32_t)fwd.X * orbit_dist >> 14));
+        view_pos.Y = (int16_t)(focus.Y - (int)((int32_t)fwd.Y * orbit_dist >> 14));
+        view_pos.Z = (int16_t)(focus.Z - (int)((int32_t)fwd.Z * orbit_dist >> 14));
     } else {
         view_rot.X = (int16_t)orbit_pitch;
         view_rot.Y = (int16_t)orbit_yaw;
@@ -380,10 +420,12 @@ static void fit_camera(void) {
         set_vector(&focus_offset, 0, 0, 0);
         orbit_dist = 1200;
     } else {
-        vector_t origin = cur_actor->position_vector;
-        focus_offset.X = (int16_t)((minx + maxx) / 2 - origin.X);
-        focus_offset.Y = (int16_t)((miny + maxy) / 2 - origin.Y);
-        focus_offset.Z = (int16_t)((minz + maxz) / 2 - origin.Z);
+        /* part->AbsPosition is relative to the actor's own origin, which is
+         * exactly what focus_offset wants — recompute_focus() adds
+         * position_vector back each frame. */
+        focus_offset.X = (int16_t)((minx + maxx) / 2);
+        focus_offset.Y = (int16_t)((miny + maxy) / 2);
+        focus_offset.Z = (int16_t)((minz + maxz) / 2);
 
         int ex = maxx - minx, ey = maxy - miny, ez = maxz - minz;
 
@@ -533,6 +575,271 @@ static void load_model(int list_index) {
 
     build_anim_list();
     if (anim_count > 0) play_action(anim_list[0].action);
+}
+
+/* ── Scene loading and playback ──────────────────────────────── */
+
+static void build_scene_list(void) {
+    int limit = scene_limit();
+    scene_ids = (int16_t *)calloc(limit, sizeof(int16_t));
+    scene_count = 0;
+    if (!scene_ids) return;
+
+    for (int i = 0; i < limit; i++) {
+        if (!scene_names || !scene_names[i].field_0[0]) continue;
+        if (load_by_offset && scene_offset[i] < 0) continue;
+        scene_ids[scene_count++] = (int16_t)i;
+    }
+}
+
+static int scene_cast_count(const scene_t *s) {
+    int n = 0;
+    if (!s) return 0;
+    for (script_t *sc = s->scene_script_list; sc; sc = sc->next_script)
+        if (!(sc->script_action.action_flags & 0x20)) n++;
+    return n;
+}
+
+/* nth playable script, skipping the 0x20 "not part of this run" ones that
+ * start_scene() also passes over. */
+static script_t *scene_cast_at(const scene_t *s, int n) {
+    if (!s) return NULL;
+    for (script_t *sc = s->scene_script_list; sc; sc = sc->next_script) {
+        if (sc->script_action.action_flags & 0x20) continue;
+        if (n-- == 0) return sc;
+    }
+    return NULL;
+}
+
+/* Scripts run in parallel and finish independently, so the scene is over
+ * when the longest one is. */
+static int scene_length(const scene_t *s) {
+    int longest = 1;
+    for (script_t *sc = s ? s->scene_script_list : NULL; sc; sc = sc->next_script) {
+        if (sc->script_action.action_flags & 0x20) continue;
+        if (sc->script_action.act_duration > longest)
+            longest = sc->script_action.act_duration;
+    }
+    return longest;
+}
+
+/* Point the camera the way the scene was shot: check_view() pulls the
+ * painted background into the plane the dirty-rect restore reads from, the
+ * matching depth mask, the scene palette, and the camera position itself. */
+static void detach_scene_camera(void);
+
+/* Camera 0 is check_view's "no view" case: it blanks the plate and opens the
+ * mask instead of loading a shot, and its camera_data is never authored. A
+ * scene on it has no framing to be faithful to, so the orbit camera is the
+ * only thing that can show it. */
+static bool scene_has_shot(const scene_t *s) {
+    return s && s->camera_index > 0;
+}
+
+static void attach_scene_camera(void) {
+    if (!cur_scene) return;
+    if (!scene_has_shot(cur_scene)) { detach_scene_camera(); return; }
+    /* check_view() early-outs when the camera is already active, which would
+     * skip the background reload after a detour through the flat backdrop. */
+    active_camera = NULL;
+    check_view(cur_scene->camera_index);
+    pal_cam = cur_scene->camera_index;
+    inject_palette();
+}
+
+/* Frame the cast member the CAST pane has selected, in world space.
+ *
+ * Not the whole cast: a scene's cast routinely mixes a character with a piece
+ * of set dressing parked hundreds of units away — E1's Start_sc pairs the hero
+ * with `bridge` — and a box around both leaves everyone a few pixels tall.
+ * Selecting in the CAST pane re-frames, so each one can be looked at in turn
+ * and E dollies out to take in the rest. */
+static void fit_camera_cast(void) {
+    int minx = 32767, miny = 32767, minz = 32767;
+    int maxx = -32768, maxy = -32768, maxz = -32768;
+    int found = 0;
+
+    script_t *sel = scene_cast_at(cur_scene, cast_sel);
+    actor_t *subject = (sel && sel->script_actor_index >= 0 &&
+                        sel->script_actor_index < THING_TAB_SIZE)
+                     ? thing_tab[sel->script_actor_index] : NULL;
+    if (!subject) subject = root_thing;
+    if (!subject) return;
+
+    /* Making the subject cur_actor is what puts scene mode on the same
+     * footing as model mode: recompute_focus() then tracks it every frame,
+     * so the camera follows an actor the scene walks across the set. */
+    cur_actor = subject;
+
+    for (actor_t *a = subject; a; a = NULL) {
+        prepare_an_actor(a);
+        for (part_t *p = a->actor_parts_list; p; p = p->next_in_display_list) {
+            int rx = abs(p->VECTOR_Squash.X);
+            int ry = abs(p->VECTOR_Squash.Y);
+            int rz = abs(p->VECTOR_Squash.Z);
+            if (p->AbsPosition.X - rx < minx) minx = p->AbsPosition.X - rx;
+            if (p->AbsPosition.Y - ry < miny) miny = p->AbsPosition.Y - ry;
+            if (p->AbsPosition.Z - rz < minz) minz = p->AbsPosition.Z - rz;
+            if (p->AbsPosition.X + rx > maxx) maxx = p->AbsPosition.X + rx;
+            if (p->AbsPosition.Y + ry > maxy) maxy = p->AbsPosition.Y + ry;
+            if (p->AbsPosition.Z + rz > maxz) maxz = p->AbsPosition.Z + rz;
+            found = 1;
+        }
+    }
+
+    if (!found) {
+        set_vector(&focus_offset, 0, 0, 0);
+        orbit_dist = 1200;
+    } else {
+        /* Centred, unlike the model fit: that one drops the subject low to
+         * clear the status lines, which only reads well on a standing
+         * humanoid. A scene subject can be a horse or a bridge, and the bias
+         * pushes those out of frame. Extra distance for the same reason. */
+        int ex = maxx - minx, ey = maxy - miny, ez = maxz - minz;
+        focus_offset.X = (int16_t)((minx + maxx) / 2);
+        focus_offset.Y = (int16_t)((miny + maxy) / 2);
+        focus_offset.Z = (int16_t)((minz + maxz) / 2);
+
+        int extent = ex > ey ? ex : ey;
+        if (ez > extent) extent = ez;
+        if (extent < 40) extent = 40;
+        orbit_dist = clampi(extent * 3, 120, 24000);
+    }
+
+    orbit_yaw = 0x8000 + 0x2000;
+    orbit_pitch = 0x0C00;
+    recompute_focus();
+    update_camera();
+}
+
+static void detach_scene_camera(void) {
+    active_camera = NULL;
+    rebuild_background();
+    inject_palette();
+    fit_camera_cast();
+}
+
+static void unload_scene(void) {
+    if (cur_scene) {
+        for (script_t *sc = cur_scene->scene_script_list; sc; sc = sc->next_script) {
+            int16_t ai = sc->script_actor_index;
+            if (ai < 0 || ai >= THING_TAB_SIZE) continue;
+            actor_t *a = thing_tab[ai];
+            if (!a) continue;
+            a->actor_scene = NULL;
+            a->actor_act.act_action = NULL;
+            a->actor_act_list = NULL;
+            remove_from_display_list(a);
+        }
+        cur_scene->scene_use_flag &= (uint16_t)~1u;
+        /* Drop the started/finished bits so the same scene can be replayed. */
+        scene_name_flags[cur_scene->scene_index] &= (int16_t)~6;
+    }
+    cur_scene = NULL;
+    cur_scene_idx = -1;
+    selected_scene = NULL;
+    root_scene = NULL;
+    root_thing = NULL;
+    scene_phase = 0;
+}
+
+static void restart_scene(void) {
+    if (!cur_scene) return;
+    scene_name_flags[cur_scene->scene_index] &= (int16_t)~6;
+    for (script_t *sc = cur_scene->scene_script_list; sc; sc = sc->next_script) {
+        int16_t ai = sc->script_actor_index;
+        if (ai < 0 || ai >= THING_TAB_SIZE) continue;
+        actor_t *a = thing_tab[ai];
+        if (a) a->flags &= ~0x0400u;
+    }
+    start_scene(cur_scene);
+    selected_scene = cur_scene;
+    scene_phase = 0;
+}
+
+static void load_scene(int list_index) {
+    if (list_index < 0 || list_index >= scene_count) return;
+    int16_t idx = scene_ids[list_index];
+
+    stop_animation();
+    unload_scene();
+    if (cur_actor) { remove_from_display_list(cur_actor); cur_actor = NULL; }
+    cur_thing = -1;
+    root_thing = NULL;
+
+    check_scene_loaded(idx);
+    scene_t *s = scene_tab[idx];
+    if (!s) return;
+
+    check_actors_in_scene_loaded(s);
+
+    /* Actors carry state from whatever was shown before — a half-finished
+     * act, a repertoire, a world position. start_scene() sets up the act but
+     * not the rest, and in game these come up fresh from the world. */
+    for (script_t *sc = s->scene_script_list; sc; sc = sc->next_script) {
+        int16_t ai = sc->script_actor_index;
+        if (ai < 0 || ai >= THING_TAB_SIZE) continue;
+        actor_t *a = thing_tab[ai];
+        if (!a) continue;
+        initialise_actor(a);
+        a->actor_behavior = BH_EXTERNAL;
+        a->flags = (a->flags | ACTOR_FLAG_ACTIVE | ACTOR_FLAG_VISIBLE) & ~0x0400u;
+        a->state_flags = 0;
+        set_vector(&a->actor_velocity, 0, 0, 0);
+        copy_defaults_to_actual(a);
+        update_thing(a);
+    }
+
+    cur_scene = s;
+    cur_scene_idx = idx;
+    scene_len = scene_length(s);
+    cast_sel = 0;
+    cast_top = 0;
+
+    restart_scene();
+
+    if (cam_attached && scene_has_shot(s)) attach_scene_camera();
+    else                                   detach_scene_camera();
+}
+
+/* Playback. advance_selected_scene_or_action() steps every script by the same
+ * delta, which is what do_movement() does for a scene in game. Seeking back
+ * has to replay from the start: a script's progress lives in its act's
+ * key_progress, and the only way to unwind it is to run it again. */
+static void scene_seek(int to) {
+    if (!cur_scene) return;
+    if (to < 0) to = 0;
+    if (to > scene_len) to = scene_len;
+
+    if (to < scene_phase) {
+        restart_scene();
+        if (to == 0) return;
+    }
+    int delta = to - scene_phase;
+    while (delta > 0) {
+        int step = delta > 0x7000 ? 0x7000 : delta;   /* the arg is int16 */
+        advance_selected_scene_or_action((int16_t)step);
+        delta -= step;
+    }
+    scene_phase = to;
+}
+
+static void advance_scene(int dt) {
+    if (!cur_scene) return;
+    if (playing && dt > 0) {
+        int step = dt * speed_pct / 100;
+        if (step < 1) step = 1;
+        if (scene_phase >= scene_len) {
+            if (looping) restart_scene();
+            else         playing = false;
+        }
+        if (playing) scene_seek(scene_phase + step);
+    }
+
+    /* Same reason as the model path: 0x400 parks an actor into the
+     * background store, which in a viewer freezes it there. */
+    for (actor_t *a = root_thing; a; a = a->next_in_display_list)
+        a->flags &= ~0x0400u;
 }
 
 /* ── Archive scan ────────────────────────────────────────────── */
@@ -685,6 +992,18 @@ static void model_label(int i, char *out, int n) {
     snprintf(out, n, "%4d %s", id, thing_name_of(id));
 }
 
+static void scene_label(int i, char *out, int n) {
+    int16_t id = scene_ids[i];
+    snprintf(out, n, "%4d %s", id, scene_name_of(id));
+}
+
+static void cast_label(int i, char *out, int n) {
+    script_t *sc = scene_cast_at(cur_scene, i);
+    if (!sc) { snprintf(out, n, "-"); return; }
+    snprintf(out, n, "%-13.13s %4d", thing_name_of(sc->script_actor_index),
+             sc->script_action.act_duration);
+}
+
 static void anim_label(int i, char *out, int n) {
     anim_entry_t *e = &anim_list[i];
     if (e->slot >= 0)
@@ -697,23 +1016,25 @@ static void anim_label(int i, char *out, int n) {
 
 static void draw_help(void) {
     static const char *lines[] = {
-        "  MODEL / ANIMATION VIEWER",
+        "  MODEL / ANIMATION / SCENE VIEWER",
         "",
-        "  LEFT/RIGHT   switch pane (models <-> anims)",
+        "  V            switch MODELS <-> SCENES",
+        "  LEFT/RIGHT   switch pane (list <-> anims or cast)",
         "  UP/DOWN      move selection    PGUP/PGDN page",
-        "  HOME/END     first / last      RETURN load or play",
+        "  HOME/END     first / last      RETURN load / play / follow",
         "  TAB          scan archive for every action of this model",
         "",
         "  SPACE        play / pause      L  loop on / off",
         "  , .          step one frame    - =  slower / faster",
-        "  T            restart action",
+        "  T            restart action or scene",
         "  F            true game rate (off: short loops are slowed)",
         "",
-        "  O            orbit / free camera",
+        "  O            models: orbit / free camera",
+        "               scenes: authored shot / detached orbit",
         "  W A S D      orbit yaw+pitch, or fly in free mode",
         "  Q E          dolly in / out, or rise / fall in free mode",
         "  drag LMB     look    drag RMB  dolly",
-        "  R            reframe model     V  auto-spin",
+        "  R            reframe model or cast member   Z  auto-spin",
         "  P            pin root motion (walk cycles play in place)",
         "",
         "  N M          previous / next scene palette (E2 only)",
@@ -747,6 +1068,21 @@ static void draw_hud(void) {
     /* Status line, always on — it is the only thing that fits at 320x200
      * once the panels are hidden. */
     const char *gv = (game_version == GAME_VERSION_E1) ? "E1" : "E2";
+
+    if (tool_mode == TOOL_SCENES) {
+        vtext(2, 2, COL_HILITE, COL_PANEL, "%s SCENE %-14.14s", gv,
+              cur_scene_idx >= 0 ? scene_name_of(cur_scene_idx) : "(none)");
+        if (cur_scene) {
+            int pct = scene_len > 0 ? scene_phase * 100 / scene_len : 0;
+            vtext(2, 2 + tx_h, COL_TEXT, COL_PANEL,
+                  "cam%-4d %3d%% %s x%d%s %d/%dt cast%d",
+                  cur_scene->camera_index, pct, playing ? "PLAY" : "STOP",
+                  speed_pct, looping ? " LOOP" : "",
+                  scene_phase, scene_len, scene_cast_count(cur_scene));
+        } else {
+            vtext(2, 2 + tx_h, COL_DIM, COL_PANEL, "%-24.24s", "(no scene loaded)");
+        }
+    } else {
     vtext(2, 2, COL_HILITE, COL_PANEL, "%s %-14.14s", gv,
           cur_thing >= 0 ? thing_name_of(cur_thing) : "(no model)");
 
@@ -760,6 +1096,7 @@ static void draw_hud(void) {
               real, slowed ? " SLOW" : "");
     } else {
         vtext(2, 2 + tx_h, COL_DIM, COL_PANEL, "%-14.14s", "(no action)");
+    }
     }
 
     if (scan_pos >= 0) {
@@ -791,6 +1128,26 @@ static void draw_hud(void) {
         if (anim_sel >= anim_top + list_rows) anim_top = anim_sel - list_rows + 1;
 
         char title[64];
+        if (tool_mode == TOOL_SCENES) {
+            int cast = scene_cast_count(cur_scene);
+
+            scene_top = clampi(scene_top, 0, scene_count > list_rows ? scene_count - list_rows : 0);
+            if (scene_sel < scene_top) scene_top = scene_sel;
+            if (scene_sel >= scene_top + list_rows) scene_top = scene_sel - list_rows + 1;
+
+            cast_top = clampi(cast_top, 0, cast > list_rows ? cast - list_rows : 0);
+            if (cast_sel < cast_top) cast_top = cast_sel;
+            if (cast_sel >= cast_top + list_rows) cast_top = cast_sel - list_rows + 1;
+
+            snprintf(title, sizeof(title), "SCENES %d/%d",
+                     scene_count ? scene_sel + 1 : 0, scene_count);
+            draw_list(2, top_y, lcols, list_rows, scene_count, scene_sel, scene_top,
+                      pane == PANE_MODELS, title, scene_label);
+
+            snprintf(title, sizeof(title), "CAST %d/%d", cast ? cast_sel + 1 : 0, cast);
+            draw_list(screen_width - (rcols * tx_w + 6), top_y, rcols, list_rows,
+                      cast, cast_sel, cast_top, pane == PANE_ANIMS, title, cast_label);
+        } else {
         snprintf(title, sizeof(title), "MODELS %d/%d", model_count ? model_sel + 1 : 0, model_count);
         draw_list(2, top_y, lcols, list_rows, model_count, model_sel, model_top,
                   pane == PANE_MODELS, title, model_label);
@@ -799,18 +1156,20 @@ static void draw_hud(void) {
                  anim_count ? anim_sel + 1 : 0, anim_count, scan_done ? " *" : "");
         draw_list(screen_width - (rcols * tx_w + 6), top_y, rcols, list_rows,
                   anim_count, anim_sel, anim_top, pane == PANE_ANIMS, title, anim_label);
+        }
     }
 
     /* Bottom line: camera and render state. */
     int by = screen_height - tx_h - 2;
     int parts = 0, tris = 0;
-    if (cur_actor) {
-        for (part_t *p = cur_actor->actor_parts_list; p; p = p->next_in_display_list) parts++;
-        for (tri_t *t = cur_actor->polygone_tri_list; t; t = t->next) tris++;
+    for (actor_t *a = root_thing; a; a = a->next_in_display_list) {
+        for (part_t *p = a->actor_parts_list; p; p = p->next_in_display_list) parts++;
+        for (tri_t *t = a->polygone_tri_list; t; t = t->next) tris++;
     }
     vtext(2, by, COL_DIM, COL_PANEL,
           "%s d%-5d yaw%5d pit%5d  parts%3d tri%3d lod%d pal%d %s  H=help",
-          cam_mode == CAM_ORBIT ? "orbit" : "free ",
+          (tool_mode == TOOL_SCENES && cam_attached && scene_has_shot(cur_scene)) ? "shot "
+              : (cam_mode == CAM_ORBIT ? "orbit" : "free "),
           (int)orbit_dist, (int)(int16_t)orbit_yaw, (int)(int16_t)orbit_pitch,
           parts, tris, level_of_detail,
           game_version == GAME_VERSION_E2 ? pal_cam : 0,
@@ -820,6 +1179,22 @@ static void draw_hud(void) {
 /* ── Input ───────────────────────────────────────────────────── */
 
 static void move_selection(int delta) {
+    if (tool_mode == TOOL_SCENES) {
+        if (pane == PANE_MODELS) {
+            if (!scene_count) return;
+            scene_sel = clampi(scene_sel + delta, 0, scene_count - 1);
+        } else {
+            int cast = scene_cast_count(cur_scene);
+            if (!cast) return;
+            int was = cast_sel;
+            cast_sel = clampi(cast_sel + delta, 0, cast - 1);
+            /* The detached camera follows whoever is selected, so moving
+             * through the cast has to re-aim it as you go — waiting for
+             * RETURN made the pane look inert. */
+            if (cast_sel != was && !cam_attached) fit_camera_cast();
+        }
+        return;
+    }
     if (pane == PANE_MODELS) {
         if (!model_count) return;
         model_sel = clampi(model_sel + delta, 0, model_count - 1);
@@ -830,6 +1205,19 @@ static void move_selection(int delta) {
 }
 
 static void activate_selection(void) {
+    if (tool_mode == TOOL_SCENES) {
+        if (pane == PANE_MODELS) {
+            load_scene(scene_sel);
+            playing = true;
+        } else {
+            /* Picking a cast member means "show me this one", which the
+             * authored shot cannot do — it is a fixed frame. So RETURN here
+             * detaches onto that actor; O puts the shot back. */
+            cam_attached = false;
+            detach_scene_camera();
+        }
+        return;
+    }
     if (pane == PANE_MODELS)
         load_model(model_sel);
     else if (anim_count)
@@ -852,7 +1240,26 @@ static void handle_input(int dt) {
 
     if (platform_key_hit(plat, PKEY_RETURN)) activate_selection();
 
-    if (platform_key_hit(plat, PKEY_TAB) && scan_pos < 0) scan_begin();
+    if (platform_key_hit(plat, PKEY_V)) {
+        tool_mode ^= 1;
+        pane = PANE_MODELS;
+        if (tool_mode == TOOL_SCENES) {
+            script_mode = 1;
+            if (!cur_scene && scene_count) { load_scene(scene_sel); playing = true; }
+            else if (cam_attached) attach_scene_camera();
+        } else {
+            /* Scene actors and the scene camera both have to go, or the
+             * model shows up in someone else's shot with the cast in it. */
+            script_mode = 0;
+            unload_scene();
+            rebuild_background();
+            if (game_version == GAME_VERSION_E2) apply_scene_palette(pal_cam);
+            load_model(model_sel);
+        }
+    }
+
+    if (tool_mode == TOOL_MODELS &&
+        platform_key_hit(plat, PKEY_TAB) && scan_pos < 0) scan_begin();
 
     /* Headless check: no key events reach a window that never gets focus,
      * so the scan needs a way in for a scripted run. */
@@ -862,9 +1269,14 @@ static void handle_input(int dt) {
 
     if (platform_key_hit(plat, PKEY_SPACE)) playing = !playing;
     if (platform_key_hit(plat, PKEY_L))     looping = !looping;
-    if (platform_key_hit(plat, PKEY_T) && cur_action_idx >= 0) {
-        play_action(cur_action_idx);
-        playing = true;
+    if (platform_key_hit(plat, PKEY_T)) {
+        if (tool_mode == TOOL_SCENES) {
+            restart_scene();
+            playing = true;
+        } else if (cur_action_idx >= 0) {
+            play_action(cur_action_idx);
+            playing = true;
+        }
     }
     if (platform_key_hit(plat, PKEY_MINUS))  speed_pct = clampi(speed_pct - 10, 10, 400);
     if (platform_key_hit(plat, PKEY_EQUALS)) speed_pct = clampi(speed_pct + 10, 10, 400);
@@ -872,16 +1284,26 @@ static void handle_input(int dt) {
 
     if (platform_key_hit(plat, PKEY_COMMA)) {
         playing = false;
-        phase = clampi(phase - phase_max / 32 - 1, 0, phase_max);
+        if (tool_mode == TOOL_SCENES) scene_seek(scene_phase - scene_len / 32 - 1);
+        else phase = clampi(phase - phase_max / 32 - 1, 0, phase_max);
     }
     if (platform_key_hit(plat, PKEY_PERIOD)) {
         playing = false;
-        phase = clampi(phase + phase_max / 32 + 1, 0, phase_max);
+        if (tool_mode == TOOL_SCENES) scene_seek(scene_phase + scene_len / 32 + 1);
+        else phase = clampi(phase + phase_max / 32 + 1, 0, phase_max);
     }
 
-    if (platform_key_hit(plat, PKEY_O)) cam_mode ^= 1;
+    if (platform_key_hit(plat, PKEY_O)) {
+        if (tool_mode == TOOL_SCENES) {
+            cam_attached = !cam_attached && scene_has_shot(cur_scene);
+            if (cam_attached) attach_scene_camera();
+            else              detach_scene_camera();
+        } else {
+            cam_mode ^= 1;
+        }
+    }
     if (platform_key_hit(plat, PKEY_R)) fit_camera();
-    if (platform_key_hit(plat, PKEY_V)) auto_spin = !auto_spin;
+    if (platform_key_hit(plat, PKEY_Z)) auto_spin = !auto_spin;
     if (platform_key_hit(plat, PKEY_P)) {
         pin_root = !pin_root;
         if (pin_root && cur_actor) {
@@ -901,7 +1323,11 @@ static void handle_input(int dt) {
     }
 
     /* Continuous camera controls, scaled by frame time so a fast machine
-     * does not spin the model twice as quickly. */
+     * does not spin the model twice as quickly. Skipped while a scene's own
+     * camera is attached: it is fixed by the shot, and the painted
+     * background would not move with it anyway. */
+    if (tool_mode == TOOL_SCENES && cam_attached) return;
+
     int step = dt > 0 ? dt : 1;
     int32_t rot = 240 * step;
     int32_t dolly = (orbit_dist / 24 + 4) * step;
@@ -1032,14 +1458,15 @@ static void advance_animation(int dt) {
 /* ── Frame ───────────────────────────────────────────────────── */
 
 static void render_frame(void) {
-    if (cur_actor) {
-        /* 0x400 marks a thing as "stuck" — drawn once into the background
-         * store instead of the frame. update_act sets it whenever an act
-         * runs dry, which in the viewer would freeze the model into the
-         * backdrop. 0x800 is the per-frame "already drawn" gate. */
-        cur_actor->flags &= ~(uint16_t)(0x0400 | 0x0800);
-        cur_actor->flags |= ACTOR_FLAG_VISIBLE;
-        cur_actor->state_flags &= ~0x80;
+    /* 0x400 marks a thing as "stuck" — drawn once into the background store
+     * instead of the frame. update_act sets it whenever an act runs dry,
+     * which in a viewer would freeze the actor into the backdrop. 0x800 is
+     * the per-frame "already drawn" gate. Scene mode has a whole cast, so
+     * the whole display list gets the same treatment. */
+    for (actor_t *a = root_thing; a; a = a->next_in_display_list) {
+        a->flags &= ~(uint16_t)(0x0400 | 0x0800);
+        a->flags |= ACTOR_FLAG_VISIBLE;
+        a->state_flags &= ~0x80;
     }
 
     /* Full-screen restore from the background store, rather than the
@@ -1094,10 +1521,18 @@ void viewer_main(void) {
     for (int i = 0; i < ACTION_TAB_SIZE; i++) action_nrefs[i] = SCAN_UNKNOWN;
 
     build_model_list();
+    build_scene_list();
     apply_scene_palette(step_scene_palette(0, +1));
     inject_palette();
     rebuild_background();
-    if (model_count) load_model(0);
+
+    tool_mode = (viewer_mode == VIEWER_SCENES) ? TOOL_SCENES : TOOL_MODELS;
+    if (tool_mode == TOOL_SCENES) {
+        script_mode = 1;
+        if (scene_count) load_scene(0);
+    } else if (model_count) {
+        load_model(0);
+    }
 
     last_tick = my_time();
     int last_bg = bg_choice;
@@ -1125,10 +1560,15 @@ void viewer_main(void) {
         }
 
         scan_step();
-        advance_animation(dt);
-        update_camera();
+        if (tool_mode == TOOL_SCENES) {
+            advance_scene(dt);
+            if (!cam_attached) update_camera();
+        } else {
+            advance_animation(dt);
+            update_camera();
+        }
 
-        if (cur_actor) prepare_an_actor(cur_actor);
+        if (tool_mode == TOOL_MODELS && cur_actor) prepare_an_actor(cur_actor);
         render_frame();
 
         platform_delay(10);

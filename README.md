@@ -43,12 +43,14 @@ make clean    # remove build/
 
 CMake project lives in `src/CMakeLists.txt`. C99 strict, plus ObjC for the macOS platform layer.
 
-## Model & animation viewer
+## Model, animation & scene viewer
 
 ```bash
 make e2-viewer   # browse Ecstatica 2's models
 make e1-viewer   # browse Ecstatica 1's models
-# or: ./ecstatica --viewer
+make e2-scenes   # browse Ecstatica 2's scripted scenes
+make e1-scenes   # browse Ecstatica 1's scripted scenes
+# or: ./ecstatica --viewer  /  ./ecstatica --scenes
 ```
 
 Browses every model in the archives with a free or orbit camera, playing any
@@ -63,6 +65,15 @@ action whose events only name parts this model has.
 Playback is at the engine's rate, except that actions too short to read on
 repeat (E2's `herojump` is 16 ticks, under a quarter second) are stretched to
 0.6s. The status line says `SLOW` when that applies; `F` turns it off.
+
+`V` switches to the scene browser (`--scenes` opens straight there). A scene
+is a set of parallel scripts, one action per actor; it plays through the
+original Watcom editor's own preview path, `advance_selected_scene_or_action`,
+which is still in `edit.c`. Scenes are framed by the camera they were shot
+with — painted background, scene palette and depth mask all loaded by
+`check_view`, so actors occlude against the plate as they do in game. `O`
+detaches into the free/orbit camera over a flat backdrop to read the staging
+the shot hides.
 
 ## Disassembly Requirements
 

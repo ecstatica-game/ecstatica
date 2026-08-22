@@ -7,7 +7,7 @@
 
 #include "win.h"
 #include "platform.h"
-#include "viewer.h"
+#include "tools/viewer.h"
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
@@ -47,7 +47,9 @@ static void crash_handler(int sig) {
 int main(int argc, char *argv[]) {
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--viewer") == 0)
-            viewer_mode = 1;
+            viewer_mode = VIEWER_MODELS;
+        else if (strcmp(argv[i], "--scenes") == 0)
+            viewer_mode = VIEWER_SCENES;
     }
     signal(SIGSEGV, crash_handler);
 #ifndef _WIN32

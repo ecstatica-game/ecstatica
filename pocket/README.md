@@ -40,7 +40,8 @@ every invocation; the Makefile prefers `vendor/` and falls back to a checkout.
 
 Everything compiles in this tree. The SDK's build system is not invoked and
 nothing is copied into the SDK checkout — `pocket/Makefile` compiles
-`../src/*.c` plus `../src/platforms/openfpga.c` directly, against the SDK's
+`../src/*.c` and `../src/tools/*.c` plus `../src/platforms/openfpga.c`
+directly, against the SDK's
 headers, musl and linker script. Override the toolchain prefix with `CROSS=`.
 
 ### Why the SDK is a dependency at all
