@@ -10,6 +10,7 @@ make          # cmake build
 make e2       # build + run E2 (copies binary to data/e2/)
 make e1       # build + run E1 (copies binary to data/e1/W/)
 make e2-viewer / make e1-viewer   # model & animation browser (--viewer)
+make e2-scenes / make e1-scenes   # scripted-scene browser (--scenes)
 make clean    # remove build/
 ```
 
@@ -61,8 +62,8 @@ src/
   req.c         — dialogs, file picker, game-over
   icon.c        — resolution constants, VGA/SVGA config
   chars.c       — font bitmap glyphs
-  viewer.c      — model/animation browser (--viewer); not in the original
   win.c         — window/platform stubs
+  tools/viewer.c     — model/animation/scene browser (--viewer, --scenes); not in the original
   platforms/macos.m  — Cocoa NSView framebuffer, input, timing
   platforms/openfpga.c — openfpgaOS (Analogue Pocket / MiSTer) backend
   platform.h    — platform abstraction interface

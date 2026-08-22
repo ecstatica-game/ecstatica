@@ -65,7 +65,8 @@ CC   := $(CROSS)gcc
 SIZE := $(CROSS)size
 
 # ── Sources ──────────────────────────────────────────────────────────
-ENGINE_SRCS   := $(wildcard $(SRC_DIR)/*.c) $(SRC_DIR)/platforms/openfpga.c
+ENGINE_SRCS   := $(wildcard $(SRC_DIR)/*.c) $(wildcard $(SRC_DIR)/tools/*.c) \
+                 $(SRC_DIR)/platforms/openfpga.c
 # music.c hands platform_midi_play a Standard MIDI File, so the software synth
 # comes along. These are ordinary C files; only their location is the SDK's.
 SDK_SRCS      := $(SDK)/of_init.c $(SDK)/of_midi.c $(SDK)/of_smp_bank.c \

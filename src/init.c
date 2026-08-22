@@ -18,7 +18,7 @@
 #include "music.h"
 #include "req.h"
 #include "topo.h"
-#include "viewer.h"
+#include "tools/viewer.h"
 #include "win.h"
 #include "platform.h"
 #include <stdio.h>
