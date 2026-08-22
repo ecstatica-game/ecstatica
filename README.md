@@ -43,6 +43,27 @@ make clean    # remove build/
 
 CMake project lives in `src/CMakeLists.txt`. C99 strict, plus ObjC for the macOS platform layer.
 
+## Model & animation viewer
+
+```bash
+make e2-viewer   # browse Ecstatica 2's models
+make e1-viewer   # browse Ecstatica 1's models
+# or: ./ecstatica --viewer
+```
+
+Browses every model in the archives with a free or orbit camera, playing any
+of its animations. Both games use the same code: rendering goes through the
+game's own `prepare_parts` / `draw_parts` / `show_parts`, so a model looks
+here exactly as it does in play. Press `H` in the viewer for the key list.
+
+The animation pane starts from the model's repertoire — the actions the game
+itself plays for it. `TAB` runs a full archive scan and adds every other
+action whose events only name parts this model has.
+
+Playback is at the engine's rate, except that actions too short to read on
+repeat (E2's `herojump` is 16 ticks, under a quarter second) are stretched to
+0.6s. The status line says `SLOW` when that applies; `F` turns it off.
+
 ## Disassembly Requirements
 
 * **IDA Pro 9.1** — connected via `ida-mcp` MCP server for live pseudocode / xref queries

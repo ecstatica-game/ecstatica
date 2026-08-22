@@ -63,6 +63,30 @@ enum {
     PKEY_2      = 0x03,
     PKEY_3      = 0x04,
     PKEY_LCMD   = 0x5B,  /* macOS Command key */
+    /* Added for the model/animation viewer (viewer.c). Values stay set-1
+     * scancodes, which is what the Win32 backend derives straight from
+     * lParam — only the table-driven backends need new entries. */
+    PKEY_B        = 0x30,
+    PKEY_F        = 0x21,
+    PKEY_H        = 0x23,
+    PKEY_L        = 0x26,
+    PKEY_N        = 0x31,
+    PKEY_O        = 0x18,
+    PKEY_R        = 0x13,
+    PKEY_T        = 0x14,
+    PKEY_V        = 0x2F,
+    PKEY_X        = 0x2D,
+    PKEY_TAB      = 0x0F,
+    PKEY_MINUS    = 0x0C,
+    PKEY_EQUALS   = 0x0D,
+    PKEY_LBRACKET = 0x1A,
+    PKEY_RBRACKET = 0x1B,
+    PKEY_COMMA    = 0x33,
+    PKEY_PERIOD   = 0x34,
+    PKEY_HOME     = 0xC7,
+    PKEY_PGUP     = 0xC9,
+    PKEY_END      = 0xCF,
+    PKEY_PGDN     = 0xD1,
 };
 
 enum {

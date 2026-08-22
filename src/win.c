@@ -28,6 +28,10 @@ bool app_active = true;
 
 static platform_t *g_platform = NULL;
 
+platform_t *win_platform(void) {
+    return g_platform;
+}
+
 /* win_flip_win95_458094
  * Page flip — present the back buffer.
  * Original used DirectDraw IDirectDrawSurface::Flip().

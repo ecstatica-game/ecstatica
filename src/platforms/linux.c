@@ -140,6 +140,27 @@ static int x11_keysym_to_pkey(KeySym ks) {
         case XK_KP_7: case XK_KP_Home:      return PKEY_NUM7;
         case XK_KP_8: case XK_KP_Up:        return PKEY_NUM8;
         case XK_KP_9: case XK_KP_Page_Up:   return PKEY_NUM9;
+        case XK_b: case XK_B: return PKEY_B;
+        case XK_f: case XK_F: return PKEY_F;
+        case XK_h: case XK_H: return PKEY_H;
+        case XK_l: case XK_L: return PKEY_L;
+        case XK_n: case XK_N: return PKEY_N;
+        case XK_o: case XK_O: return PKEY_O;
+        case XK_r: case XK_R: return PKEY_R;
+        case XK_t: case XK_T: return PKEY_T;
+        case XK_v: case XK_V: return PKEY_V;
+        case XK_x: case XK_X: return PKEY_X;
+        case XK_Tab:          return PKEY_TAB;
+        case XK_minus:        return PKEY_MINUS;
+        case XK_equal:        return PKEY_EQUALS;
+        case XK_bracketleft:  return PKEY_LBRACKET;
+        case XK_bracketright: return PKEY_RBRACKET;
+        case XK_comma:        return PKEY_COMMA;
+        case XK_period:       return PKEY_PERIOD;
+        case XK_Home:         return PKEY_HOME;
+        case XK_Prior:        return PKEY_PGUP;
+        case XK_End:          return PKEY_END;
+        case XK_Next:         return PKEY_PGDN;
         default: return -1;
     }
 }

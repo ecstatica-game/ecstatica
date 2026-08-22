@@ -261,6 +261,13 @@ static const struct { uint8_t usage; uint8_t pkey; } hid_to_pkey[] = {
     { 0x5F, PKEY_NUM7 }, { 0x60, PKEY_NUM8 }, { 0x61, PKEY_NUM9 },
     { 0xE0, PKEY_LCTRL }, { 0xE1, PKEY_LSHIFT }, { 0xE2, PKEY_LALT },
     { 0xE3, PKEY_LCMD }, { 0xE5, PKEY_RSHIFT },
+    { 0x05, PKEY_B }, { 0x09, PKEY_F }, { 0x0B, PKEY_H }, { 0x0F, PKEY_L },
+    { 0x11, PKEY_N }, { 0x12, PKEY_O }, { 0x15, PKEY_R }, { 0x17, PKEY_T },
+    { 0x19, PKEY_V }, { 0x1B, PKEY_X },
+    { 0x2B, PKEY_TAB }, { 0x2D, PKEY_MINUS }, { 0x2E, PKEY_EQUALS },
+    { 0x2F, PKEY_LBRACKET }, { 0x30, PKEY_RBRACKET },
+    { 0x36, PKEY_COMMA }, { 0x37, PKEY_PERIOD },
+    { 0x4A, PKEY_HOME }, { 0x4B, PKEY_PGUP }, { 0x4D, PKEY_END }, { 0x4E, PKEY_PGDN },
 };
 
 static void pump_keyboard(platform_t *p) {

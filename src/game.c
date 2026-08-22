@@ -2283,6 +2283,15 @@ static bool rep_load_tried[REPERTOIRE_TAB_SIZE];
 static bool actor_load_tried[THING_TAB_SIZE];
 static bool actor_load_tried2[THING_TAB_SIZE];
 
+/* The "already attempted" latch is what stops a failed load from being retried
+ * every frame, so it survives do_delete_action(). Anything that deletes an
+ * action it loaded itself has to clear the latch or the slot stays empty
+ * forever — the viewer's archive scan does exactly that. */
+void set_action_load_tried(int16_t index, bool tried) {
+    if (index >= 0 && index < ACTION_TAB_SIZE)
+        action_load_tried[index] = tried;
+}
+
 /* menu_initialise_game_43A1FC — full game state reset */
 void initialise_game(void) {
     new_game();
