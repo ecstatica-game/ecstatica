@@ -386,14 +386,26 @@ static void fit_camera(void) {
         focus_offset.Z = (int16_t)((minz + maxz) / 2 - origin.Z);
 
         int ex = maxx - minx, ey = maxy - miny, ez = maxz - minz;
+
+        /* Aim above the model's centre so it sits low in frame rather than
+         * dead centre. World up is -Y here, so a smaller Y is higher. The
+         * clear space this buys at the top is where the status lines run,
+         * and it is the tall models — whose heads land right in them — that
+         * need it. Scaled by height so short props are barely moved. */
+        focus_offset.Y = (int16_t)(focus_offset.Y - ey / 5);
+
         int extent = ex > ey ? ex : ey;
         if (ez > extent) extent = ez;
         if (extent < 40) extent = 40;
         orbit_dist = clampi(extent * 5 / 2, 120, 24000);
     }
 
-    orbit_yaw = 0x2000;      /* three-quarter view, not dead-on */
-    orbit_pitch = -0x0C00;
+    /* Angles are 16-bit turns, so 0x8000 is half a revolution. A model's
+     * rest facing puts its front away from the camera at yaw 0, hence the
+     * half turn; the extra 0x2000 is a three-quarter view rather than a
+     * dead-on one, which reads better for limbs. */
+    orbit_yaw = 0x8000 + 0x2000;
+    orbit_pitch = 0x0C00;    /* ~17 degrees above, looking down */
     recompute_focus();
     update_camera();
 }
