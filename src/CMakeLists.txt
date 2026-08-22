@@ -22,6 +22,7 @@ set(C_SRCS
     ellipse.c
     tri.c
     icon.c
+    viewer.c
     win.c
     chars.c
     main.c

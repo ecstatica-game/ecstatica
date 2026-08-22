@@ -324,6 +324,7 @@ int  get_next_token(void);
 void force_action(actor_t *actor, action_t *action, int set_some_flag);
 int  check_action_loaded(int16_t index);
 int  check_action_loaded_no_msg(int16_t index);
+void set_action_load_tried(int16_t index, bool tried);
 void check_actor_loaded_by_index(int16_t actor_index);
 int  check_rep_loaded(int16_t index);
 void div_vector(vector_t *v, int16_t divisor);

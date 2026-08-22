@@ -133,6 +133,27 @@ static int macos_vk_to_pkey(unsigned short vk) {
         case 89:  return PKEY_NUM7;
         case 91:  return PKEY_NUM8;
         case 92:  return PKEY_NUM9;
+        case 11:  return PKEY_B;
+        case 3:   return PKEY_F;
+        case 4:   return PKEY_H;
+        case 37:  return PKEY_L;
+        case 45:  return PKEY_N;
+        case 31:  return PKEY_O;
+        case 15:  return PKEY_R;
+        case 17:  return PKEY_T;
+        case 9:   return PKEY_V;
+        case 7:   return PKEY_X;
+        case 48:  return PKEY_TAB;
+        case 27:  return PKEY_MINUS;
+        case 24:  return PKEY_EQUALS;
+        case 33:  return PKEY_LBRACKET;
+        case 30:  return PKEY_RBRACKET;
+        case 43:  return PKEY_COMMA;
+        case 47:  return PKEY_PERIOD;
+        case 115: return PKEY_HOME;
+        case 116: return PKEY_PGUP;
+        case 119: return PKEY_END;
+        case 121: return PKEY_PGDN;
         default:  return -1;
     }
 }

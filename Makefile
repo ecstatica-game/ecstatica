@@ -8,6 +8,8 @@
 #   make run        — alias for `make e2`
 #   make e2         — build + copy to data/e2 + run
 #   make e1         — build + copy to data/e1/W + run
+#   make e2-viewer  — same as e2, but opens the model/animation viewer
+#   make e1-viewer  — same as e1, but opens the model/animation viewer
 #   make clean      — remove build artifacts
 #   make dump       — regenerate wdump text for E2WIN95P.EXE
 
@@ -21,7 +23,7 @@ E1_DIR   		= data/e1/W
 E1_DIR_DOS   	= data/e1
 E1_DIR_ORIG		= data/e1-dos
 
-.PHONY: all run e1 e2 build clean dump
+.PHONY: all run e1 e2 e1-viewer e2-viewer build clean dump
 
 all: build
 
@@ -43,6 +45,17 @@ e1: $(BUILT)
 	cp $(BUILT) $(E1_DIR)/
 	chmod +x $(E1_DIR)/$(TARGET)
 	cd $(E1_DIR) && ./$(TARGET)
+
+e2-viewer: $(BUILT)
+	cp $(BUILT) $(E2_DIR)/
+	chmod +x $(E2_DIR)/$(TARGET)
+	cd $(E2_DIR) && ./$(TARGET) --viewer
+
+e1-viewer: $(BUILT)
+	mkdir -p $(E1_DIR)
+	cp $(BUILT) $(E1_DIR)/
+	chmod +x $(E1_DIR)/$(TARGET)
+	cd $(E1_DIR) && ./$(TARGET) --viewer
 
 e1-dos-bundle: $(BUILT)
 	mkdir -p $(E1_DIR_DOS)

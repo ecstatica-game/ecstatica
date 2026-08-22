@@ -7,8 +7,10 @@
 
 #include "win.h"
 #include "platform.h"
+#include "viewer.h"
 #include <signal.h>
 #include <stdlib.h>
+#include <string.h>
 #ifndef _WIN32
 #include <unistd.h>
 #endif
@@ -43,8 +45,10 @@ static void crash_handler(int sig) {
 }
 
 int main(int argc, char *argv[]) {
-    (void)argc;
-    (void)argv;
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "--viewer") == 0)
+            viewer_mode = 1;
+    }
     signal(SIGSEGV, crash_handler);
 #ifndef _WIN32
     signal(SIGBUS, crash_handler);

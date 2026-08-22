@@ -18,6 +18,7 @@
 #include "music.h"
 #include "req.h"
 #include "topo.h"
+#include "viewer.h"
 #include "win.h"
 #include "platform.h"
 #include <stdio.h>
@@ -139,6 +140,13 @@ void setup(void) {
         present_delay(0);
     }
 
+    /* --viewer: same archives, same render pipeline, no world. Takes over
+     * here because everything it browses is loaded by the merges above. */
+    if (viewer_mode) {
+        viewer_main();
+        return;
+    }
+
     /* Start the game.
      * Asm setup_41007C clears bitmap[0] to color 0 BEFORE make_thing,
      * NOT bitmap[2] to color 15 (which would wipe the cam-loaded bg
@@ -208,7 +216,13 @@ void init(void) {
     if (!boot_vga)
         go_svga();
 
-    if (game_version != GAME_VERSION_E1) {
+    /* The publisher logos and the title screen are six seconds of nothing the
+     * viewer has any use for. Skipping the waits is not enough on its own:
+     * load_background_title() leaves the title in the draw planes, and every
+     * present_delay() setup() makes between the archive merges flips it back
+     * up, so it stays on screen for the whole load. The planes have to be
+     * cleared instead of painted. */
+    if (game_version != GAME_VERSION_E1 && !viewer_mode) {
         load_logo("psyglogo.raw");
         present_delay(2000);
         load_logo("aasglogo.raw");
@@ -216,8 +230,17 @@ void init(void) {
     }
 
     load_def_palette();
-    load_background_title();
-    present_delay(2000);
+    if (viewer_mode) {
+        int16_t save_pen = a_pen_colour;
+        a_pen_colour = 0;
+        rect_fill(0, 0, 0, screen_width, screen_height);
+        rect_fill(1, 0, 0, screen_width, screen_height);
+        rect_fill(3, 0, 0, screen_width, screen_height);
+        a_pen_colour = save_pen;
+    } else {
+        load_background_title();
+        present_delay(2000);
+    }
     load_anti_alias();
     init_gadgets();
     init_event_type_flags();
