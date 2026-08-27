@@ -39,6 +39,7 @@ void make_part_relative(part_t *part);
 void find_2_part_rot_z(part_t *part);
 void check_put_down(part_t *part, int flags);
 int look_for_pick_up(actor_t *actor);
+int look_for_pick_up_e1(part_t *hand);
 void check_pick_up(part_t *part, int16_t param);
 actor_t *look_for_a_fight(actor_t *actor);
 int find_best_target_up_down(actor_t *actor);

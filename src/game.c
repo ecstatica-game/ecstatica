@@ -4139,16 +4139,6 @@ void execute_part_code(part_t *part, int16_t code_index) {
     g_execute_part = prev;
 }
 
-/* Like execute_code but sets g_execute_part so CT_PART_IS resolves correctly.
- * Used by E1 check_pick_up where both the arm part and the picked-up actor matter. */
-void execute_code_with_part(code_t *code, actor_t *actor, part_t *part) {
-    if (!code) return;
-    part_t *prev = g_execute_part;
-    g_execute_part = part;
-    do_execute_code(code, actor);
-    g_execute_part = prev;
-}
-
 /* game_force_action  E1: 0x44612C | E2: 0x451704 */
 void force_action(actor_t *actor, action_t *action, int set_some_flag) {
     if (!actor) return;
@@ -4643,8 +4633,43 @@ void remove_all_sounds(void) {
     sound_list = NULL;
 }
 
+static uint8_t texture_load_tried[TEXTURE_TAB_SIZE];
+
+/* game_check_texture_loaded  E1: 0x446EA8
+ * Called from put_a_cuboid before texture_tab is indexed. Without it an
+ * unloaded texture silently degrades to a flat fill.
+ *
+ * The original retries on every call because its load always succeeds. The
+ * port keeps texture data in the FAN stream, so a miss here is permanent, and
+ * retrying would re-set stop_the_clock every frame — which zeroes
+ * local_game_time (move.c) and freezes all action playback. Hence the
+ * once-per-texture gate, cleared whenever the texture table is. */
+void check_texture_loaded(int16_t texture_index) {
+    if (texture_index < 0 || texture_index >= TEXTURE_TAB_SIZE) return;
+    if (texture_tab[texture_index]) return;
+    if (texture_load_tried[texture_index]) return;
+    if (!texture_names || !texture_names[texture_index].field_0[0]) return;
+    texture_load_tried[texture_index] = 1;
+
+    char name[9];
+    strncpy(name, texture_names[texture_index].field_0, 8);
+    name[8] = '\0';
+
+    char path[128];
+    snprintf(path, sizeof(path), "TEXTURES/%s.fan", name);
+    FILE *f = fopen_ci(path, "rb");
+    if (!f) return;
+    fclose(f);
+
+    actor_t *save = selected_thing;
+    stop_the_clock = true;
+    merge_a_file(path, 1);
+    selected_thing = save;
+}
+
 /* game_remove_all_textures  E1: 0x4496E0 | E2: 0x455318 */
 void remove_all_textures(void) {
+    memset(texture_load_tried, 0, sizeof(texture_load_tried));
     for (int i = 1; i < TEXTURE_TAB_SIZE; i++)
         texture_tab[i] = NULL;
     for (int i = 0; i < TEXTURE_POOL_SIZE; i++)

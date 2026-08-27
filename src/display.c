@@ -296,9 +296,13 @@ void hold_thing_with_part(actor_t *actor, part_t *part) {
     copy_vector(&actor->position_vector, &part->ellipse_center);
     copy_matrix(&actor->matrix_1, &part->matrix_1);
 
+    /* 0x41D4A2: E1 hands are _PartTab slots 0 and 1, so the left-hand offset set
+     * is picked on name_index 1. E2 numbers them 7/8. */
+    const int16_t left_hand_part = (game_version == GAME_VERSION_E1) ? 1 : 7;
+
     vector_t held_rot;
     vector_t held_off;
-    if (part->name_index == 7) {
+    if (part->name_index == left_hand_part) {
         held_rot = actor->held_rot_left;
         held_off = actor->held_off_left;
     } else {
@@ -313,6 +317,23 @@ void hold_thing_with_part(actor_t *actor, part_t *part) {
     vector_t transformed;
     matrix_vector(&held_off, &transformed, &actor->matrix_1);
     add_vector(&actor->position_vector, &transformed);
+
+    /* 0x41D5B8: E1 stops here — no rot vector rebuild, and no
+     * clear_a_stuck_thing call. E1 does have that function (0x41DB3C) but its
+     * only caller is the un-stick pass in prepare_parts; unsticking here just
+     * clears the flag and lets that pass do the erase next frame. */
+    if (game_version == GAME_VERSION_E1) {
+        if (!(actor->flags & 0x0400)) return;
+        while (part) {
+            actor_t *pa = part->parent_actor;
+            if (!(pa->flags & 0x0400)) {
+                actor->flags &= ~0x0400;
+                return;
+            }
+            part = pa->part_heap_link;
+        }
+        return;
+    }
 
     find_relative_rot_vector(&actor->rotate_vector, &actor->matrix_1);
 
@@ -424,15 +445,15 @@ void prepare_parts(void) {
     if (active_camera)
         active_camera->time = my_time();
 
-    /* Clear per-frame bits for all things in display list:
-     * state_flags 0x80 — "already prepared" gate for prepare_an_actor
-     * flags 0x0800     — "already drawn" gate between draw_stuck_parts
-     *                    and draw_parts; must reset each frame or actors
-     *                    that transition out of stuck state become
-     *                    permanently invisible to both render paths. */
+    /* state_flags 0x80 — "already prepared" gate for prepare_an_actor.
+     *
+     * flags 0x0800 is NOT a per-frame bit: it means "this thing is currently
+     * painted into the background store", set once by draw_stuck_parts
+     * (0x41DF19) and cleared only by the un-stick pass below (0x41DA79).
+     * Resetting it every frame re-baked stuck things endlessly and, worse,
+     * lost the record that told the un-stick pass to erase them. */
     for (actor_t *t = root_thing; t; t = t->next_in_display_list) {
         t->state_flags &= ~0x80;
-        t->flags &= ~0x0800;
     }
 
     /* Prepare all actors not yet marked (prepare_an_actor sets 0x80) */
@@ -446,6 +467,44 @@ void prepare_parts(void) {
      * before the background restore, so their clear_tab rects are honoured by
      * clear_parts/clear_masking in this same frame. */
     clear_expired_subtitles();
+
+    /* 0x41D978: un-stick pass. A thing that is painted into the background
+     * (0x0800) but is no longer stuck (0x0400) — a ground item that was just
+     * picked up, for instance — has to be erased from the background store,
+     * and everything that overlapped it re-baked or redrawn. Without this the
+     * item's painted-in copy survives until the whole view is re-rendered. */
+    for (actor_t *t = root_thing; t; t = t->next_in_display_list) {
+        if (t->flags & 0x0400) continue;
+        if (!(t->flags & 0x0800)) continue;
+
+        subarea_t *b = t->area_to_clear;
+        if (b) {
+            for (actor_t *o = root_thing; o; o = o->next_in_display_list) {
+                if (o == t) continue;
+                subarea_t *a = o->area_to_clear;
+                if (!a) continue;
+                if (a->left > b->right)  continue;
+                if (a->right < b->left)  continue;
+                if (a->top > b->bottom)  continue;
+                if (a->bottom < b->top)  continue;
+                if (o->flags & 0x0400)
+                    o->flags &= ~0x0800;   /* stuck neighbour: re-bake it */
+            }
+
+            for (int i = 0; i < 20; i++) {
+                if (subtitle_status[i] != 2) continue;
+                subarea_t *s = &sub_area_to_clear[i];
+                if (s->left > b->right)  continue;
+                if (s->right < b->left)  continue;
+                if (s->top > b->bottom)  continue;
+                if (s->bottom < b->top)  continue;
+                subtitle_status[i] = 1;    /* force redraw */
+            }
+        }
+
+        clear_a_stuck_thing(t);
+        t->flags &= ~0x0800;
+    }
 
     /* Clear previous frame's graphics */
     clear_db_mouse_cursor_win95();
@@ -1891,6 +1950,7 @@ void put_a_cuboid(part_t *part) {
     texture_t *tex = NULL;
     int16_t tex_idx = part->part_texture_index;
     if (tex_idx >= 0 && !select_flag) {
+        check_texture_loaded(tex_idx);
         if (tex_idx < TEXTURE_TAB_SIZE)
             tex = texture_tab[tex_idx];
         if (tex)
