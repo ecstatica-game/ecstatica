@@ -2,6 +2,20 @@
 
 ## Engine
 ### Bugs
+[x] E1 hand part indices were inverted everywhere in the code interpreter.
+    E1 is RIGHT = _PartTab[0], LEFT = _PartTab[1]. Established three ways:
+    InRightHand (token 22 -> 0x4436DF) reads field_0[0] while InLeftHand
+    (token 23 -> 0x443732) reads field_0[1]; RightHandFree (48 -> 0x443CED)
+    reads field_0[0] while LeftHandFree (47 -> 0x443CC2) reads field_0[1];
+    and hold_thing_with_part (0x41D4A2) selects the *_left offset set on
+    name_index 1. The port had right=1 / left=0, so every hand test answered
+    about the wrong hand and scene scripts fired SwapHands when they should
+    not have — which is what moved the book into the hand the potion script
+    then emptied into the pot. Indices now live in types.h; E2 keeps 8/7.
+    Also fixed on the way: LeftHandFree defaulted to true when the hand part
+    was missing (E1 defaults false, same as RightHandFree), and
+    InRightHand/InLeftHand were missing the 0x443710 scene check — a
+    scene-bound held thing only counts while the holder is itself in a scene.
 [x] Event suppression was never implemented. supress_events_469BF0 gates both
     modify_part (0x425000) and advance_part (0x425D26): while complete_act
     winds an act forward during scene setup / swap-in, only events flagged

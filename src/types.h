@@ -66,6 +66,16 @@ extern int game_version;
 #define E1_SOUND_TAB_SIZE       500
 #define E1_SOUND_DRIVER_COUNT   5
 #define E1_TUNE_COUNT           75
+
+/* _PartTab slots for the hero's hands. Right is 0, left is 1 — established by
+ * InRightHand/InLeftHand (0x4436DF / 0x443732), RightHandFree/LeftHandFree
+ * (0x443CED / 0x443CC2) and by hold_thing_with_part picking the *_left
+ * offset set on name_index 1 (0x41D4A2). */
+#define E1_RIGHT_HAND_PART      0
+#define E1_LEFT_HAND_PART       1
+/* E2 numbers the same pair 8/7 (see the flip/roll branch in behaviour). */
+#define E2_RIGHT_HAND_PART      8
+#define E2_LEFT_HAND_PART       7
 #define MAP_AREA_TAB_SIZE       100
 #define TEXTURE_TAB_SIZE        200
 #define PART_TAB_SIZE           555

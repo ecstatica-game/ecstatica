@@ -285,8 +285,9 @@ part_t *add_part(actor_t *parent_core) {
     part->holding_actor = parent_core;
 
     if (parent_core->type == 7) {
-        /* Parent is an actor — set anchored part */
-        parent_core->next_in_path = part;
+        /* Parent is an actor — 0x4229FB writes field_BC (0xBC), not
+         * next_in_path (0x48). The port was clobbering the path head. */
+        parent_core->field_BC = part;
         part->next_in_display_list = part->next;
     } else {
         /* Parent is a part — link into display list */
