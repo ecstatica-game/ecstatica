@@ -505,7 +505,10 @@ void show_subtitle(const char *text_str, int duration) {
             subtitle_colour[i] = 6;
             subtitle_text[i] = (char *)text_str;
             subtitle_length[i] = (int16_t)strlen(text_str);
-            subtitle_offset[i] = (screen_width - 6 * subtitle_length[i] - 2) / 2;
+            /* draw_subtitles re-centres for the current scale; this is just a
+             * sane initial value. */
+            subtitle_offset[i] = (screen_width
+                                  - 6 * subtitle_scale * subtitle_length[i] - 2) / 2;
             subtitles_time = game_time + duration;
             return;
         }
@@ -572,11 +575,37 @@ void clear_expired_subtitles(void) {
 void draw_subtitles(void) {
     if (!subtitles_on) return;
 
+    int scale = subtitle_scale < 1 ? 1 : subtitle_scale;
+    int cw = 6 * scale;          /* advance per character */
+    int line_h = 10 * scale;
+
+    /* Slots in the current caption block (a multi-line caption is pushed as
+     * consecutive slots before any of it is drawn). */
+    int lines = 0;
+    for (int i = 0; i < MAX_SUBTITLES; i++)
+        if (subtitle_status[i] == 1 || subtitle_status[i] == 2)
+            lines = i + 1;
+
+    /* The original stacks lines downward from 240 (0x41E18A: mode_svga ? 240 : 0,
+     * which is screen_height/2 at 640x480). Scaling the line pitch alone would
+     * push the block that much closer to the bottom of the screen, so anchor
+     * the block's bottom edge where the unscaled layout put it and let it grow
+     * upward instead. At scale 1 this is exactly the original placement. */
+    int base = screen_height / 2 + lines * 10 - lines * line_h;
+    if (base < 0) base = 0;
+
     for (int i = 0; i < MAX_SUBTITLES; i++) {
         if (subtitle_status[i] != 1) continue;
 
-        int shift = screen_height / 2;
-        int y = shift + i * 10;
+        /* Re-centre for the current scale rather than trusting the value
+         * show_subtitle computed — the size can change between the two. */
+        int line_w = cw * subtitle_length[i];
+        subtitle_offset[i] = (int16_t)((screen_width - line_w - 2) / 2);
+        if (subtitle_offset[i] < 0) subtitle_offset[i] = 0;
+
+        int y = base + i * line_h;
+        if (y + line_h > screen_height) y = screen_height - line_h;
+        if (y < 0) y = 0;
         draw_mode[2] = 2;
         subtitle_status[i] = 2;
         int16_t col = subtitle_colour[i];
@@ -589,16 +618,16 @@ void draw_subtitles(void) {
         }
         move_pen(2, subtitle_offset[i], (int16_t)y);
         if (subtitle_text[i]) {
-            text_with_mask(2, subtitle_text[i], subtitle_length[i]);
+            text_with_mask_scaled(2, subtitle_text[i], subtitle_length[i], scale);
         }
 
         sub_area_to_clear[i].left   = subtitle_offset[i];
-        sub_area_to_clear[i].right  = subtitle_offset[i] + 6 * subtitle_length[i] + 1;
+        sub_area_to_clear[i].right  = subtitle_offset[i] + line_w + 1;
         sub_area_to_clear[i].top    = (int16_t)y;
-        sub_area_to_clear[i].bottom = (int16_t)(y + 9);
+        sub_area_to_clear[i].bottom = (int16_t)(y + line_h - 1);
 
-        int w = 6 * subtitle_length[i] + 2;
-        int h = 10;
+        int w = line_w + 2;
+        int h = line_h;
         clear_background(1 - db, subtitle_offset[i], y, w, h);
         clip_mask(1, 0, subtitle_offset[i], y, w, h);
 

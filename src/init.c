@@ -103,6 +103,8 @@ void setup(void) {
         }
     }
 
+    load_port_settings();
+
     init_gadgets();
     setup_directory_paths();
     setup_long_screen();
@@ -202,6 +204,14 @@ void init(void) {
      * the whole HUD draws at the wrong size. Backgrounds would survive — E2's
      * VIEWS/ is a genuine 320x200 set — but the interface does not. */
     int boot_vga = vga_data;
+
+    /* Must agree with the boot resolution before the first asset load, or the
+     * swappable lookups prefer the wrong root. It only mattered once the W/
+     * side gained a paired root: booting there is SVGA, but enhanced_graphics
+     * still read 0, so backgrounds came from the DOS 320x200 set. The title
+     * screen survived by fallback (TSCREEN.RAW exists only in W/), which is
+     * why the first screen looked right and the next one did not. */
+    enhanced_graphics = boot_vga ? 0 : 1;
 
     if (boot_vga) {
         chosen_svga = 0;
@@ -1178,7 +1188,14 @@ void text_with_mask(int plane, const char *str, int length) {
  * text renders on top of any masked layer. Prior port just delegated
  * to text() with no mask write. */
 void text_with_mask_win95(int plane, const char *str, int length) {
+    text_with_mask_scaled(plane, str, length, 1);
+}
+
+/* Port addition: same as text_with_mask_win95 but replicates each glyph pixel
+ * into a scale x scale block. scale 1 is byte-identical to the original path. */
+void text_with_mask_scaled(int plane, const char *str, int length, int scale) {
     if (!str || !bitmap[plane]) return;
+    if (scale < 1) scale = 1;
     int limit = length ? length : 10000;
 
     char a_color = (char)a_pen_colour;
@@ -1192,19 +1209,20 @@ void text_with_mask_win95(int plane, const char *str, int length) {
 
         for (int cy = 0; cy < tx_h; cy++) {
             for (int cx = 0; cx < tx_w; cx++) {
-                int sx = px + cx;
-                int sy = py + cy;
-                if (sx < 0 || sx >= screen_width || sy < 0 || sy >= screen_height)
-                    continue;
-                int off = sy * hires_width + sx;
-                if (character_set[char_idx][cy * tx_w + cx] == '#')
-                    bitmap[plane][off] = a_color;
-                else
-                    bitmap[plane][off] = b_color;
-                if (mask_plane) mask_plane[off] = 0;
+                char col = (character_set[char_idx][cy * tx_w + cx] == '#')
+                         ? a_color : b_color;
+                for (int sy = py + cy * scale; sy < py + (cy + 1) * scale; sy++) {
+                    if (sy < 0 || sy >= screen_height) continue;
+                    for (int sx = px + cx * scale; sx < px + (cx + 1) * scale; sx++) {
+                        if (sx < 0 || sx >= screen_width) continue;
+                        int off = sy * hires_width + sx;
+                        bitmap[plane][off] = col;
+                        if (mask_plane) mask_plane[off] = 0;
+                    }
+                }
             }
         }
-        pen_position_x[plane] += tx_w;
+        pen_position_x[plane] += tx_w * scale;
     }
 }
 

@@ -147,6 +147,7 @@ void anti_aliased_text(int plane, const char *text, int length);
 int  convert_ascii(int ascii_code);
 void text_with_mask(int plane, const char *text, int length);
 void text_with_mask_win95(int plane, const char *text, int length);
+void text_with_mask_scaled(int plane, const char *text, int length, int scale);
 
 /* Rectangle fill */
 void rect_fill(int plane, int x, int y, int w, int h);

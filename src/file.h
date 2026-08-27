@@ -99,6 +99,10 @@ void read_textures(FILE *f);
 void open_read_file(const char *name);
 void open_read_file2(const char *name);
 void merge_a_file(const char *name, int quiet);
+
+/* Port-only preferences (ecstatica.cfg), separate from the save file. */
+void load_port_settings(void);
+void save_port_settings(void);
 void merge_a_file_no_message(const char *name, int quiet);
 void load_a_thing(int thing_index);
 void merge_sought_file(FILE *f, int quiet);

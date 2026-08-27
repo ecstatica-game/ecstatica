@@ -199,6 +199,7 @@ extern int16_t subtitle_length[20];
 extern int16_t subtitle_offset[20];
 extern int16_t subtitle_status[20];
 extern int16_t subtitle_colour[20];
+extern int16_t subtitle_scale;   /* 1 = original 6x8 font, 2 = double */
 extern int16_t graphic_flag[GRAPHICS_MAX];
 extern char *graphic_data[GRAPHICS_MAX];
 extern int16_t graphic_x[GRAPHICS_MAX];
