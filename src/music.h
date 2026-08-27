@@ -35,6 +35,16 @@ extern bool sound_is_on;
 extern bool music_on;
 extern bool sound_fx_on;
 extern bool subtitles_on;
+/* my_time() when in-flight audio finishes. Deliberately real time and not
+ * game_time: every check_*_loaded sets stop_the_clock, which zeroes that
+ * frame's delta, so game_time stalls through the file loading a scene does
+ * while the audio keeps playing. */
+extern int32_t sample_end_rt;
+
+/* my_time ticks per second (60 * clock()/100 for E1, 70 for E2), and the
+ * game_time rate, which is that x3 from `game_time += 3 * delta`. */
+#define MY_TIME_PER_SEC   ((game_version == GAME_VERSION_E1) ? 60 : 70)
+#define GAME_TIME_PER_SEC (MY_TIME_PER_SEC * 3)
 extern bool tune_playing;
 extern char *sound_storage;
 extern int32_t top_of_sound_data;

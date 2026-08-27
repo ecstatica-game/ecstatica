@@ -19,6 +19,11 @@ bool sound_is_on = false;
 bool music_on = false;
 bool sound_fx_on = false;
 bool subtitles_on = true;
+
+/* Port addition, for the "Match voice" subtitle hold. Every sample goes
+ * through start_playing_sample and plays non-looping, so its finish time is
+ * known the moment it starts. In game_time units. */
+int32_t sample_end_rt = 0;
 bool tune_playing = false;
 char *sound_storage = NULL;
 int32_t top_of_sound_data = 0;

@@ -885,12 +885,15 @@ void do_execute_code(code_t *code, actor_t *actor) {
             if (subtitles_on) {
                 int16_t volume = 127;
                 if (actor && actor != selected_thing && selected_thing) {
-                    int dx = actor->position_vector.X - selected_thing->position_vector.X;
-                    int dy = actor->position_vector.Y - selected_thing->position_vector.Y;
-                    int dz = actor->position_vector.Z - selected_thing->position_vector.Z;
-                    int dist = abs(dx);
-                    if (abs(dy) > dist) dist = abs(dy);
-                    if (abs(dz) > dist) dist = abs(dz);
+                    /* 0x44484D: true horizontal distance over X and Z via
+                     * find_direction_and_distance, not a max() over all three
+                     * axes — Y never takes part, so a speaker directly above
+                     * or below counted as far away and got muted out. */
+                    int16_t dir, dist16;
+                    find_direction_and_distance(&dir, &dist16,
+                        (int16_t)(actor->position_vector.X - selected_thing->position_vector.X),
+                        (int16_t)(actor->position_vector.Z - selected_thing->position_vector.Z));
+                    int dist = dist16;
                     if (actor->actor_scene != NULL) dist -= 1024;
                     if (dist < 0) dist = 0;
                     volume = (0x2000 - dist) >> 6;
@@ -904,6 +907,9 @@ void do_execute_code(code_t *code, actor_t *actor) {
                     subtitle_offset[sub_index] = (screen_width - 6 * name_length - 2) / 2;
                     subtitle_colour[sub_index] = 6;
                     subtitles_time = game_time;
+                    DBG_LOG(2, "[SUBT] post slot=%d len=%d game_time=%d rt=%d (drift %d)\n",
+                            (int)sub_index, (int)name_length, (int)game_time,
+                            (int)my_time(), (int)(my_time() - game_time / 3));
                 }
             }
             pc += (name_length + 1) / 2;

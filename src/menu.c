@@ -507,9 +507,12 @@ enum {
     SETT_SOUNDFX,
     SETT_SUBTITLES,
     SETT_SUBTITLE_SIZE,
+    SETT_SUBTITLE_HOLD,
     SETT_GRAPHICS,
     SETT_MAX
 };
+
+static const char *subtitle_hold_names[] = { "Original", "Long", "Match voice" };
 
 static void settings_get_value(int id, char *buf, int bufsz) {
     switch (id) {
@@ -532,6 +535,12 @@ static void settings_get_value(int id, char *buf, int bufsz) {
     case SETT_SUBTITLE_SIZE:
         snprintf(buf, bufsz, "%s", subtitle_scale >= 2 ? "Large" : "Normal");
         break;
+    case SETT_SUBTITLE_HOLD: {
+        int h = subtitle_hold;
+        if (h < 0) h = 0; if (h > 2) h = 2;
+        snprintf(buf, bufsz, "%s", subtitle_hold_names[h]);
+        break;
+    }
     case SETT_GRAPHICS:  snprintf(buf, bufsz, "%s", mode_svga ? "Enhanced" : "Original"); break;
     }
 }
@@ -569,6 +578,12 @@ static void settings_adjust(int id, int dir) {
         clear_subtitles = 1;
         save_port_settings();
         break;
+    case SETT_SUBTITLE_HOLD:
+        subtitle_hold += dir;
+        if (subtitle_hold < 0) subtitle_hold = 0;
+        if (subtitle_hold > 2) subtitle_hold = 2;
+        save_port_settings();
+        break;
     case SETT_GRAPHICS:
         set_enhanced_graphics(!mode_svga);
         break;
@@ -577,7 +592,7 @@ static void settings_adjust(int id, int dir) {
 
 static const char *settings_labels[] = {
     "Difficulty", "Language", "Music", "Sound FX", "Subtitles",
-    "Subtitle Size", "Graphics"
+    "Subtitle Size", "Subtitle Hold", "Graphics"
 };
 
 /* menu_do_settings_menu  E1: ? | E2P: 0x42B6F0 */
@@ -592,6 +607,7 @@ void do_settings_menu(void) {
     items[num_items++] = SETT_SOUNDFX;
     items[num_items++] = SETT_SUBTITLES;
     items[num_items++] = SETT_SUBTITLE_SIZE;
+    items[num_items++] = SETT_SUBTITLE_HOLD;
     if (hires_available)
         items[num_items++] = SETT_GRAPHICS;
 
