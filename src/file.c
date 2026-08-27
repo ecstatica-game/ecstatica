@@ -1578,6 +1578,10 @@ void load_port_settings(void) {
             if (value < 1) value = 1;
             if (value > 2) value = 2;
             subtitle_scale = (int16_t)value;
+        } else if (sscanf(line, "subtitle_hold = %d", &value) == 1) {
+            if (value < 0) value = 0;
+            if (value > 2) value = 2;
+            subtitle_hold = (int16_t)value;
         }
     }
     fclose(f);
@@ -1587,6 +1591,7 @@ void save_port_settings(void) {
     FILE *f = fopen(PORT_SETTINGS_FILE, "w");
     if (!f) return;
     fprintf(f, "subtitle_scale = %d\n", (int)subtitle_scale);
+    fprintf(f, "subtitle_hold = %d\n", (int)subtitle_hold);
     fclose(f);
 }
 

@@ -63,6 +63,13 @@ int main(int argc, char *argv[]) {
      * precede win_main_game() — that probes the archives for the version. */
     platform_early_init();
 
+    /* ECSTATICA_DEBUG=<n> raises the log level without a rebuild; the
+     * level-2 traces are the detailed ones. */
+    {
+        const char *lvl = getenv("ECSTATICA_DEBUG");
+        if (lvl && *lvl) debug_verbose = atoi(lvl);
+    }
+
     /* Fails harmlessly (leaving the log NULL) where the root is read-only. */
     debug_log_file = fopen("ecstatica_debug.log", "w");
     if (debug_log_file) {

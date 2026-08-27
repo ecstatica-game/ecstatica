@@ -81,6 +81,12 @@ int16_t subtitle_colour[20] = {0};
  * 640x480 subtitles read very small. 1 = original, 2 = double. */
 int16_t subtitle_scale = 1;
 
+/* Port addition. The original expires every caption 420 game-time units after
+ * it is posted (0x41D853) — a fixed ~2.33s with no reference to the line
+ * length or to the speech sample, so voiced lines outlast their text.
+ * 0 = original, 1 = 3x, 2 = hold for as long as the speech sample plays. */
+int16_t subtitle_hold = 0;
+
 int16_t graphic_flag[GRAPHICS_MAX] = {0};
 char *graphic_data[GRAPHICS_MAX] = {0};
 int16_t graphic_x[GRAPHICS_MAX] = {0};

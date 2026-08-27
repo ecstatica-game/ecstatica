@@ -542,7 +542,55 @@ void req_clear_subtitles(void) {
 void clear_expired_subtitles(void) {
     if (!subtitles_on) return;
 
-    if ((game_time - subtitles_time - 420) > 0)
+    /* Finish time of the speech this caption belongs to. Latched when the
+     * caption is posted rather than tracked continuously: a paragraph is one
+     * long sample with its lines posted over it, and the *next* paragraph
+     * starting would otherwise drag the previous line along with it — the
+     * line stayed up ~5s past its own audio.
+     *
+     * The grace window covers the reverse case, where a script posts the text
+     * slightly ahead of the sound event (seen at ~110 units), so the caption
+     * still adopts the sample that arrives just after it. */
+    const int32_t voice_grace_rt = 2 * MY_TIME_PER_SEC;
+    int32_t now_rt = my_time();
+
+    static int32_t caption_for = -1;
+    static int32_t caption_audio_end_rt = 0;
+    static int32_t caption_post_rt = 0;
+    if (caption_for != subtitles_time) {
+        caption_for = subtitles_time;
+        caption_audio_end_rt = sample_end_rt;
+        caption_post_rt = now_rt;
+    }
+    /* Grace window: a script can post the text slightly ahead of the sound
+     * event, so the caption still adopts a sample arriving just after it.
+     * Outside the window a later sample — the *next* paragraph — must not
+     * drag this line along with it. */
+    if (now_rt <= caption_post_rt + voice_grace_rt && sample_end_rt > caption_audio_end_rt)
+        caption_audio_end_rt = sample_end_rt;
+
+    /* 0x41D853 expires every caption SUBTITLE_HOLD_TICKS after it was posted,
+     * flat, with no reference to the speech — which is why a voiced line
+     * outlives its text. The longer settings are a port option. */
+    int32_t expire_at = subtitles_time + SUBTITLE_HOLD_TICKS;
+    if (subtitle_hold == 1)
+        expire_at = subtitles_time + SUBTITLE_HOLD_TICKS * 3;
+
+    int expired = (game_time - expire_at) > 0;
+
+    if (subtitle_hold >= 2) {
+        /* Match voice: a line is normally retired by the next CT_SUBTITLE
+         * (which sets clear_subtitles); this only decides the last line of a
+         * paragraph, which goes when its own audio stops. Compared in real
+         * time so a loading stall cannot cut it short. The cap is back in
+         * game_time and covers a sample that is missing or muted. */
+        if (now_rt < caption_audio_end_rt)
+            expired = 0;
+        if ((game_time - (subtitles_time + SUBTITLE_HOLD_TICKS * 8)) > 0)
+            expired = 1;
+    }
+
+    if (expired)
         clear_subtitles = 1;
 
     if (!clear_subtitles) return;
@@ -561,12 +609,23 @@ void clear_expired_subtitles(void) {
             actor->flags &= ~0x0800;
         }
 
+        DBG_LOG(2, "[SUBT] clear slot=%d game_time=%d posted=%d visible=%d units (%.2fs)\n",
+                i, (int)game_time, (int)subtitles_time,
+                (int)(game_time - subtitles_time),
+                (game_time - subtitles_time) / 3.0 /
+                    ((game_version == GAME_VERSION_E1) ? 60.0 : 70.0));
+
         clear_a_subtitle(i);
 
+        /* 0x41D925 retires the slot and blanks the rect, and deliberately
+         * leaves subtitle_text/subtitle_length alone. The port used to null
+         * them here, which destroyed a caption posted in this same frame:
+         * CT_SUBTITLE sets clear_subtitles and refills the slot, but the rect
+         * still belongs to the outgoing line, so the loop reaches it and wiped
+         * the incoming text before draw_subtitles ever saw it. Status stays 1
+         * for a fresh post, so only status 2 is retired. */
         if (subtitle_status[i] == 2)
             subtitle_status[i] = 0;
-        subtitle_text[i] = NULL;
-        subtitle_length[i] = 0;
         sub->left = sub->right = sub->top = sub->bottom = 0;
     }
     clear_subtitles = 0;

@@ -200,6 +200,8 @@ extern int16_t subtitle_offset[20];
 extern int16_t subtitle_status[20];
 extern int16_t subtitle_colour[20];
 extern int16_t subtitle_scale;   /* 1 = original 6x8 font, 2 = double */
+extern int16_t subtitle_hold;    /* 0 = original 420 units, 1 = 3x, 2 = match speech */
+#define SUBTITLE_HOLD_TICKS 420  /* 0x1A4 at 0x41D853 */
 extern int16_t graphic_flag[GRAPHICS_MAX];
 extern char *graphic_data[GRAPHICS_MAX];
 extern int16_t graphic_x[GRAPHICS_MAX];

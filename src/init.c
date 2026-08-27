@@ -327,6 +327,25 @@ void start_playing_sample(sound_t *sound, int loop, int volume) {
     if (!sound) return;
     if (sound->audio_ptr && sound->sound_length > 0) {
         sound->_time = game_time;
+
+        /* Track when audio currently in flight will have finished, so a
+         * subtitle can be held for as long as its speech lasts. A running
+         * maximum, not the latest sample: one spoken paragraph is a single
+         * long sample spanning several caption lines, and the footsteps and
+         * other short effects firing over it must not pull the finish time
+         * back. Values in the past are inert, so this needs no reset.
+         * Recorded even with SFX muted so the hold still scales with the
+         * line rather than snapping back to the flat 420 ticks. */
+        int rate = sound->sample_rate > 0 ? sound->sample_rate : 22050;
+        int32_t now_rt = my_time();
+        int32_t dur = (int32_t)(((int64_t)sound->sound_length * MY_TIME_PER_SEC) / rate);
+        if (now_rt + dur > sample_end_rt)
+            sample_end_rt = now_rt + dur;
+        DBG_LOG(2, "[SUBT] sample len=%d rate=%d -> %.2fs, rt=%d audio ends rt=%d (game_time %d)\n",
+                (int)sound->sound_length, rate,
+                (double)dur / MY_TIME_PER_SEC,
+                (int)now_rt, (int)sample_end_rt, (int)game_time);
+
         if (sound_driver) {
             play_sound_win95(sound, volume);
         }
