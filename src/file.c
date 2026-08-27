@@ -91,6 +91,12 @@ static const char *swappable_dirs[] = {
 static char alt_data_root[256] = "";
 int32_t enhanced_graphics = 0;
 
+/* Which of the two roots holds the 640x480 set.
+ *   1 — launched from the DOS bundle root, alt_data_root is its nested W/
+ *   0 — launched from inside W/, alt_data_root is the DOS bundle above it
+ * Only the search order depends on this; everything else is symmetric. */
+static int alt_root_is_enhanced = 1;
+
 /* Prefix applied to every otherwise-relative asset path. Empty on desktop,
  * where the game runs with the data directory as its working directory.
  * openfpgaOS has no per-process cwd — the platform layer mounts the data
@@ -305,8 +311,10 @@ static FILE *fopen_ci_root(const char *base, const char *path, const char *mode)
  * Swappable asset directories are searched across both data roots. */
 FILE *fopen_ci(const char *path, const char *mode) {
     if (is_swappable_asset(path)) {
-        const char *first = enhanced_graphics ? alt_data_root : "";
-        const char *second = enhanced_graphics ? "" : alt_data_root;
+        /* Consult the root that holds the requested resolution first. */
+        int prefer_alt = (enhanced_graphics != 0) == (alt_root_is_enhanced != 0);
+        const char *first = prefer_alt ? alt_data_root : "";
+        const char *second = prefer_alt ? "" : alt_data_root;
 
         FILE *f = fopen_ci_root(first, path, mode);
         if (f) return f;
@@ -316,24 +324,68 @@ FILE *fopen_ci(const char *path, const char *mode) {
     return fopen_ci_root("", path, mode);
 }
 
-/* Probe for a nested enhanced-data root (E1's W/). Called once at init,
- * before any asset load. */
+/* A directory is a bundle root if it carries its own database. */
+static int has_database(const char *base) {
+    char resolved[512];
+    if (!resolve_ci(base, "CODE/ECSTATIC.FAN", resolved, sizeof(resolved)))
+        return 0;
+    FILE *probe = fopen(resolved, "rb");
+    if (!probe) return 0;
+    fclose(probe);
+    return 1;
+}
+
+/* Pair up the two halves of an E1 install. Called once at init, before any
+ * asset load. Works from either side:
+ *
+ *   run from the DOS bundle root  -> alt root is the nested W/
+ *   run from inside W/            -> alt root is the DOS bundle above it
+ *
+ * Either way both resolutions are reachable and the graphics toggle has
+ * somewhere to switch to. */
 void init_data_roots(void) {
     alt_data_root[0] = '\0';
+    alt_root_is_enhanced = 1;
     enhanced_graphics = 0;
 
+    /* Forward: nested W/ holding the 640x480 set. */
     char resolved[512];
-    if (!resolve_ci("", "W/CODE/ECSTATIC.FAN", resolved, sizeof(resolved))) return;
+    if (resolve_ci("", "W/CODE/ECSTATIC.FAN", resolved, sizeof(resolved))) {
+        FILE *probe = fopen(resolved, "rb");
+        if (probe) {
+            fclose(probe);
+            /* Store the case-resolved W directory, not the literal "W". */
+            char *slash = strchr(resolved, '/');
+            if (slash) {
+                *slash = '\0';
+                snprintf(alt_data_root, sizeof(alt_data_root), "%s", resolved);
+                alt_root_is_enhanced = 1;
+                DBG_LOG(1, "[FILE] data roots: launch dir holds the 320x200 set, "
+                           "'%s' holds 640x480\n", alt_data_root);
+                return;
+            }
+        }
+    }
 
-    FILE *probe = fopen(resolved, "rb");
-    if (!probe) return;
-    fclose(probe);
+    /* Inverse: we are the W/ folder and the DOS bundle is our parent. Only
+     * accept it if the parent carries a database of its own — that is what
+     * distinguishes a bundle root from an arbitrary containing directory. */
+    char parent[256];
+    if (data_root[0])
+        snprintf(parent, sizeof(parent), "%s/..", data_root);
+    else
+        snprintf(parent, sizeof(parent), "..");
 
-    /* Store the case-resolved W directory, not the literal "W". */
-    char *slash = strchr(resolved, '/');
-    if (!slash) return;
-    *slash = '\0';
-    snprintf(alt_data_root, sizeof(alt_data_root), "%s", resolved);
+    if (!has_database(parent)) return;
+
+    /* Guard against pairing a directory with itself: the launch directory has
+     * to be a bundle half in its own right. */
+    if (!has_database("")) return;
+
+    snprintf(alt_data_root, sizeof(alt_data_root), "%s", parent);
+    alt_root_is_enhanced = 0;
+    DBG_LOG(1, "[FILE] data roots: launch dir holds the 640x480 set, "
+               "DOS bundle at '%s' holds 320x200\n", alt_data_root);
 }
 
 /* True when a HIRES background set resolves through either root. */
@@ -1507,6 +1559,36 @@ void load_a_repertoire(int rep_index) {
  *    map areas (-1), globals, cameras (150), ambients, settings,
  *    sentinel 0x1234.
  * ══════════════════════════════════════════════════════════════ */
+
+/* ── Port-only settings ──
+ * Preferences the original never had (it stores its own settings inside the
+ * save file, so anything kept there would reset on load). Plain text so it can
+ * be edited or deleted by hand; a missing or malformed file just leaves the
+ * defaults in place. */
+#define PORT_SETTINGS_FILE "ecstatica.cfg"
+
+void load_port_settings(void) {
+    FILE *f = fopen(PORT_SETTINGS_FILE, "r");
+    if (!f) return;
+
+    char line[128];
+    while (fgets(line, sizeof(line), f)) {
+        int value;
+        if (sscanf(line, "subtitle_scale = %d", &value) == 1) {
+            if (value < 1) value = 1;
+            if (value > 2) value = 2;
+            subtitle_scale = (int16_t)value;
+        }
+    }
+    fclose(f);
+}
+
+void save_port_settings(void) {
+    FILE *f = fopen(PORT_SETTINGS_FILE, "w");
+    if (!f) return;
+    fprintf(f, "subtitle_scale = %d\n", (int)subtitle_scale);
+    fclose(f);
+}
 
 /* Bump when appending to the save stream. Older files stay loadable as long
  * as new sections are appended after the sentinel and read version-gated. */

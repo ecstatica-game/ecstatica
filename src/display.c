@@ -77,6 +77,10 @@ int16_t subtitle_offset[20] = {0};
 int16_t subtitle_status[20] = {0};
 int16_t subtitle_colour[20] = {0};
 
+/* Port addition. The font is the original 6x8 cell sized for 320x200, so at
+ * 640x480 subtitles read very small. 1 = original, 2 = double. */
+int16_t subtitle_scale = 1;
+
 int16_t graphic_flag[GRAPHICS_MAX] = {0};
 char *graphic_data[GRAPHICS_MAX] = {0};
 int16_t graphic_x[GRAPHICS_MAX] = {0};
