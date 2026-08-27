@@ -238,6 +238,17 @@ void skip_to_matching_if_type(int16_t **pp) {
     }
 }
 
+/* _PartTab slots of the hero's hands. E1 is right=0 / left=1 — the port had
+ * these two swapped, so InRightHand/InLeftHand and the two HandFree tests all
+ * answered about the wrong hand and scene scripts called SwapHands when they
+ * should not have. */
+static int right_hand_part(void) {
+    return (game_version == GAME_VERSION_E1) ? E1_RIGHT_HAND_PART : E2_RIGHT_HAND_PART;
+}
+static int left_hand_part(void) {
+    return (game_version == GAME_VERSION_E1) ? E1_LEFT_HAND_PART : E2_LEFT_HAND_PART;
+}
+
 /* ── execute_boolean_44E810 ──
  * Evaluate a single boolean condition in the token stream.
  * Advances *pp past all consumed tokens and returns the result.
@@ -365,14 +376,15 @@ int execute_boolean(int16_t **pp, actor_t *actor) {
     }
     else if (token == CT_IN_RIGHT_HAND) {
         int16_t actor_index = get_value_from_token(tp[1]);
-        /* E1: right hand = part[1]; E2: right hand = part[8] */
-        int rh_idx = (game_version == GAME_VERSION_E1) ? 1 : 8;
         result = false;
         if (actor_index < THING_TAB_SIZE && selected_thing) {
-            part_t *part = selected_thing->_PartTab->field_0[rh_idx];
+            part_t *part = selected_thing->_PartTab->field_0[right_hand_part()];
             if (part) {
                 actor_t *held = part->actor_2_held;
-                if (held && actor_index == held->name_index)
+                /* 0x443710: a scene-bound held thing only counts while the
+                 * holder is itself in a scene. */
+                if (held && actor_index == held->name_index &&
+                    (!held->actor_scene || part->parent_actor->actor_scene))
                     result = true;
             }
         }
@@ -380,31 +392,32 @@ int execute_boolean(int16_t **pp, actor_t *actor) {
     }
     else if (token == CT_IN_LEFT_HAND) {
         int16_t actor_index = get_value_from_token(tp[1]);
-        /* E1: left hand = part[0]; E2: left hand = part[7] */
-        int lh_idx = (game_version == GAME_VERSION_E1) ? 0 : 7;
         result = false;
         if (actor_index < THING_TAB_SIZE && selected_thing) {
-            part_t *part = selected_thing->_PartTab->field_0[lh_idx];
+            part_t *part = selected_thing->_PartTab->field_0[left_hand_part()];
             if (part) {
                 actor_t *held = part->actor_2_held;
-                if (held && actor_index == held->name_index)
+                if (held && actor_index == held->name_index &&
+                    (!held->actor_scene || part->parent_actor->actor_scene))
                     result = true;
             }
         }
         tp += 2;
     }
     else if (token == CT_LEFT_HAND_FREE) {
-        int lh_idx = (game_version == GAME_VERSION_E1) ? 0 : 7;
-        result = true;
-        if (selected_thing && selected_thing->_PartTab->field_0[lh_idx])
-            result = selected_thing->_PartTab->field_0[lh_idx]->actor_2_held == NULL;
+        /* 0x443CC2: false when the hand part does not exist, not true. */
+        result = false;
+        if (selected_thing) {
+            part_t *part = selected_thing->_PartTab->field_0[left_hand_part()];
+            if (part)
+                result = part->actor_2_held == NULL;
+        }
         tp++;
     }
     else if (token == CT_RIGHT_HAND_FREE) {
-        int rh_idx = (game_version == GAME_VERSION_E1) ? 1 : 8;
         result = false;
         if (selected_thing) {
-            part_t *part = selected_thing->_PartTab->field_0[rh_idx];
+            part_t *part = selected_thing->_PartTab->field_0[right_hand_part()];
             if (part)
                 result = part->actor_2_held == NULL;
         }
@@ -1002,10 +1015,8 @@ void do_execute_code(code_t *code, actor_t *actor) {
 
         case CT_SWAP_HANDS:
             if (selected_thing && selected_thing->_PartTab) {
-                int rhi = (game_version == GAME_VERSION_E1) ? 1 : 8;
-                int lhi = (game_version == GAME_VERSION_E1) ? 0 : 7;
-                part_t *rh = selected_thing->_PartTab->field_0[rhi];
-                part_t *lh = selected_thing->_PartTab->field_0[lhi];
+                part_t *rh = selected_thing->_PartTab->field_0[right_hand_part()];
+                part_t *lh = selected_thing->_PartTab->field_0[left_hand_part()];
                 if (rh && lh) {
                     actor_t *tmp = rh->actor_2_held;
                     rh->actor_2_held = lh->actor_2_held;

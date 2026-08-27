@@ -2395,6 +2395,20 @@ void modify_part(event_t *event, actor_t *actor, int some_time, action_t *action
         set_vector(&part->def_position, event->param1, event->param2, event->param3);
         break;
     case INTERACT:
+        if (pickup_trace_on()) {
+            fprintf(stderr, "[PICK] INTERACT sub=%d ev_idx=%d p2=%d actor=%d act=%d "
+                            "-> part=%d '%s' | hands:",
+                    event->param1, event->event_index, event->param2,
+                    actor->name_index, action ? action->action_index : -1,
+                    part ? part->name_index : -1,
+                    part ? file_find_part_name_str(part->name_index) : "-");
+            for (part_t *hp = actor->actor_parts_list; hp; hp = hp->next_in_display_list)
+                if (hp->actor_2_held)
+                    fprintf(stderr, " part%d='%s'", hp->name_index,
+                            file_find_thing_name(hp->actor_2_held->name_index));
+            fprintf(stderr, "\n");
+            fflush(stderr);
+        }
         /* Interaction events dispatched by sub-type */
         switch (event->param1) {
         case 0: /* CheckPartHit */
