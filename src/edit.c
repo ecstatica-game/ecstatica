@@ -717,6 +717,10 @@ void advance_part(event_t *event, int16_t blend, actor_t *actor, action_t *actio
     if (event->event_index < 0) return;
 
     int event_type = event->event_type;
+
+    /* 0x425D26: same wind-forward gate as modify_part. */
+    if (suppress_events && !(event_type_flags[event_type] & EVENT_FLAGS_NO_SUPRESS))
+        return;
     part_t *work_part = NULL;
     point_t *work_point = NULL;
 
@@ -736,6 +740,9 @@ void advance_part(event_t *event, int16_t blend, actor_t *actor, action_t *actio
         } else {
             if (actor->_PartTab)
                 work_part = actor->_PartTab->field_0[event->event_index];
+            /* 0x425D99: E1 drops the event here; the redirect below is a port
+             * addition. See the matching note in modify_part. */
+            if (game_version == GAME_VERSION_E1 && !work_part) return;
             if (!work_part) {
                 if (!actor->part_heap_link) {
                     for (part_t *p = actor->actor_parts_list; p; p = p->next_in_display_list) {

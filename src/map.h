@@ -28,6 +28,8 @@ typedef struct map_area_element_s {
 extern uint16_t new_map[128][128];
 extern map_area_element_t map_elements[60000];
 extern int32_t top_of_map_elements;
+/* supress_events_469BF0 — set while an act is wound forward by complete_act */
+extern int16_t suppress_events;
 
 void check_view(int camera_index);
 void check_hot_spots(void);

@@ -26,8 +26,6 @@
 #include <strings.h>
 #endif
 
-static int16_t e1_pick_up_hand = 0;
-
 /* Walk/action diagnostics. Inert unless ECSTATICA_TRACE_WALK is set;
  * ECSTATICA_TRACE_WALK_ACTOR=<name_index> adds per-frame lines for one NPC. */
 static int walk_trace_on(void) {
@@ -56,6 +54,19 @@ static FILE *walk_trace_fp(void) {
 }
 #define WTRACE(...) do { \
     if (walk_trace_on()) { FILE *f_ = walk_trace_fp(); if (f_) { fprintf(f_, __VA_ARGS__); fflush(f_); } } \
+} while (0)
+
+/* Pick-up diagnostics. Inert unless ECSTATICA_TRACE_PICKUP is set. */
+static int pickup_trace_on(void) {
+    static int on = -1;
+    if (on < 0) {
+        const char *e = getenv("ECSTATICA_TRACE_PICKUP");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    return on;
+}
+#define PTRACE(...) do { \
+    if (pickup_trace_on()) { fprintf(stderr, __VA_ARGS__); fflush(stderr); } \
 } while (0)
 
 static int action_has_hit_event(action_t *action) {
@@ -1205,37 +1216,21 @@ have_target:
             } else if (keys_pressed[42]) {
                 next_move = key_up ? 2 : 0;
             } else if (extra_keys_pressed[79]) {
-                e1_pick_up_hand = 1;
                 next_move = actor->move_type;
-                if (next_move < 36 || next_move > 40 || (actor->flags & 0x40)) {
-                    part_t *hand = actor->_PartTab->field_0[1];
-                    if (hand && hand->actor_2_held)
-                        next_move = 4 + 36;
-                    else
-                        next_move = look_for_pick_up(actor) + 36;
-                }
+                if (next_move < 36 || next_move > 40 || (actor->flags & 0x40))
+                    next_move = look_for_pick_up_e1(actor->_PartTab->field_0[1]) + 36;
             } else if (key_down) {
                 next_move = 7;
             } else if (extra_keys_pressed[81]) {
-                e1_pick_up_hand = 0;
                 next_move = actor->move_type;
-                if (next_move < 41 || next_move > 45 || (actor->flags & 0x40)) {
-                    part_t *hand = actor->_PartTab->field_0[0];
-                    if (hand && hand->actor_2_held)
-                        next_move = 4 + 41;
-                    else
-                        next_move = look_for_pick_up(actor) + 41;
-                }
+                if (next_move < 41 || next_move > 45 || (actor->flags & 0x40))
+                    next_move = look_for_pick_up_e1(actor->_PartTab->field_0[0]) + 41;
             } else if (space_pressed) {
-                e1_pick_up_hand = 0;
+                /* Not in the original (numpad-only there); mirrors the key 79
+                 * branch, so it must use the part that owns slots 36..40. */
                 next_move = actor->move_type;
-                if (next_move < 36 || next_move > 40 || (actor->flags & 0x40)) {
-                    part_t *hand = actor->_PartTab->field_0[0];
-                    if (hand && hand->actor_2_held)
-                        next_move = 4 + 36;
-                    else
-                        next_move = look_for_pick_up(actor) + 36;
-                }
+                if (next_move < 36 || next_move > 40 || (actor->flags & 0x40))
+                    next_move = look_for_pick_up_e1(actor->_PartTab->field_0[1]) + 36;
             }
         } else {
             /* E2: ctrl toggles run (uses different direction slots) */
@@ -2042,6 +2037,14 @@ void modify_part(event_t *event, actor_t *actor, int some_time, action_t *action
     if (!event) return;
 
     int16_t et_flags = event_type_flags[event->event_type];
+
+    /* 0x425000: while an act is being wound forward to its end state
+     * (complete_act during scene setup / swap-in), only events flagged
+     * NO_SUPRESS are applied — pose data. Everything else, INTERACT above all,
+     * must not fire. The port had the flag in the table and the writes in
+     * map.c but nothing ever read them, so a scene's pick-ups, put-downs and
+     * HoldThingWithPart all fired during setup. */
+    if (suppress_events && !(et_flags & EVENT_FLAGS_NO_SUPRESS)) return;
     if (event->event_type == INTERACT)
         WTRACE("MP INTERACT actor=%d act=%d etflags=%04x ev_idx=%d p1=%d p2=%d parttab=%p\n",
                actor ? actor->name_index : -1,
@@ -2094,6 +2097,14 @@ void modify_part(event_t *event, actor_t *actor, int some_time, action_t *action
         } else {
             if (actor->_PartTab)
                 part = actor->_PartTab->field_0[event->event_index];
+            /* 0x425075..0x4250D5: E1 has no fallback here at all — if the
+             * owning actor has no part with this index the event is dropped.
+             * The redirect below (part_heap_link, then a search of every held
+             * object) is a port addition: it hands events meant for a part the
+             * actor does not own to whatever it happens to be holding. That is
+             * what rewrote part 76 of the held book, and what lets a scene
+             * script aimed at one held item land on another. */
+            if (game_version == GAME_VERSION_E1 && !part) return;
             if (!part) {
                 if (actor->part_heap_link) {
                     actor = actor->part_heap_link->parent_actor;
@@ -2117,8 +2128,7 @@ void modify_part(event_t *event, actor_t *actor, int some_time, action_t *action
                         actor = part->parent_actor;
                         /* ECSTATICA_TRACE_REDIRECT=1: the owning actor has no part
                          * with this index, so the event lands on a held object
-                         * instead. Faithful to 0x42B8C8, but if the owner is
-                         * supposed to have that part it means the part is missing. */
+                         * instead. E2-only; E1 returns above. */
                         static int on = -1, n = 0;
                         if (on < 0) {
                             const char *e = getenv("ECSTATICA_TRACE_REDIRECT");
@@ -2401,13 +2411,36 @@ void modify_part(event_t *event, actor_t *actor, int some_time, action_t *action
         case 3: /* HoldThingWithPart */ {
             if (!part) break;
             actor_t *a = thing_tab[event->param2];
+            PTRACE("[PICK] HoldThingWithPart part=%d '%s' actor=%d thing=%d '%s' "
+                   "prev_held=%d\n",
+                   part->name_index, file_find_part_name_str(part->name_index),
+                   part->parent_actor->name_index, (int)event->param2,
+                   a ? file_find_thing_name(a->name_index) : "-",
+                   part->actor_2_held ? part->actor_2_held->name_index : -1);
             if (a) {
+                /* 0x425A64: whatever this part was already holding is released
+                 * properly first, otherwise the old thing keeps a live
+                 * part_heap_link and stays glued to the hand. */
+                if (game_version == GAME_VERSION_E1 &&
+                    part->actor_2_held && part->actor_2_held != a) {
+                    part_t *p = part;
+                    while (p->holding_actor) {
+                        ((part_t *)p->holding_actor)->next_in_path = p;
+                        p = (part_t *)p->holding_actor;
+                    }
+                    part->next_in_path = NULL;
+                    find_positions_on_path(part->parent_actor);
+                    hold_thing_with_part(part->actor_2_held, part);
+                    part->actor_2_held->part_heap_link = NULL;
+                }
                 if (a->part_heap_link) {
                     ((part_t *)a->part_heap_link)->actor_2_held = NULL;
                 }
                 part->actor_2_held = a;
                 a->part_heap_link = part;
             }
+            if (game_version == GAME_VERSION_E1 && selected_thing == part->parent_actor)
+                update_game_icons();
             break;
         }
         case 4: /* ExecutePartCode */
@@ -2968,6 +3001,25 @@ void see_if_anything_hit(part_t *part, int16_t hit_param) {
     }
 }
 
+/* move_look_for_pick_up_427128 — the E1 entry point takes the hand PART, not the
+ * actor, and answers 4 (the put-down slot) when that hand is absent or already
+ * holding something. The return value is a repertoire slot offset, so getting it
+ * wrong animates one arm while the held-object link moves on another. */
+int look_for_pick_up_e1(part_t *hand) {
+    if (!hand) {
+        PTRACE("[PICK] hand=NULL -> 4\n");
+        return 4;
+    }
+    if (hand->actor_2_held) {
+        PTRACE("[PICK] hand part=%d already holds thing=%d -> 4\n",
+               hand->name_index, hand->actor_2_held->name_index);
+        return 4;
+    }
+    int r = look_for_pick_up(hand->parent_actor);
+    PTRACE("[PICK] hand part=%d -> %d\n", hand->name_index, r);
+    return r;
+}
+
 /* move_look_for_pick_up_42DC9C (E2) / 427128 (E1) — find a pickable item in front of actor */
 int look_for_pick_up(actor_t *actor) {
     if (!actor) return 3;
@@ -2988,7 +3040,10 @@ int look_for_pick_up(actor_t *actor) {
     for (actor_t *t = root_thing; t; t = t->next_in_display_list) {
         if (!(t->flags & 0x20)) continue;  /* CanBePickedUp */
         if (t == actor) continue;
-        if (t->part_heap_link || !t->actor_parts_list) continue;
+        if (t->part_heap_link) continue;
+        /* E1 works off position_vector only and has no such guard; E2
+         * dereferences actor_parts_list below. */
+        if (game_version != GAME_VERSION_E1 && !t->actor_parts_list) continue;
 
         int16_t rel_x = t->position_vector.X - target_x;
         int ax = rel_x <= 0 ? -rel_x : rel_x;
@@ -2997,6 +3052,13 @@ int look_for_pick_up(actor_t *actor) {
         int16_t rel_z = t->position_vector.Z - target_z;
         int az = rel_z <= 0 ? -rel_z : rel_z;
         if (az > pre_filter) continue;
+
+        PTRACE("[PICK]   cand thing=%d '%s' flags=%04x parts=%s pos=(%d,%d,%d) "
+               "rel=(%d,%d)\n",
+               t->name_index, file_find_thing_name(t->name_index), t->flags,
+               t->actor_parts_list ? "yes" : "NO",
+               t->position_vector.X, t->position_vector.Y, t->position_vector.Z,
+               rel_x, rel_z);
 
         int16_t dir, dist;
         find_direction_and_distance(&dir, &dist, rel_x, rel_z);
@@ -3021,16 +3083,17 @@ int look_for_pick_up(actor_t *actor) {
     }
 
     actor->target_actor = found_thing;
+    PTRACE("[PICK] actor=%d box=%d fwd=(%d,%d) chose thing=%d '%s' dist=%d height=%d\n",
+           actor->name_index, actor->actor_box_size, target_x, target_z,
+           found_thing ? found_thing->name_index : -1,
+           found_thing ? file_find_thing_name(found_thing->name_index) : "-",
+           best_dist, found_height);
     if (!found_thing)
         return 3;  /* PickUp_Nothing */
 
     if (game_version == GAME_VERSION_E1) {
+        /* 0x4272C4: no dead-actor branch here, only 0/1/2. */
         int bs = actor->actor_box_size;
-        if (found_thing->flags & 4) {
-            if (found_height < -bs) return 5;
-            if (found_height <= bs) return 6;
-            return 7;
-        }
         if (found_height < -bs) return 0;
         if (found_height <= bs) return 1;
         return 2;
@@ -3609,9 +3672,6 @@ void check_part_hit(part_t *part, int16_t hit_param) {
 
 /* move_check_pick_up  E1: 0x427308 | E2: 0x42DE2C */
 void check_pick_up(part_t *part, int16_t param) {
-    if (game_version == GAME_VERSION_E1)
-        e1_pick_up_hand = 0;
-
     /* Walk holding_actor chain, set next_in_path */
     part_t *p = part;
     while (p->holding_actor) {
@@ -3623,6 +3683,13 @@ void check_pick_up(part_t *part, int16_t param) {
     find_positions_on_path(part->parent_actor);
 
     actor_t *target = part->parent_actor->target_actor;
+    PTRACE("[PICK] CheckPickUp part=%d '%s' actor=%d param=%d target=%d '%s' "
+           "already_held=%d\n",
+           part->name_index, file_find_part_name_str(part->name_index),
+           part->parent_actor->name_index, (int)param,
+           target ? target->name_index : -1,
+           target ? file_find_thing_name(target->name_index) : "-",
+           part->actor_2_held ? part->actor_2_held->name_index : -1);
     if (!target) return;
 
     int16_t dir, dist;
@@ -3661,8 +3728,13 @@ void check_pick_up(part_t *part, int16_t param) {
     target->part_heap_link = part;
 
     if (game_version == GAME_VERSION_E1) {
-        if (param && param < CODE_TAB_SIZE && code_tab[param])
-            execute_code_with_part(code_tab[param], target, part);
+        /* 0x4273E6 indexes dword_4EBCBC, which is code_tab_4EBCC0 - 4, so the
+         * slot is param-1; the same event's error path names code param-1 too.
+         * The code runs with no actor and no part (execute_code at 0x443D1C
+         * zeroes both). */
+        int16_t code_idx = (int16_t)(param - 1);
+        if (param && code_idx >= 0 && code_idx < CODE_TAB_SIZE && code_tab[code_idx])
+            execute_code(code_tab[code_idx], NULL);
     } else {
         int16_t code_id = target->picked_up_code;
         if (code_id >= 0 && code_id < CODE_TAB_SIZE && code_tab[code_id])
@@ -3683,6 +3755,11 @@ void check_pick_up(part_t *part, int16_t param) {
 /* move_check_put_down  E1: 0x42706C | E2: 0x42DAE8 */
 void check_put_down(part_t *part, int flags) {
     actor_t *held = part->actor_2_held;
+    PTRACE("[PICK] CheckPutDown part=%d '%s' actor=%d flags=%d held=%d '%s'\n",
+           part->name_index, file_find_part_name_str(part->name_index),
+           part->parent_actor->name_index, flags,
+           held ? held->name_index : -1,
+           held ? file_find_thing_name(held->name_index) : "-");
     if (!held) return;
 
     /* Walk holding_actor chain */

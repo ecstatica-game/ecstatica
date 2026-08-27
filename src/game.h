@@ -313,7 +313,6 @@ int  execute_boolean(int16_t **pp, actor_t *actor);
 void execute_code(code_t *code, actor_t *actor);
 void execute_thing_code(actor_t *actor, int16_t code_index);
 void execute_part_code(part_t *part, int16_t code_index);
-void execute_code_with_part(code_t *code, actor_t *actor, part_t *part);
 void execute_sub_obj_code(void);
 void do_execute_code(code_t *code, actor_t *actor);
 void tokenize_code(code_t *code);
@@ -339,7 +338,7 @@ void check_actors_in_scene_loaded(scene_t *scene);
 void check_scene_loaded(int16_t scene_index);
 int  check_scene_ok_to_start(scene_t *scene);
 void start_scene(scene_t *scene);
-int  check_texture_loaded(const char *name);
+void check_texture_loaded(int16_t texture_index);
 
 /* Graphics subsystem */
 void init_graphics(void);
