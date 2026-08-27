@@ -251,7 +251,12 @@ void tri_line_win95(int draw_height, int draw_data, int draw_height_bias,
         mask_ptr += screen_width;
         draw_height += draw_height_bias;
         draw_data -= 256;
-    } while (draw_data > 0);
+        /* `sub ecx,100h / jge` — the count lives in the high bits and the low
+         * byte is the colour, so the original keeps going while the whole
+         * packed value is >= 0. With `> 0` the final pixel of every column is
+         * dropped whenever the colour byte is 0, leaving a hairline gap along
+         * the bottom edge of the span. */
+    } while (draw_data >= 0);
 }
 
 /*
@@ -403,7 +408,10 @@ void tex_tri_line_win95(int draw_height, int draw_data, int draw_height_bias,
         tex_u += tex_du;
         tex_v += tex_dv;
         draw_data -= 256;
-    } while (draw_data > 0);
+        /* 0x44FA4A: same `jge`. Here the original even clobbers the low byte
+         * with the sampled texel each pixel, which is harmless precisely
+         * because any 0..255 low byte still compares >= 0. */
+    } while (draw_data >= 0);
 }
 
 /* These were direct VGA register manipulations — no-ops in software renderer */
