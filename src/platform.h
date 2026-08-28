@@ -283,15 +283,19 @@ int platform_midi_play(const void *smf_data, int length, bool loop);
  */
 void platform_midi_stop(void);
 
-/**
- * Set master SFX volume (0.0 = silent, 1.0 = full).
- */
-void platform_set_sfx_volume(float vol);
+/* Volumes are 0..255, matching the engine's own scale, so no floating point
+ * crosses this interface. Backends that mix in float convert at the boundary.
+ * The DOS target has no FPU to assume. */
 
 /**
- * Set master music volume (0.0 = silent, 1.0 = full).
+ * Set master SFX volume (0 = silent, 255 = full).
  */
-void platform_set_music_volume(float vol);
+void platform_set_sfx_volume(int vol);
+
+/**
+ * Set master music volume (0 = silent, 255 = full).
+ */
+void platform_set_music_volume(int vol);
 
 /* ── Platform capabilities ────────────────────────────────────
  * Things the engine needs that differ per platform but must not be spelled

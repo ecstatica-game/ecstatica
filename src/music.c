@@ -457,7 +457,7 @@ void set_sound_volume(int volume) {
     sound_volume = volume;
     if (sound_volume < 0) sound_volume = 0;
     if (sound_volume > 255) sound_volume = 255;
-    platform_set_sfx_volume(sound_volume / 255.0f);
+    platform_set_sfx_volume(sound_volume);
 }
 
 /* music_set_music_volume  E1: ? | E2P: 0x430CB0 */
@@ -465,7 +465,7 @@ void set_music_volume(int volume) {
     music_volume = volume;
     if (music_volume < 0) music_volume = 0;
     if (music_volume > 255) music_volume = 255;
-    platform_set_music_volume(music_volume / 255.0f);
+    platform_set_music_volume(music_volume);
 }
 
 /* music_play_sound_3d  E1: ? | E2P: 0x430D80 */

@@ -16,12 +16,10 @@
 #include "init.h"
 #include "menu.h"
 #include "platform.h"
+#include "compat.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
-#ifndef _WIN32
-#include <unistd.h>
-#endif
 
 void *hwnd = NULL;
 bool app_active = true;
@@ -95,7 +93,7 @@ void present_delay(int ms) {
  */
 void window_proc(void) {
     if (!platform_pump_events(g_platform)) {
-        _exit(0);
+        ecs_exit_now(0);
     }
 
     /* Map platform key states (PKEY scancodes) to game globals.

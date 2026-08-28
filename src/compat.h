@@ -6,6 +6,29 @@
 #define M_PI 3.14159265358979323846
 #endif
 
+/* Case-insensitive compare. POSIX spells it strcasecmp in <strings.h>; every
+ * other toolchain here has the same function under a different name. Engine
+ * code includes compat.h and calls the POSIX spelling — no <strings.h> in the
+ * translation units themselves, because Open Watcom has no such header. */
+#if defined(__WATCOMC__)
+#include <string.h>
+#define strcasecmp  stricmp
+#define strncasecmp strnicmp
+#elif !defined(_WIN32)
+#include <strings.h>
+#endif
+
+/* Immediate termination, no atexit handlers and no stdio flush — used from the
+ * crash handler, where running more code is exactly what must not happen.
+ * POSIX and Watcom both have _exit; MSVC spells it _exit too, via <stdlib.h>. */
+#include <stdlib.h>
+#if defined(_WIN32) || defined(__WATCOMC__)
+#define ecs_exit_now(code) _exit(code)
+#else
+#include <unistd.h>
+#define ecs_exit_now(code) _exit(code)
+#endif
+
 /* POSIX string case-compare on Windows */
 #ifdef _WIN32
 #include <string.h>

@@ -729,14 +729,14 @@ void platform_midi_stop(void) {
     }
 }
 
-void platform_set_sfx_volume(float vol) {
-    if (vol < 0.0f) vol = 0.0f;
-    if (vol > 1.0f) vol = 1.0f;
-    s_master_sfx_volume = vol;
+void platform_set_sfx_volume(int vol) {
+    if (vol < 0) vol = 0;
+    if (vol > 255) vol = 255;
+    s_master_sfx_volume = (float)vol / 255.0f;
 }
 
-void platform_set_music_volume(float vol) {
-    if (vol < 0.0f) vol = 0.0f;
-    if (vol > 1.0f) vol = 1.0f;
-    s_master_music_volume = vol;
+void platform_set_music_volume(int vol) {
+    if (vol < 0) vol = 0;
+    if (vol > 255) vol = 255;
+    s_master_music_volume = (float)vol / 255.0f;
 }

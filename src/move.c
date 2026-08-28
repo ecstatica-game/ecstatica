@@ -23,7 +23,6 @@
 #include <stdlib.h>
 #include "compat.h"
 #ifndef _WIN32
-#include <strings.h>
 #endif
 
 /* Walk/action diagnostics. Inert unless ECSTATICA_TRACE_WALK is set;
