@@ -33,6 +33,11 @@ int hires_data_available(void);
  * before any asset load; desktop builds leave it empty. */
 void file_set_data_root(const char *root);
 
+/* True when `dir` holds a game database (CODE/ECSTATIC.FAN, case-insensitive).
+ * Pass "" for the working directory. Used by the platform layer to find the
+ * game folder before anything is loaded. */
+int file_dir_has_database(const char *dir);
+
 /* Drop the cached directory listings used by the case-resolving path walk.
  * Asset roots are read-only once mounted, so this is only needed if a root is
  * swapped underneath a running game. */

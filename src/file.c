@@ -335,6 +335,13 @@ static int has_database(const char *base) {
     return 1;
 }
 
+/* Same probe, for the platform layer's data-directory search. A candidate
+ * counts as the game folder if the database is there — the E1 W/ pairing is
+ * worked out afterwards, by init_data_roots, once the cwd is settled. */
+int file_dir_has_database(const char *dir) {
+    return has_database(dir ? dir : "");
+}
+
 /* Pair up the two halves of an E1 install. Called once at init, before any
  * asset load. Works from either side:
  *
