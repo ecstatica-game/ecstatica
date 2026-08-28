@@ -50,7 +50,8 @@ int main(int argc, char *argv[]) {
             viewer_mode = VIEWER_SCENES;
     }
     signal(SIGSEGV, crash_handler);
-#ifndef _WIN32
+    /* SIGBUS is POSIX; neither Win32 nor DOS defines it. */
+#ifdef SIGBUS
     signal(SIGBUS, crash_handler);
 #endif
     signal(SIGABRT, crash_handler);

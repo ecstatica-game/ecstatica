@@ -369,11 +369,14 @@ void do_update_position(actor_t *actor, vector_t *increment) {
 
     if (game_version == GAME_VERSION_E1) {
         /* E1 treats every probe alike: any height delta over 256 blocks. */
-        const int16_t probe_dirs[5] = {
-            direction,
-            (int16_t)(direction + 0x1000), (int16_t)(direction - 0x1000),
-            (int16_t)(direction + 0x3000), (int16_t)(direction - 0x3000),
-        };
+        /* Assigned, not initialised: the values are runtime expressions, and
+         * Open Watcom only accepts constant aggregate initialisers. */
+        int16_t probe_dirs[5];
+        probe_dirs[0] = direction;
+        probe_dirs[1] = (int16_t)(direction + 0x1000);
+        probe_dirs[2] = (int16_t)(direction - 0x1000);
+        probe_dirs[3] = (int16_t)(direction + 0x3000);
+        probe_dirs[4] = (int16_t)(direction - 0x3000);
         for (int i = 0; i < 5; i++) {
             PROBE_SET(probe_dirs[i]);
             h = find_height_now_material(&probe_pos, actor, 0);

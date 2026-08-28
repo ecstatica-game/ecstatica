@@ -5,8 +5,9 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-/* UNUSED_ATTR: suppress unused-variable/function warnings portably */
-#ifdef _MSC_VER
+/* UNUSED_ATTR: suppress unused-variable/function warnings portably.
+ * Open Watcom has no __attribute__. */
+#if defined(_MSC_VER) || defined(__WATCOMC__)
 #  define UNUSED_ATTR
 #else
 #  define UNUSED_ATTR __attribute__((unused))
@@ -180,6 +181,7 @@ static inline void set_vector(vector_t *v, int16_t x, int16_t y, int16_t z) {
     v->X = x; v->Y = y; v->Z = z;
 }
 
+
 #pragma pack(push, 1)
 typedef struct long_vector_s {
     int32_t l_X;
@@ -195,6 +197,14 @@ typedef struct palette_entry_s {
     uint8_t B;
 } palette_entry_t;  /* 3 bytes */
 #pragma pack(pop)
+
+/* Stands in for the (palette_entry_t){r,g,b} compound literal, which Open
+ * Watcom does not accept. */
+static inline palette_entry_t pal_rgb(uint8_t r, uint8_t g, uint8_t b) {
+    palette_entry_t p;
+    p.R = r; p.G = g; p.B = b;
+    return p;
+}
 
 #pragma pack(push, 1)
 typedef struct subarea_s {
