@@ -367,15 +367,43 @@ So the dumps measure per-binary determinism only. Any cross-build `cmp` verdict
 made this way, including several recorded earlier in this document's history,
 do not support the conclusions drawn from them.
 
-That the rendered output depends on binary layout at all points at an
-uninitialised read somewhere in the render or scene-setup path: same source,
-same logical state, different memory contents. AddressSanitizer over the full
-boot-to-frame-800 sequence reports nothing, which fits — ASan catches
-out-of-bounds and use-after-free, not reads of uninitialised memory. That needs
-MemorySanitizer, which is not available on macOS; a Linux MSan run is the
-obvious next move, and finding that bug is worth more than any of the
-performance work here, because it is what is standing between this project and
-a usable regression test.
+### The underlying bug: an uninitialised heap read
+
+Chasing the above landed on a real defect, not yet located. The experiments, so
+the next person does not repeat them:
+
+| Experiment | Result |
+|---|---|
+| Same binary, two runs | **identical** — per-binary determinism holds |
+| Two clean builds, identical source, different build dir | **differs** from frame 2 |
+| `-ftrivial-auto-var-init=zero` on both builds | still **differs** — so not uninitialised *stack* |
+| AddressSanitizer, full boot → frame 800 | **clean** — no OOB, no use-after-free |
+| Same binary, `MallocPreScribble=1` vs plain | **differs** |
+| Same binary, `MallocPreScribble=1` twice | **differs from itself** |
+
+The last two are the informative pair. Plain runs are reproducible only because
+fresh pages from the OS are always zero; under `MallocPreScribble` the same
+reads land on recycled blocks whose contents depend on allocation history, and
+reproducibility collapses. That is the signature of **reading uninitialised heap**.
+ASan finding nothing is consistent — it does not cover uninitialised memory.
+
+Three raw `malloc` sites were found and zeroed (`anim.c` `add_ellipse`,
+`topo.c` `load_raw_graphic`, `music.c` SMF buffer — see the commit). Each was a
+genuine defect: `add_ellipse` returned storage with `field_6/8/A` and `next`
+unset when `ADD_ELLIPSE_TO_KEY_EVT` never arrives, and `load_raw_graphic` left
+the tail of a *pixel buffer* unwritten on a short read. **They were not the
+cause** — the scribble test still fails after fixing them, so at least one more
+uninitialised read remains.
+
+Remaining candidates not yet cleared, all unchecked `fread` returns into
+`malloc`ed buffers: `file.c:919` (the offsets table — a short read there would
+feed garbage seek offsets into archive loading) and `file.c:2284`. Neither bites
+on intact data files, which may be why this survived.
+
+**Next step: run MSan on Linux.** It reports the exact read, and this is worth
+more than any performance item in this document — it is what stands between the
+project and a usable regression test. macOS has no MSan, which is why it was not
+run here.
 
 Until then, treat behavioural verification as **unsolved**. Changes have to be
 argued from the code — that a transformation is provably value-preserving —

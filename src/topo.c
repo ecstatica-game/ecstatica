@@ -744,7 +744,10 @@ char *load_raw_graphic(const char *source, int *size_x, int *size_y) {
     *size_x = sx;
     *size_y = sy;
 
-    char *result = (char *)malloc(*size_y * *size_x);
+    /* Zeroed: a short or truncated file leaves the tail of the buffer
+     * untouched, and this buffer is pixel data that goes straight to the
+     * screen. Reading it raw makes the image depend on heap contents. */
+    char *result = (char *)calloc(1, (size_t)*size_y * (size_t)*size_x);
     if (!result) quit("Not enough memory for Graphic");
 
     fread(result, 1, *size_y * *size_x, stream);

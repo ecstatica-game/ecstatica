@@ -37,7 +37,11 @@ void add_ellipse_to_key(ellipse_t *new_ellipse, key_state_t *key) {
  * Allocates a new ellipse_t.
  */
 ellipse_t *add_ellipse(void) {
-    ellipse_t *new_ellipse = (ellipse_t *)malloc(sizeof(ellipse_t));
+    /* Zeroed, not raw: the ADD_ELLIPSE_EVT handler (file.c:3413) fills only
+     * field_0/2/4/C, and field_6/8/A arrive later with ADD_ELLIPSE_TO_KEY_EVT
+     * — which may never come. Every other pool in the engine hands out cleared
+     * storage; this one did not. */
+    ellipse_t *new_ellipse = (ellipse_t *)calloc(1, sizeof(ellipse_t));
     if (!new_ellipse) {
         beep_message("Out of memory!");
         return NULL;
