@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file.
 
 ### Added
 - Enhanced menu: port-only options (graphics set, subtitle size, subtitle hold) moved out of Settings into their own main-menu entry. The graphics toggle only appears for E1.
+- Data folder is searched beyond the working directory — `ECSTATICA_DATA`, the folder next to the AppImage, the launch directory, then the executable's folder — so an AppImage or desktop shortcut finds the game files. Failing that, the game says so on stderr and exits 2 instead of quitting silently.
 
 ### Changed
 - Subtitles keep their original layout and timing in the original 320x200 mode: no scaling, block anchored at the top of the screen, original hold.

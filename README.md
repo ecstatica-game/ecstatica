@@ -141,6 +141,16 @@ Game data is not committed. Place original game files under `data/`:
 
 `.FAN` archives hold game resources (actors, graphics, scripts).
 
+Assets are read relative to the working directory, so the game normally runs
+from the folder holding them. When it is launched from somewhere else — an
+AppImage, a `.desktop` entry, a Steam shortcut — it also looks for the folder
+next to the AppImage, in the launch directory, and beside the executable.
+`ECSTATICA_DATA` overrides all of them:
+
+```bash
+ECSTATICA_DATA=/path/to/ecstatica2 ./ecstatica-linux-x86_64.AppImage
+```
+
 ## Debug
 
 * `DBG_LOG(level, ...)` — `1` = errors/warnings only, `2` = verbose tracing
