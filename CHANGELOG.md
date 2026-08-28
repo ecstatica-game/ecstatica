@@ -5,14 +5,24 @@ All notable changes to this project are documented in this file.
 ## [Unreleased]
 
 ### Added
+- Enhanced menu: port-only options (graphics set, subtitle size, subtitle hold) moved out of Settings into their own main-menu entry. The graphics toggle only appears for E1.
+
+### Changed
+- Subtitles keep their original layout and timing in the original 320x200 mode: no scaling, block anchored at the top of the screen, original hold.
+- ESC opens the menu during the intro instead of only after it. Intro skipping stays on space/enter; saving is refused while the intro runs.
+
+## [0.4.0] - 2026-08-27
+
+### Added
 - Analogue Pocket / MiSTer port targeting openfpgaOS via the openfpgaSDK (`pocket/`).
 - Model and animation viewer (`--viewer`) and scripted-scene browser (`--scenes`).
+- This changelog.
 
 ### Fixed
 - Edge rasterizer bleeding on polygon boundaries.
 - Hand swapping corrupting script state during object interaction.
 - Object grabbing accuracy and held-object placement.
-- Gamepad handling and DOS-version speech playback.
+- Steam Deck / Steam Machine gamepad handling and DOS-version speech playback.
 - Subtitle rendering and enhanced-mode visuals.
 
 ## [0.3.1] - 2026-08-17
@@ -77,7 +87,8 @@ All notable changes to this project are documented in this file.
 ### Added
 - Initial public release: C99 reimplementation of Ecstatica 1 & 2 with macOS, Linux, and Windows platform layers.
 
-[Unreleased]: https://github.com/ecstatica-game/ecstatica/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/ecstatica-game/ecstatica/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/ecstatica-game/ecstatica/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/ecstatica-game/ecstatica/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/ecstatica-game/ecstatica/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/ecstatica-game/ecstatica/compare/v0.2.0...v0.2.1

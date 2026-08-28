@@ -494,6 +494,20 @@ void show_credits(void) {
     /* No-op: zero callers. Likely dead/cut code. */
 }
 
+/* The subtitle port options (size, hold) exist because the original 6x8 font
+ * reads very small once it is stretched over the enhanced 640x480 set. The
+ * original VGA mode is meant to look like the release, so both are pinned to
+ * their original values there rather than following the saved setting. */
+static int subtitle_eff_scale(void) {
+    if (!mode_svga) return 1;
+    return subtitle_scale < 1 ? 1 : subtitle_scale;
+}
+
+static int subtitle_eff_hold(void) {
+    if (!mode_svga) return 0;
+    return subtitle_hold;
+}
+
 /* req_show_subtitle  E1: ? | E2P: 0x42AB48 */
 void show_subtitle(const char *text_str, int duration) {
     if (!text_str) return;
@@ -508,7 +522,7 @@ void show_subtitle(const char *text_str, int duration) {
             /* draw_subtitles re-centres for the current scale; this is just a
              * sane initial value. */
             subtitle_offset[i] = (screen_width
-                                  - 6 * subtitle_scale * subtitle_length[i] - 2) / 2;
+                                  - 6 * subtitle_eff_scale() * subtitle_length[i] - 2) / 2;
             subtitles_time = game_time + duration;
             return;
         }
@@ -572,13 +586,14 @@ void clear_expired_subtitles(void) {
     /* 0x41D853 expires every caption SUBTITLE_HOLD_TICKS after it was posted,
      * flat, with no reference to the speech — which is why a voiced line
      * outlives its text. The longer settings are a port option. */
+    int hold = subtitle_eff_hold();
     int32_t expire_at = subtitles_time + SUBTITLE_HOLD_TICKS;
-    if (subtitle_hold == 1)
+    if (hold == 1)
         expire_at = subtitles_time + SUBTITLE_HOLD_TICKS * 3;
 
     int expired = (game_time - expire_at) > 0;
 
-    if (subtitle_hold >= 2) {
+    if (hold >= 2) {
         /* Match voice: a line is normally retired by the next CT_SUBTITLE
          * (which sets clear_subtitles); this only decides the last line of a
          * paragraph, which goes when its own audio stops. Compared in real
@@ -634,7 +649,7 @@ void clear_expired_subtitles(void) {
 void draw_subtitles(void) {
     if (!subtitles_on) return;
 
-    int scale = subtitle_scale < 1 ? 1 : subtitle_scale;
+    int scale = subtitle_eff_scale();
     int cw = 6 * scale;          /* advance per character */
     int line_h = 10 * scale;
 
@@ -645,13 +660,17 @@ void draw_subtitles(void) {
         if (subtitle_status[i] == 1 || subtitle_status[i] == 2)
             lines = i + 1;
 
-    /* The original stacks lines downward from 240 (0x41E18A: mode_svga ? 240 : 0,
-     * which is screen_height/2 at 640x480). Scaling the line pitch alone would
-     * push the block that much closer to the bottom of the screen, so anchor
-     * the block's bottom edge where the unscaled layout put it and let it grow
-     * upward instead. At scale 1 this is exactly the original placement. */
-    int base = screen_height / 2 + lines * 10 - lines * line_h;
-    if (base < 0) base = 0;
+    /* The original stacks lines downward from 240 in SVGA and from 0 in VGA
+     * (0x41E18A: mode_svga ? 240 : 0; 240 is screen_height/2 at 640x480).
+     * Scaling the line pitch alone would push the block that much closer to
+     * the bottom of the screen, so in SVGA anchor the block's bottom edge
+     * where the unscaled layout put it and let it grow upward instead. At
+     * scale 1 this is exactly the original placement; VGA is always original. */
+    int base = 0;
+    if (mode_svga) {
+        base = screen_height / 2 + lines * 10 - lines * line_h;
+        if (base < 0) base = 0;
+    }
 
     for (int i = 0; i < MAX_SUBTITLES; i++) {
         if (subtitle_status[i] != 1) continue;
