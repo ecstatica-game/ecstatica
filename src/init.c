@@ -447,17 +447,31 @@ void select_video_page(void) {
 
 /* init_set_up_bitmaps  E1: 0x411990 | E2: 0x4147B0 */
 void set_up_bitmaps(void) {
+    /* Size the planes to the largest mode this session can reach, not to a
+     * fixed 640x480. go_svga() is the only widener and it bails out when
+     * low_res_only (game.c:3154), which init() has already fixed for the
+     * session by here — so a low-res-only session never addresses past
+     * 320x200 and does not need the 640x480 allocation. Saves 2.44 MB on the
+     * targets that care. Every accessor strides by hires_width, so the plane
+     * only has to hold the mode that is actually selected. */
+    int32_t plane_pixels = (low_res_only ? (320 * 200) : (640 * 480))
+                         + BITMAP_SLACK;
+
     /* Planes 0 and 1 are legacy VGA addresses — allocate real buffers */
-    bitmap[0] = (char *)calloc(BITMAP_SIZE, 1);
-    bitmap[1] = (char *)calloc(BITMAP_SIZE, 1);
-    bitmap[2] = (char *)calloc(BITMAP_SIZE, 1);
-    bitmap[3] = (char *)calloc(BITMAP_SIZE, 1);
+    bitmap[0] = (char *)calloc(plane_pixels, 1);
+    bitmap[1] = (char *)calloc(plane_pixels, 1);
+    bitmap[2] = (char *)calloc(plane_pixels, 1);
+    bitmap[3] = (char *)calloc(plane_pixels, 1);
     bitmap[4] = NULL;
     bitmap[5] = NULL;
 
-    mask_map[0] = (int16_t *)calloc(BITMAP_SIZE, 2);
-    mask_map[1] = (int16_t *)calloc(BITMAP_SIZE, 2);
-    mask_map[2] = (int16_t *)calloc(BITMAP_SIZE, 2);
+    mask_map[0] = (int16_t *)calloc(plane_pixels, 2);
+    mask_map[1] = (int16_t *)calloc(plane_pixels, 2);
+    mask_map[2] = (int16_t *)calloc(plane_pixels, 2);
+
+    if (!bitmap[0] || !bitmap[1] || !bitmap[2] || !bitmap[3] ||
+        !mask_map[0] || !mask_map[1] || !mask_map[2])
+        quit("not enough memory for screen planes");
 }
 
 /* init_setup_long_screen  E1: 0x411A60 | E2: 0x414880 */

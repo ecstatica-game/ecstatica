@@ -241,6 +241,11 @@ void unpack_mask(int16_t *dst, char *src) {
  */
 void tri_line_win95(int draw_height, int draw_data, int draw_height_bias,
                     int16_t *mask_ptr, char *fb_ptr, int pitch) {
+    /* The framebuffer store goes through a char*, which may alias anything, so
+     * every global read in the loop body is reloaded from memory on each
+     * iteration. Nothing here writes them — hoist once. */
+    const int mask_stride = screen_width;
+
     do {
         int16_t z_val = (int16_t)(draw_height >> 16);
         if (z_val <= *mask_ptr) {
@@ -248,7 +253,7 @@ void tri_line_win95(int draw_height, int draw_data, int draw_height_bias,
             *fb_ptr = (char)draw_data;
         }
         fb_ptr += pitch;
-        mask_ptr += screen_width;
+        mask_ptr += mask_stride;
         draw_height += draw_height_bias;
         draw_data -= 256;
         /* `sub ecx,100h / jge` — the count lives in the high bits and the low
@@ -280,21 +285,38 @@ void tri_line_win95(int draw_height, int draw_data, int draw_height_bias,
 void ellipse_line_win95(int mask_idx, int col_height,
                         int z_interp, char *draw_ptr,
                         int shade_idx) {
+    /* The framebuffer store goes through a char*, which may alias anything, so
+     * fb_pitch, screen_width, z_scale, shade_dy, z_dy, depth_mask and
+     * shade_lut are otherwise reloaded from memory on every pixel. Nothing in
+     * the loop writes them. Same hoist in the three variants below. */
+    const int             pitch       = fb_pitch;
+    const int             mask_stride = screen_width;
+    const int32_t         zs          = z_scale;
+    const int32_t         sdy         = shade_dy;
+    const int32_t         zdy         = z_dy;
+    int16_t *const        dm          = depth_mask;
+    const char *const     lut         = shade_lut;
+    const char *const     smap        = &shade_map[0][0];
+    const int16_t *const  prof        = &profile[0][0];
+
     int shade_offset;
     int16_t z_depth;
     do {
         shade_offset = shade_idx >> 16;
-        if (!((unsigned char)shade_map[0][shade_offset] & 0x80)) {
-            z_depth = (int16_t)(((int32_t)profile[0][shade_offset] * z_scale + z_interp) >> 16);
-            if (z_depth<= depth_mask[mask_idx]) {
-                depth_mask[mask_idx] = z_depth;
-                *draw_ptr = shade_lut[(unsigned char)shade_map[0][shade_offset]];
+        /* One load: the visibility test and the palette index are the
+         * same byte. */
+        unsigned char shade = (unsigned char)smap[shade_offset];
+        if (!(shade & 0x80)) {
+            z_depth = (int16_t)(((int32_t)prof[shade_offset] * zs + z_interp) >> 16);
+            if (z_depth<= dm[mask_idx]) {
+                dm[mask_idx] = z_depth;
+                *draw_ptr = lut[shade];
             }
         }
-        draw_ptr += fb_pitch;
-        mask_idx += screen_width;
-        shade_idx += shade_dy;
-        z_interp += z_dy;
+        draw_ptr += pitch;
+        mask_idx += mask_stride;
+        shade_idx += sdy;
+        z_interp += zdy;
         col_height -= 256;
     } while (col_height >= 0);
 }
@@ -306,25 +328,36 @@ void ellipse_line_win95(int mask_idx, int col_height,
 void beam_line_win95(int mask_idx, int col_height,
                         int z_interp, char *draw_ptr,
                         int shade_idx) {
+    const int             pitch       = fb_pitch;
+    const int             mask_stride = screen_width;
+    const int32_t         zs          = z_scale;
+    const int32_t         sdy         = shade_dy;
+    const int32_t         zdy         = z_dy;
+    int16_t *const        dm          = depth_mask;
+    const char *const     tab1        = beam_tab1;
+    const char *const     tab2        = beam_tab2;
+    const char *const     smap        = &shade_map[0][0];
+    const int16_t *const  prof        = &profile[0][0];
+
     int shade_offset;
     int16_t z_depth;
     do {
         shade_offset = shade_idx >> 16;
-        if (!((unsigned char)shade_map[0][shade_offset] & 0x80)) {
-            int32_t profile_z = (int32_t)profile[0][shade_offset] * z_scale;
+        if (!((unsigned char)smap[shade_offset] & 0x80)) {
+            int32_t profile_z = (int32_t)prof[shade_offset] * zs;
             z_depth = (int16_t)((profile_z + z_interp) >> 16);
-            if (z_depth<= depth_mask[mask_idx]) {
+            if (z_depth<= dm[mask_idx]) {
                 z_depth = (int16_t)((z_interp - profile_z) >> 16);
-                if (z_depth>= depth_mask[mask_idx])
-                    *draw_ptr = beam_tab2[(unsigned char)*draw_ptr];
+                if (z_depth>= dm[mask_idx])
+                    *draw_ptr = tab2[(unsigned char)*draw_ptr];
                 else
-                    *draw_ptr = beam_tab1[(unsigned char)*draw_ptr];
+                    *draw_ptr = tab1[(unsigned char)*draw_ptr];
             }
         }
-        draw_ptr += fb_pitch;
-        mask_idx += screen_width;
-        shade_idx += shade_dy;
-        z_interp += z_dy;
+        draw_ptr += pitch;
+        mask_idx += mask_stride;
+        shade_idx += sdy;
+        z_interp += zdy;
         col_height -= 256;
     } while (col_height >= 0);
 }
@@ -336,24 +369,34 @@ void beam_line_win95(int mask_idx, int col_height,
 void shadow_line_win95(int mask_idx, int col_height,
                           int z_interp, char *draw_ptr,
                           int shade_idx) {
+    const int             pitch       = fb_pitch;
+    const int             mask_stride = screen_width;
+    const int32_t         zs          = z_scale;
+    const int32_t         sdy         = shade_dy;
+    const int32_t         zdy         = z_dy;
+    int16_t *const        dm          = depth_mask;
+    const char *const     lut         = shadow_lut;
+    const char *const     smap        = &shade_map[0][0];
+    const int16_t *const  prof        = &profile[0][0];
+
     int shade_offset;
     int16_t z_depth;
     do {
         shade_offset = shade_idx >> 16;
-        if (!((unsigned char)shade_map[0][shade_offset] & 0x80)) {
-            int32_t profile_z = (int32_t)profile[0][shade_offset] * z_scale;
+        if (!((unsigned char)smap[shade_offset] & 0x80)) {
+            int32_t profile_z = (int32_t)prof[shade_offset] * zs;
             z_depth = (int16_t)((profile_z + z_interp) >> 16);
-            if (z_depth<= depth_mask[mask_idx]) {
+            if (z_depth<= dm[mask_idx]) {
                 z_depth = (int16_t)((z_interp - profile_z) >> 16);
-                if (z_depth>= depth_mask[mask_idx]) {
-                    *draw_ptr = shadow_lut[(unsigned char)*draw_ptr];
+                if (z_depth>= dm[mask_idx]) {
+                    *draw_ptr = lut[(unsigned char)*draw_ptr];
                 }
             }
         }
-        draw_ptr += fb_pitch;
-        mask_idx += screen_width;
-        shade_idx += shade_dy;
-        z_interp += z_dy;
+        draw_ptr += pitch;
+        mask_idx += mask_stride;
+        shade_idx += sdy;
+        z_interp += zdy;
         col_height -= 256;
     } while (col_height >= 0);
 }
@@ -365,20 +408,30 @@ void shadow_line_win95(int mask_idx, int col_height,
 void smoke_line_win95(int mask_idx, int col_height,
                          int z_interp, char *draw_ptr,
                          int shade_idx) {
+    const int             pitch       = fb_pitch;
+    const int             mask_stride = screen_width;
+    const int32_t         zs          = z_scale;
+    const int32_t         sdy         = shade_dy;
+    const int32_t         zdy         = z_dy;
+    int16_t *const        dm          = depth_mask;
+    const char *const     tab1        = beam_tab1;
+    const char *const     smap        = &shade_map[0][0];
+    const int16_t *const  prof        = &profile[0][0];
+
     int shade_offset;
     int16_t z_depth;
     do {
         shade_offset = shade_idx >> 16;
-        if (!((unsigned char)shade_map[0][shade_offset] & 0x80)) {
-            z_depth = (int16_t)(((int32_t)profile[0][shade_offset] * z_scale + z_interp) >> 16);
-            if (z_depth<= depth_mask[mask_idx]) {
-                *draw_ptr = beam_tab1[(unsigned char)*draw_ptr];
+        if (!((unsigned char)smap[shade_offset] & 0x80)) {
+            z_depth = (int16_t)(((int32_t)prof[shade_offset] * zs + z_interp) >> 16);
+            if (z_depth<= dm[mask_idx]) {
+                *draw_ptr = tab1[(unsigned char)*draw_ptr];
             }
         }
-        draw_ptr += fb_pitch;
-        mask_idx += screen_width;
-        shade_idx += shade_dy;
-        z_interp += z_dy;
+        draw_ptr += pitch;
+        mask_idx += mask_stride;
+        shade_idx += sdy;
+        z_interp += zdy;
         col_height -= 256;
     } while (col_height >= 0);
 }
@@ -394,6 +447,8 @@ void tex_tri_line_win95(int draw_height, int draw_data, int draw_height_bias,
                         int32_t tex_u, int32_t tex_v,
                         int32_t tex_du, int32_t tex_dv,
                         const char *texture_data, int tex_width) {
+    const int mask_stride = screen_width;
+
     do {
         int16_t z_val = (int16_t)(draw_height >> 16);
         if (z_val <= *mask_ptr) {
@@ -403,7 +458,7 @@ void tex_tri_line_win95(int draw_height, int draw_data, int draw_height_bias,
             *fb_ptr = texture_data[v * tex_width + u];
         }
         fb_ptr += pitch;
-        mask_ptr += screen_width;
+        mask_ptr += mask_stride;
         draw_height += draw_height_bias;
         tex_u += tex_du;
         tex_v += tex_dv;
