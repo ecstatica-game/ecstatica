@@ -824,8 +824,11 @@ void get_joystick(void) {
             clear_game_icons();
     }
 
-    /* Handle special keys */
-    if ((key_esc_was_pressed || key_esc_was_forced) && game_up_and_running && !intro_flag) {
+    /* Handle special keys. 0x4129B4 gates on game_up_and_running alone, so the
+     * menu is reachable during the intro too — that is where a player wants
+     * the language and subtitle settings, not after it. Intro skipping stays
+     * on space/enter, as in the original. */
+    if ((key_esc_was_pressed || key_esc_was_forced) && game_up_and_running) {
         stop_the_clock = true;
         if (key_esc_was_forced) {
             menu_no_continue = true;

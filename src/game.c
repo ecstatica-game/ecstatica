@@ -314,10 +314,13 @@ int execute_boolean(int16_t **pp, actor_t *actor) {
         tp++;
     }
     else if (token == CT_ANY_KEY_PRESSED || token == CT_NO_KEY_PRESSED) {
+        /* ESC deliberately absent: get_joystick claims it for the menu and
+         * clears it in the same frame, so a script reading it here would race
+         * the pause menu for the same press. */
         result = key1_pressed || key2_pressed || key3_pressed ||
                  key4_pressed || key5_pressed || key6_pressed ||
                  key7_pressed || key8_pressed || key9_pressed ||
-                 space_pressed || enter_pressed || key_esc_was_pressed;
+                 space_pressed || enter_pressed;
         if (!joystick_control) {
             if (scene_name_flags[497] & 2)
                 result = true;
@@ -339,7 +342,7 @@ int execute_boolean(int16_t **pp, actor_t *actor) {
         tp++;
     }
     else if (token == CT_SPACE_PRESSED) {
-        result = space_pressed || key_esc_was_pressed;
+        result = space_pressed != 0;
         tp++;
     }
     else if (token == CT_FEMALE) {

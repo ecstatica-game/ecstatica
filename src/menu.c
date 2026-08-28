@@ -28,6 +28,7 @@ static void handle_main_menu_selection(void);
 void do_load_menu(void);
 void do_save_menu(void);
 void do_settings_menu(void);
+void do_enhanced_menu(void);
 int  do_slot_select(const char *title);
 
 static int menu_selection = 0;
@@ -153,29 +154,32 @@ static void draw_menu_item(const char *label, int x, int y, int item_w, int item
  *           Settings, Quit
  * ══════════════════════════════════════════════════════════════ */
 
-/* E1 menu items */
-#define E1_MENU_ITEMS 6
+/* E1 menu items. "Enhanced" is a port addition, sat next to Settings so the
+ * original panel keeps only what the release shipped. */
+#define E1_MENU_ITEMS 7
 static const char *e1_menu_items[E1_MENU_ITEMS] = {
     "Start game (Male)",
     "Start game (Female)",
     "Save game...",
     "Load game...",
     "Settings...",
+    "Enhanced...",
     "Quit"
 };
-static const int e1_menu_y[E1_MENU_ITEMS] = { 20, 35, 50, 65, 80, 130 };
+static const int e1_menu_y[E1_MENU_ITEMS] = { 20, 35, 50, 65, 80, 95, 130 };
 
 /* E2 menu items */
-#define E2_MENU_ITEMS 6
+#define E2_MENU_ITEMS 7
 static const char *e2_menu_items[E2_MENU_ITEMS] = {
     "Continue",
     "New Game",
     "Load Game",
     "Save Game",
     "Settings",
+    "Enhanced",
     "Quit"
 };
-static const int e2_menu_y[E2_MENU_ITEMS] = { 20, 35, 50, 65, 80, 130 };
+static const int e2_menu_y[E2_MENU_ITEMS] = { 20, 35, 50, 65, 80, 95, 130 };
 
 static int menu_item_count(void) {
     return (game_version == GAME_VERSION_E1) ? E1_MENU_ITEMS : E2_MENU_ITEMS;
@@ -294,7 +298,10 @@ static void handle_main_menu_selection(void) {
         case 4: /* Settings */
             do_settings_menu();
             break;
-        case 5: /* Quit */
+        case 5: /* Enhanced */
+            do_enhanced_menu();
+            break;
+        case 6: /* Quit */
             program_up_and_running = false;
             menu_active = 0;
             break;
@@ -318,7 +325,10 @@ static void handle_main_menu_selection(void) {
         case 4: /* Settings */
             do_settings_menu();
             break;
-        case 5: /* Quit */
+        case 5: /* Enhanced */
+            do_enhanced_menu();
+            break;
+        case 6: /* Quit */
             program_up_and_running = false;
             menu_active = 0;
             break;
@@ -341,6 +351,14 @@ void do_load_menu(void) {
 
 /* menu_do_save_menu  E1: ? | E2P: 0x42B550 */
 void do_save_menu(void) {
+    /* req_handle_save_game (0x43D3FC) refuses while the intro runs: there is
+     * no player-controlled world yet to write out. Now reachable because ESC
+     * opens the menu during the intro. */
+    if (intro_flag) {
+        beep_message("Not during the intro");
+        return;
+    }
+
     int slot = do_slot_select("Save Game");
     if (slot >= 0) {
         save_game(slot);
@@ -499,7 +517,8 @@ static void draw_setting_row(const char *label, const char *value,
     }
 }
 
-/* Settings item IDs */
+/* Settings item IDs. Everything the original shipped with lives in Settings;
+ * the port additions live in the E1 Enhanced panel. */
 enum {
     SETT_DIFFICULTY = 0,
     SETT_LANGUAGE,
@@ -512,9 +531,21 @@ enum {
     SETT_MAX
 };
 
+/* Port options that only bite in the enhanced graphics set: in the original
+ * VGA mode the subtitle renderer pins them to their original values, so the
+ * rows are shown locked rather than pretending to do something. */
+static bool setting_is_locked(int id) {
+    if (mode_svga) return false;
+    return id == SETT_SUBTITLE_SIZE || id == SETT_SUBTITLE_HOLD;
+}
+
 static const char *subtitle_hold_names[] = { "Original", "Long", "Match voice" };
 
 static void settings_get_value(int id, char *buf, int bufsz) {
+    if (setting_is_locked(id)) {
+        snprintf(buf, bufsz, "Original");
+        return;
+    }
     switch (id) {
     case SETT_DIFFICULTY: {
         int d = difficulty;
@@ -546,6 +577,7 @@ static void settings_get_value(int id, char *buf, int bufsz) {
 }
 
 static void settings_adjust(int id, int dir) {
+    if (setting_is_locked(id)) return;
     switch (id) {
     case SETT_DIFFICULTY:
         difficulty += dir;
@@ -595,22 +627,9 @@ static const char *settings_labels[] = {
     "Subtitle Size", "Subtitle Hold", "Graphics"
 };
 
-/* menu_do_settings_menu  E1: ? | E2P: 0x42B6F0 */
-void do_settings_menu(void) {
-    /* Build visible items list — E1 has no difficulty */
-    int items[SETT_MAX];
-    int num_items = 0;
-    if (game_version != GAME_VERSION_E1)
-        items[num_items++] = SETT_DIFFICULTY;
-    items[num_items++] = SETT_LANGUAGE;
-    items[num_items++] = SETT_MUSIC;
-    items[num_items++] = SETT_SOUNDFX;
-    items[num_items++] = SETT_SUBTITLES;
-    items[num_items++] = SETT_SUBTITLE_SIZE;
-    items[num_items++] = SETT_SUBTITLE_HOLD;
-    if (hires_available)
-        items[num_items++] = SETT_GRAPHICS;
-
+/* Shared driver for Settings and its Enhanced sub-panel: same rows, same
+ * navigation, only the item list and the title differ. */
+static void run_settings_panel(const char *title, const int *items, int num_items) {
     int sel = 0;
 
     for (;;) {
@@ -626,17 +645,19 @@ void do_settings_menu(void) {
         menu_frame_start();
 
         draw_panel(px, py, panel_w, panel_h);
-        draw_panel_title("Settings", px, py, panel_w);
+        draw_panel_title(title, px, py, panel_w);
 
         int item_x = px + 8;
         int start_y = py + 22;
 
         for (int i = 0; i < num_items; i++) {
             char val[32];
-            settings_get_value(items[i], val, sizeof(val));
-            draw_setting_row(settings_labels[items[i]], val,
+            int id = items[i];
+            settings_get_value(id, val, sizeof(val));
+            bool arrows = !setting_is_locked(id);
+            draw_setting_row(settings_labels[id], val,
                              item_x, start_y + i * item_h, item_w,
-                             i == sel, true);
+                             i == sel, arrows);
         }
 
         if (menu_nav_up()) {
@@ -666,6 +687,38 @@ void do_settings_menu(void) {
 
         menu_frame_end();
     }
+}
+
+/* Port-only options, reached from their own main-menu entry so the Settings
+ * panel stays the one the original shipped.
+ *
+ * The graphics toggle is E1-only: E2's low-resolution set is incomplete (no
+ * LOWGRAPH twin for the HUD art, see init.c), so it always runs the 640x480
+ * assets and there is nothing to switch between. */
+void do_enhanced_menu(void) {
+    int items[SETT_MAX];
+    int num_items = 0;
+    if (game_version == GAME_VERSION_E1 && hires_available)
+        items[num_items++] = SETT_GRAPHICS;
+    items[num_items++] = SETT_SUBTITLE_SIZE;
+    items[num_items++] = SETT_SUBTITLE_HOLD;
+
+    run_settings_panel("Enhanced", items, num_items);
+}
+
+/* menu_do_settings_menu  E1: ? | E2P: 0x42B6F0 */
+void do_settings_menu(void) {
+    /* Build visible items list — E1 has no difficulty */
+    int items[SETT_MAX];
+    int num_items = 0;
+    if (game_version != GAME_VERSION_E1)
+        items[num_items++] = SETT_DIFFICULTY;
+    items[num_items++] = SETT_LANGUAGE;
+    items[num_items++] = SETT_MUSIC;
+    items[num_items++] = SETT_SOUNDFX;
+    items[num_items++] = SETT_SUBTITLES;
+
+    run_settings_panel("Settings", items, num_items);
 }
 
 /* menu_do_difficulty  E1: ? | E2P: 0x42B7C0 */
