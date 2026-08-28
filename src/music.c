@@ -34,13 +34,13 @@ int16_t current_tune = -1;
 int32_t tune_position = 0;
 
 int16_t num_ambients = 0;
-int ambiant_name[20] = {0};
-int16_t ambiant_vol[20] = {0};
-int16_t ambiant_freq[20] = {0};
-int16_t ambiant_rand[20] = {0};
-int32_t ambiant_last[20] = {0};
+int ambiant_name[20];
+int16_t ambiant_vol[20];
+int16_t ambiant_freq[20];
+int16_t ambiant_rand[20];
+int32_t ambiant_last[20];
 
-int32_t tune_offset[10][96] = {{0}};
+int32_t tune_offset[10][96];
 
 /* E1 tune names — one per soundIndex, matched to MUSIC/<NAME>.<ext>.
  * Extracted from asm at 0x479F70 (75 entries, 8 bytes each, uppercase). */

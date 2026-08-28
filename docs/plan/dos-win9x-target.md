@@ -83,6 +83,24 @@ Check the original's table sizes in IDA before shrinking. If it really did carry
 64K entries, keep them; if not, fold to a quarter table with quadrant reflection,
 or drop to 16,384 entries and mask the index. Up to 224 KB.
 
+### 1.4 Redundant zero initialisers inflate the binary
+
+Found by reading the Watcom link map rather than by reasoning. 85 static arrays
+were declared `= {0}` / `= {{0}}`, which is redundant — C zero-initialises
+statics anyway — but it moves them from BSS into *initialised data*, so the
+zeros are stored in the executable and read off disk at load.
+
+| | before | after |
+|---|---|---|
+| `_DATA` | 4,352,468 | 64,084 |
+| `_BSS` | 1,662,182 | 5,950,558 |
+| `ecstatic.exe` | 4,745,740 | 446,380 |
+
+Runtime footprint is unchanged — DGROUP is 5.82 MB either way — but the
+executable is 10.6x smaller and 4.3 MB less has to be read at startup, which on
+a period hard disk or CD is the difference between a pause and a wait. It is a
+strict improvement on every target, not just DOS.
+
 ### 1.3 Pool high-water marks
 
 `map_elements[60000]` (`map.c:25`), `event_heap_arr[40000]`, and
@@ -283,9 +301,43 @@ Win9x), linked with `wlink` against DOS/4GW.
 
 ---
 
-## 4. New platform backend
+## 4. New platform backend — implemented
 
-`src/platforms/dos.c`, implementing the 26 functions in `platform.h`.
+`src/platforms/dos.c` implements the 26 functions in `platform.h`, and
+`dos/Makefile` (wmake, not GNU make) builds `dos/ecstatic.exe` against
+DOS/4GW. Status as built:
+
+| | |
+|---|---|
+| Compiles | all 22 units, no errors |
+| Links | 446 KB DOS/4GW executable |
+| Runs under DOSBox-X | reaches the game loop, no fault over 70 s |
+| VESA 640x480x8 LFB | set and mapped — confirmed by the emulator's mode trace |
+| Mouse / keyboard / timing | wired |
+| Audio | **not implemented** |
+| Rendering correctness | **not verified** — no visual capture yet |
+
+What is confirmed is that `platform_init()` completes: the emulator logs the
+VESA mode being set and then the INT 33h mouse reset that follows it, and the
+engine gets far enough to create its log file. What is *not* confirmed is that
+anything correct appears on screen. `ENABLE_FRAME_DUMP` is a CMake-only define,
+so the DOS build has no frame dumps to compare, and headless DOSBox-X gives no
+image. Running it on a real display is the next check.
+
+Two DOS-specific traps found by running it, both now fixed:
+
+- **`int386x()` cannot make real-mode BIOS calls in the flat model.** Its SREGS
+  carry protected-mode selectors, which real-mode BIOS code cannot dereference
+  — the first build faulted immediately (`GPF at 1:0003F029`, inside
+  `__int386x_`). The supported route is DPMI function 0300h with a real-mode
+  register image; `rm_int()` wraps it. INT 31h itself is still fine through
+  `int386x`, because the DPMI host is not real-mode code.
+- **8.3 filenames.** `fopen("ecstatica_debug.log")` cannot succeed on a FAT
+  volume, so the engine's only diagnostic channel silently never appeared. DOS
+  now uses `ECSTATIC.LOG`. `frame_dump_%03d.ppm` has the same problem and will
+  need the same treatment if frame dumping is ever enabled there.
+
+The remaining work on this backend:
 
 - **Video.** Mode 13h at 320×200 makes `platform_blit` a straight `memcpy` of
   `bitmap[db]` to `0xA0000` — no palette expansion and no scaling, both of which
@@ -322,9 +374,13 @@ the DOS toolchain enters the picture.
 | 2 | Hoist globals out of the six rasteriser loops | none | [2.1](#21-globals-reloaded-on-every-pixel--the-largest-single-win) ✅ done |
 | 8 | Blitter pre-clipping | none | [2.6](#26-per-pixel-clipping-in-the-blitters) ✅ done |
 | — | Volume API off `float`, POSIX shims via `compat.h` | none | [3](#3-open-watcom-compatibility) ✅ done |
+| — | Remove C99 constructs Watcom rejects | none | [3](#3-open-watcom-compatibility) ✅ done |
+| — | Drop redundant `= {0}` on statics | none | [1.4](#14-redundant-zero-initialisers-inflate-the-binary) ✅ done |
 | 3 | Rotating cursors on the find-free scans | unevaluated | [2.5](#25-opool-free-slot-scans) ⛔ held, needs step 0 |
 | 4 | Hoist `check_fade` to per frame | needs IDA check | [2.2](#22-check_fade-runs-per-primitive) |
-| 5 | `platforms/dos.c`, DOS `dirent` shim, wmake; build and measure | — | [3](#3-open-watcom-compatibility), [4](#4-new-platform-backend) |
+| 5 | `platforms/dos.c` + wmake build | — | [4](#4-new-platform-backend) ✅ builds, links, runs; audio and on-screen verification outstanding |
+| 5a | Sound Blaster DMA + MPU-401/OPL3 | — | [4](#4-new-platform-backend) |
+| 5b | Run on a real display and check rendering | — | [4](#4-new-platform-backend) |
 | 6 | Divide elimination and `#pragma aux` fixed-point | changes pixels | [2.3](#23-four-integer-divides-per-vertex), [2.4](#24-64-bit-arithmetic-on-a-32-bit-target) |
 | 7 | Trig table and pool sizing | needs IDA check | [1.2](#12-trigonometric-tables), [1.3](#13-pool-high-water-marks) |
 | 9 | shade_map/profile interleave | measure first | [2.7](#27-cache-behaviour-of-the-column-rasteriser--structural-leave-alone) |

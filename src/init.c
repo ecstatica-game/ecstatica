@@ -27,11 +27,11 @@
 #include "compat.h"
 #include <math.h>
 
-char keys_pressed[256] = {0};
-char keys_were_pressed[256] = {0};
-char extra_keys_pressed[256] = {0};
-char extra_keys_were_pressed[256] = {0};
-char keys_were_pressed_codes[256] = {0};
+char keys_pressed[256];
+char keys_were_pressed[256];
+char extra_keys_pressed[256];
+char extra_keys_were_pressed[256];
+char keys_were_pressed_codes[256];
 int16_t mouse = 0;
 int16_t mouse_x = 0;
 int16_t mouse_y = 0;
@@ -54,30 +54,30 @@ int16_t movement_speed_mode = 4;  /* default: walk speed 1 (F5) */
 int16_t mcursor_x = 0;
 int16_t mcursor_y = 0;
 bool mouse_pointer_on = false;
-char mouse_buffer[2][8][8] = {{{0}}};
+char mouse_buffer[2][8][8];
 
-int16_t sine_table[65536] = {0};
-int16_t cosn_table[65536] = {0};
-int16_t arcsin_tab[32768] = {0};
-int8_t  atan_tab0[256] = {0};
-int8_t  atan_tab1[256] = {0};
-char shade_tab[17][128][128] = {{{0}}};
-char shade_texture[8][128][128] = {{{0}}};
-char shadow_tab[3][16][256] = {{{0}}};
-char shade_map[128][128] = {{0}};
-int16_t profile[128][128] = {{0}};
+int16_t sine_table[65536];
+int16_t cosn_table[65536];
+int16_t arcsin_tab[32768];
+int8_t  atan_tab0[256];
+int8_t  atan_tab1[256];
+char shade_tab[17][128][128];
+char shade_texture[8][128][128];
+char shadow_tab[3][16][256];
+char shade_map[128][128];
+int16_t profile[128][128];
 
-int16_t material_flags[30] = {0};
+int16_t material_flags[30];
 
-int16_t event_type_flags[80] = {0};
-int16_t event_priority[80] = {0};
+int16_t event_type_flags[80];
+int16_t event_priority[80];
 
-palette_entry_t view_cmap[256] = {{0}};
-palette_entry_t colour_map[256] = {{0}};
-palette_entry_t all_black_cmap[256] = {{0}};
-palette_entry_t spare_cmap[256] = {{0}};
-palette_entry_t fade_cmap[256] = {{0}};
-palette_entry_t edit_map_cmap[256] = {{0}};
+palette_entry_t view_cmap[256];
+palette_entry_t colour_map[256];
+palette_entry_t all_black_cmap[256];
+palette_entry_t spare_cmap[256];
+palette_entry_t fade_cmap[256];
+palette_entry_t edit_map_cmap[256];
 
 /* init_setup  E1: 0x41007C | E2: 0x41007C */
 void setup(void) {

@@ -40,29 +40,29 @@ int16_t top_clip = 0;
 char *bitmap[6] = {0};
 char *hires_bitmap[6] = {0};
 int16_t *mask_map[3] = {0};
-int16_t draw_mode[6] = {0};
+int16_t draw_mode[6];
 
 int16_t db = 0;
 
 int16_t a_pen_colour = 15;
 int16_t b_pen_colour = 0;
-int16_t pen_position_x[6] = {0};
-int16_t pen_position_y[6] = {0};
+int16_t pen_position_x[6];
+int16_t pen_position_y[6];
 int16_t tx_w = 6;
 int16_t tx_h = 8;
-char character_set[256][48] = {{0}};
+char character_set[256][48];
 
 int16_t display_mode = 0;
 
 matrix3x3_t view_matrix = {0};
 vector_t view_rot = {0};
 vector_t view_pos = {0};
-camera_data_t camera[1200] = {{0}};
+camera_data_t camera[1200];
 camera_data_t *active_camera = NULL;
-int16_t cameras_viewed[150] = {0};
+int16_t cameras_viewed[150];
 
-subarea_t clear_tab[2][100] = {{{0}}};
-int16_t number_to_clear[2] = {0};
+subarea_t clear_tab[2][100];
+int16_t number_to_clear[2];
 
 /* Null bbox used when ClearTab overflows so ellipse renderer has a
  * valid write target (writes discarded). */
@@ -70,12 +70,12 @@ subarea_t null_area_to_clear = {0};
 
 int32_t subtitles_time = 0;
 int16_t clear_subtitles = 0;
-subarea_t sub_area_to_clear[20] = {{0}};
+subarea_t sub_area_to_clear[20];
 char *subtitle_text[20] = {0};
-int16_t subtitle_length[20] = {0};
-int16_t subtitle_offset[20] = {0};
-int16_t subtitle_status[20] = {0};
-int16_t subtitle_colour[20] = {0};
+int16_t subtitle_length[20];
+int16_t subtitle_offset[20];
+int16_t subtitle_status[20];
+int16_t subtitle_colour[20];
 
 /* Port addition. The font is the original 6x8 cell sized for 320x200, so at
  * 640x480 subtitles read very small. 1 = original, 2 = double. */
@@ -87,13 +87,13 @@ int16_t subtitle_scale = 1;
  * 0 = original, 1 = 3x, 2 = hold for as long as the speech sample plays. */
 int16_t subtitle_hold = 0;
 
-int16_t graphic_flag[GRAPHICS_MAX] = {0};
+int16_t graphic_flag[GRAPHICS_MAX];
 char *graphic_data[GRAPHICS_MAX] = {0};
-int16_t graphic_x[GRAPHICS_MAX] = {0};
-int16_t graphic_y[GRAPHICS_MAX] = {0};
-int16_t graphic_size_x[GRAPHICS_MAX] = {0};
-int16_t graphic_size_y[GRAPHICS_MAX] = {0};
-graphic_name_t graphic_name_arr[GRAPHICS_MAX] = {{0}};
+int16_t graphic_x[GRAPHICS_MAX];
+int16_t graphic_y[GRAPHICS_MAX];
+int16_t graphic_size_x[GRAPHICS_MAX];
+int16_t graphic_size_y[GRAPHICS_MAX];
+graphic_name_t graphic_name_arr[GRAPHICS_MAX];
 int16_t background_status = 0;
 
 int32_t z_scale = 0;

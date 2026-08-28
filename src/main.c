@@ -69,8 +69,14 @@ int main(int argc, char *argv[]) {
         if (lvl && *lvl) debug_verbose = atoi(lvl);
     }
 
-    /* Fails harmlessly (leaving the log NULL) where the root is read-only. */
+    /* Fails harmlessly (leaving the log NULL) where the root is read-only.
+     * DOS gets an 8.3 name — "ecstatica_debug.log" cannot be created on a FAT
+     * volume, so on that target the log silently never appeared. */
+#ifdef __WATCOMC__
+    debug_log_file = fopen("ECSTATIC.LOG", "w");
+#else
     debug_log_file = fopen("ecstatica_debug.log", "w");
+#endif
     if (debug_log_file) {
         setvbuf(debug_log_file, NULL, _IONBF, 0);
         fprintf(debug_log_file, "MAIN: debug_log_file=%p debug_verbose=%d\n", (void*)debug_log_file, debug_verbose);

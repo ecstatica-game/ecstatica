@@ -38,14 +38,14 @@ int16_t loaded_background[4] = {-1, -1, -1, -1};
 int16_t selected_camera = 0;
 int16_t num_arcs = 0;
 int32_t next_mask_tab_offset = 0;
-int16_t left_ang[100] = {0};
-int16_t right_ang[100] = {0};
+int16_t left_ang[100];
+int16_t right_ang[100];
 char *spare_bit_map = NULL;
 char *mask_bit_map = NULL;
 int16_t num_cameras = 0;
-char palette_control[24] = {0};
-int32_t palette_offset[1200] = {0};
-int32_t visib_offset[1200] = {0};
+char palette_control[24];
+int32_t palette_offset[1200];
+int32_t visib_offset[1200];
 
 /* Byte-swap helper for big-endian → little-endian int16_t values */
 int16_t reverse_char_word_val(int16_t val) {

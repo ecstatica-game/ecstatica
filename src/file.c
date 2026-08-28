@@ -36,7 +36,7 @@
 FILE *file_pointer = NULL;
 FILE *file2_pointer = NULL;
 bool load_by_offset = false;
-int32_t file_offsets[MAX_OFFSETS] = {0};
+int32_t file_offsets[MAX_OFFSETS];
 int32_t number_of_offsets = 0;
 
 /* Per-type offset arrays for resource loading */
