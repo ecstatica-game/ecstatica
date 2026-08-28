@@ -8,12 +8,10 @@
 #include "win.h"
 #include "platform.h"
 #include "tools/viewer.h"
+#include "compat.h"
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
-#ifndef _WIN32
-#include <unistd.h>
-#endif
 /* HAVE_EXECINFO comes from the build: glibc and macOS have backtrace(),
  * musl does not. A capability, not a platform name. */
 #ifdef HAVE_EXECINFO
@@ -41,7 +39,7 @@ static void crash_handler(int sig) {
         fflush(debug_log_file);
     }
 #endif
-    _exit(128 + sig);
+    ecs_exit_now(128 + sig);
 }
 
 int main(int argc, char *argv[]) {

@@ -219,29 +219,26 @@ Each full scan flushes an 8 KB L1 several times over. The obvious fix is a
 rotating cursor per pool — resume where the last allocation succeeded, wrap
 once, which still covers the whole pool and amortises to O(1).
 
-**Tried and reverted. It is not behaviour-neutral.** Under a deterministic
-build (`MY_TIME_DETERMINISTIC`, which makes the E2 boot sequence reproduce
-byte-for-byte across runs), a rotating cursor on the event pool *and* a rotating
-cursor on the part pool each independently change the rendered output from frame
-2 onward. Tested separately, so this is two distinct dependencies, not one.
+**Tried and reverted, but the reason for reverting did not survive scrutiny.**
 
-Nothing outside the allocators addresses either pool by slot number, so the
-dependency is not a direct index lookup. The two candidate explanations:
+The original conclusion was that a rotating cursor on the event pool and one on
+the part pool each independently change rendered output, measured by frame-dump
+comparison. That measurement is invalid — see
+[Validating a change](#validating-a-change--frame-dumps-do-not-work-for-this).
+Cross-build frame comparison does not distinguish a real behavioural change from
+build-to-build noise, so those runs showed nothing either way.
 
-- something depends on allocation returning the lowest free slot — an ordering
-  or contiguity assumption in how events and parts get linked; or
-- a live pointer to a freed slot exists somewhere. The linear allocator hands
-  low slots straight back and overwrites them immediately, which would mask it;
-  rotation leaves freed slots stale for much longer and changes what the stale
-  read returns.
+The change is therefore **unevaluated**, not disproven. It stays out until there
+is a way to tell, because shipping it would mean asserting something unverified,
+not because it is known to be wrong.
 
-The second would mean a latent use-after-free that the original allocation order
-hides. That is worth running down on its own merits, separately from the DOS
-work — it is a correctness question, not a performance one.
-
-Until it is understood, leave all four allocators alone. If the cause turns out
-to be benign ordering, the cursor can go back in; if it is a dangling pointer,
-fixing that is the actual task and the cursor is a free follow-on.
+Worth noting for whoever picks this up: nothing outside the allocators addresses
+either pool by slot number, so there is no direct index dependency to point at.
+If a real difference does turn up once verification works, the likely mechanism
+is a live pointer to a freed slot — the linear allocator hands low slots
+straight back and overwrites them immediately, which would mask it, while
+rotation leaves freed slots stale much longer. That is the same smell as the
+uninitialised-read problem above and may well be the same bug.
 
 ### 2.6 Per-pixel clipping in the blitters
 
@@ -320,36 +317,66 @@ the DOS toolchain enters the picture.
 
 | # | Task | Risk | Section |
 |---|---|---|---|
+| 0 | **Find the uninitialised read** (Linux MSan run) | — | [Validating a change](#validating-a-change--frame-dumps-do-not-work-for-this) — blocks everything below that needs verification |
 | 1 | Size framebuffers from the active video mode | none | [1.1](#11-size-the-framebuffers-from-the-active-video-mode) ✅ done |
 | 2 | Hoist globals out of the six rasteriser loops | none | [2.1](#21-globals-reloaded-on-every-pixel--the-largest-single-win) ✅ done |
-| 3 | Rotating cursors on the find-free scans | changes output | [2.5](#25-opool-free-slot-scans) ⛔ reverted, blocked on the pool-ordering question |
+| 8 | Blitter pre-clipping | none | [2.6](#26-per-pixel-clipping-in-the-blitters) ✅ done |
+| — | Volume API off `float`, POSIX shims via `compat.h` | none | [3](#3-open-watcom-compatibility) ✅ done |
+| 3 | Rotating cursors on the find-free scans | unevaluated | [2.5](#25-opool-free-slot-scans) ⛔ held, needs step 0 |
 | 4 | Hoist `check_fade` to per frame | needs IDA check | [2.2](#22-check_fade-runs-per-primitive) |
-| 5 | Compat shims, `platforms/dos.c`, wmake; build and measure | — | [3](#3-open-watcom-compatibility), [4](#4-new-platform-backend) |
+| 5 | `platforms/dos.c`, DOS `dirent` shim, wmake; build and measure | — | [3](#3-open-watcom-compatibility), [4](#4-new-platform-backend) |
 | 6 | Divide elimination and `#pragma aux` fixed-point | changes pixels | [2.3](#23-four-integer-divides-per-vertex), [2.4](#24-64-bit-arithmetic-on-a-32-bit-target) |
 | 7 | Trig table and pool sizing | needs IDA check | [1.2](#12-trigonometric-tables), [1.3](#13-pool-high-water-marks) |
-| 8 | Blitter pre-clipping | none | [2.6](#26-per-pixel-clipping-in-the-blitters) |
 | 9 | shade_map/profile interleave | measure first | [2.7](#27-cache-behaviour-of-the-column-rasteriser--structural-leave-alone) |
+
+The four items marked done are ones whose correctness can be argued from the
+code without needing a behavioural diff: hoisting loop-invariant reads, sizing
+an allocation to the mode that will actually be addressed, clipping a rectangle
+once instead of per pixel, and moving a 0..255 volume across an interface as an
+int instead of a float. Everything below the line either changes output by
+design or cannot currently be checked, which is why step 0 comes first.
+
+`arctan_slow` (`ellipse.c:784`) has no callers. It is the only *runtime* use of
+`atan2`, but deleting it would not drop `<math.h>` from the build — `init.c:612-687`
+still builds the trig tables with `atan`/`sin`/`cos` at startup. Left in place;
+the FP dependency to attack is the table generation, not this function.
 
 Steps 4, 6 and 7 change output or diverge from the original and need frame-dump
 comparison plus, where noted, confirmation against the disassembly.
 
-### Validating a change
+### Validating a change — frame dumps do NOT work for this
+
+This was tried and does not hold up. Recorded so nobody repeats it.
 
 The `ENABLE_FRAME_DUMP` path (`win.c:43`) auto-dumps frames 60, 120, 200, 300,
-500 and 800 as PPM. A stock build is **not** reproducible across runs — `my_time()`
-reads the wall clock, so everything past the title sequence diverges between two
-runs of the same binary. Comparing against it will report false differences.
+500 and 800 as PPM. Two problems, in order of discovery:
 
-Build both sides with `MY_TIME_DETERMINISTIC` (`types.h:28`) instead, which makes
-`my_time()` a frame counter:
+1. A stock build is not reproducible across runs — `my_time()` reads the wall
+   clock, so everything past the title sequence diverges between two runs of the
+   same binary. `MY_TIME_DETERMINISTIC` (`types.h:28`) fixes that much: it makes
+   `my_time()` a frame counter, and the same binary then reproduces all six
+   frames byte-for-byte, run after run.
 
-```bash
-cmake -S src -B build-det -DCMAKE_BUILD_TYPE=Release \
-      -DCMAKE_C_FLAGS="-DMY_TIME_DETERMINISTIC"
-cmake --build build-det -j8
-cp build-det/bin/ecstatica data/e2/ && cd data/e2 && ./ecstatica
-```
+2. **It is still not reproducible across builds.** Two from-scratch builds of
+   *identical source*, differing only in build directory, produce different
+   output from frame 2 onward. Verified directly: `main` built clean in two
+   separate directories, both with `MY_TIME_DETERMINISTIC`, diverge.
 
-All six frames then reproduce byte-for-byte run to run, which makes `cmp` a
-usable signal. Confirm that baseline-versus-baseline is clean before trusting a
-baseline-versus-change comparison.
+So the dumps measure per-binary determinism only. Any cross-build `cmp` verdict
+— which is what "did my change alter behaviour" needs — is noise. Comparisons
+made this way, including several recorded earlier in this document's history,
+do not support the conclusions drawn from them.
+
+That the rendered output depends on binary layout at all points at an
+uninitialised read somewhere in the render or scene-setup path: same source,
+same logical state, different memory contents. AddressSanitizer over the full
+boot-to-frame-800 sequence reports nothing, which fits — ASan catches
+out-of-bounds and use-after-free, not reads of uninitialised memory. That needs
+MemorySanitizer, which is not available on macOS; a Linux MSan run is the
+obvious next move, and finding that bug is worth more than any of the
+performance work here, because it is what is standing between this project and
+a usable regression test.
+
+Until then, treat behavioural verification as **unsolved**. Changes have to be
+argued from the code — that a transformation is provably value-preserving —
+rather than demonstrated by diffing frames.

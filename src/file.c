@@ -29,7 +29,6 @@
 #include <sys/stat.h>
 #include "compat.h"
 #ifndef _WIN32
-#include <strings.h>
 #include <dirent.h>
 #endif
 

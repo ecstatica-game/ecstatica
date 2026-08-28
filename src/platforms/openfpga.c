@@ -607,19 +607,17 @@ void platform_midi_stop(void) {
     of_midi_stop();
 }
 
-void platform_set_sfx_volume(float vol) {
-    int v = (int)(vol * 255.0f);
-    if (v < 0) v = 0;
-    if (v > 255) v = 255;
-    of_mixer_set_group_volume(OF_MIXER_GROUP_SFX, v);
-    of_mixer_set_group_volume(OF_MIXER_GROUP_VOICE, v);
+void platform_set_sfx_volume(int vol) {
+    if (vol < 0) vol = 0;
+    if (vol > 255) vol = 255;
+    of_mixer_set_group_volume(OF_MIXER_GROUP_SFX, vol);
+    of_mixer_set_group_volume(OF_MIXER_GROUP_VOICE, vol);
 }
 
-void platform_set_music_volume(float vol) {
-    int v = (int)(vol * 255.0f);
-    if (v < 0) v = 0;
-    if (v > 255) v = 255;
-    of_midi_set_volume(v);
+void platform_set_music_volume(int vol) {
+    if (vol < 0) vol = 0;
+    if (vol > 255) vol = 255;
+    of_midi_set_volume(vol);
 }
 
 /* ── Platform capabilities ──────────────────────────────────── */

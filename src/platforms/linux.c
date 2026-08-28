@@ -1289,17 +1289,17 @@ void platform_midi_stop(void) {
     if (fl_synth_system_reset) fl_synth_system_reset(s_fl_synth);
 }
 
-void platform_set_sfx_volume(float vol) {
-    if (vol < 0.0f) vol = 0.0f;
-    if (vol > 1.0f) vol = 1.0f;
-    s_master_sfx_volume = vol;
+void platform_set_sfx_volume(int vol) {
+    if (vol < 0) vol = 0;
+    if (vol > 255) vol = 255;
+    s_master_sfx_volume = (float)vol / 255.0f;
 }
 
-void platform_set_music_volume(float vol) {
-    if (vol < 0.0f) vol = 0.0f;
-    if (vol > 1.0f) vol = 1.0f;
-    s_master_music_volume = vol;
-    if (s_midi_ready) fl_synth_set_gain(s_fl_synth, vol);
+void platform_set_music_volume(int vol) {
+    if (vol < 0) vol = 0;
+    if (vol > 255) vol = 255;
+    s_master_music_volume = (float)vol / 255.0f;
+    if (s_midi_ready) fl_synth_set_gain(s_fl_synth, s_master_music_volume);
 }
 
 #endif /* __linux__ */

@@ -1101,19 +1101,27 @@ void put_graphic(char *data, int plane, int x, int y, int sx, int sy) {
 void put_graphic_win95(char *data, int plane, int x, int y, int sx, int sy) {
     if (!data || !bitmap[plane]) return;
 
-    int16_t *m = (plane < 2) ? mask_map[0] : mask_map[1];
+    int16_t *const m   = (plane < 2) ? mask_map[0] : mask_map[1];
+    char *const    dst = bitmap[plane];
+    const int      w   = screen_width;
+    const int      h   = screen_height;
+    const int      hw  = hires_width;
 
-    for (int row = 0; row < sy; row++) {
-        for (int col = 0; col < sx; col++) {
-            char pixel = data[row * sx + col];
+    /* Clip the rectangle once instead of testing every pixel. The transparency
+     * test stays in the loop — it is per-pixel data, not geometry. */
+    int col0 = (x < 0) ? -x : 0;
+    int row0 = (y < 0) ? -y : 0;
+    int col1 = (x + sx > w) ? w - x : sx;
+    int row1 = (y + sy > h) ? h - y : sy;
+
+    for (int row = row0; row < row1; row++) {
+        const char *src = data + row * sx;
+        int off = (y + row) * hw + x;
+        for (int col = col0; col < col1; col++) {
+            char pixel = src[col];
             if (pixel == -1) continue;
-            int px = x + col;
-            int py = y + row;
-            if (px < 0 || px >= screen_width || py < 0 || py >= screen_height)
-                continue;
-            int off = py * hires_width + px;
-            bitmap[plane][off] = pixel;
-            if (m) m[off] = 0;
+            dst[off + col] = pixel;
+            if (m) m[off + col] = 0;
         }
     }
 }
@@ -1178,28 +1186,38 @@ void text(int plane, const char *text, int length) {
     char a_color = (char)a_pen_colour;
     char b_color = (char)b_pen_colour;
 
+    char *const dst        = bitmap[plane];
+    const int   w          = screen_width;
+    const int   h          = screen_height;
+    const int   hw         = hires_width;
+    const int   fill_bg    = (draw_mode[plane] == 2);
+    const int   glyph_w    = tx_w;
+    const int   glyph_h    = tx_h;
+
     for (int i = 0; i < limit && text[i]; i++) {
         int char_idx = convert_ascii((unsigned char)text[i]);
         int px = pen_position_x[plane];
         int py = pen_position_y[plane];
 
-        for (int cy = 0; cy < tx_h; cy++) {
-            for (int cx = 0; cx < tx_w; cx++) {
-                int screen_x = px + cx;
-                int screen_y = py + cy;
-                if (screen_x < 0 || screen_x >= screen_width ||
-                        screen_y < 0 || screen_y >= screen_height)
-                    continue;
+        /* Clip the glyph cell once rather than per pixel. */
+        int cx0 = (px < 0) ? -px : 0;
+        int cy0 = (py < 0) ? -py : 0;
+        int cx1 = (px + glyph_w > w) ? w - px : glyph_w;
+        int cy1 = (py + glyph_h > h) ? h - py : glyph_h;
 
-                int off = screen_y * hires_width + screen_x;
-                if (character_set[char_idx][cy * tx_w + cx] == '#') {
-                    bitmap[plane][off] = a_color;
-                } else if (draw_mode[plane] == 2) {
-                    bitmap[plane][off] = b_color;
+        const char *glyph = character_set[char_idx];
+        for (int cy = cy0; cy < cy1; cy++) {
+            const char *grow = glyph + cy * glyph_w;
+            int off = (py + cy) * hw + px;
+            for (int cx = cx0; cx < cx1; cx++) {
+                if (grow[cx] == '#') {
+                    dst[off + cx] = a_color;
+                } else if (fill_bg) {
+                    dst[off + cx] = b_color;
                 }
             }
         }
-        pen_position_x[plane] += tx_w;
+        pen_position_x[plane] += glyph_w;
     }
 }
 
