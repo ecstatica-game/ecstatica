@@ -86,3 +86,9 @@ env.bak/
 venv.bak/
 
 .DS_Store
+
+# DOS build output (dos/Makefile is wmake, not GNU make)
+dos/*.obj
+dos/*.exe
+dos/*.map
+dos/link.lnk
