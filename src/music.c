@@ -173,7 +173,9 @@ static uint8_t *si_to_smf(const uint8_t *src, int src_len, int *out_len) {
 
     /* Allocate generous output buffer. */
     int cap = 64 + src_len * 6 * max_trk;
-    uint8_t *out = (uint8_t *)malloc(cap);
+    /* Zeroed: the writer fills only as far as the converted data reaches, and
+     * the buffer is deliberately over-allocated. */
+    uint8_t *out = (uint8_t *)calloc(1, (size_t)cap);
     if (!out) return NULL;
 
     /* MThd — format 1, N tracks. */
