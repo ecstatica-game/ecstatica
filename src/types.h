@@ -37,6 +37,9 @@ enum game_version_e {
 extern int game_version;
 
 #define BITMAP_SIZE  0x4B281  /* 640*480 + header overhead */
+/* The slack BITMAP_SIZE carries over 640*480. set_up_bitmaps() sizes the
+ * planes to the active mode and keeps the same margin. */
+#define BITMAP_SLACK (BITMAP_SIZE - 640 * 480)
 
 #define ACTOR_POOL_SIZE      200
 #define PART_POOL_SIZE      4000
