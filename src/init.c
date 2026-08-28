@@ -1417,14 +1417,14 @@ void clear_db_mouse_cursor_win95(void) {
 /* init_init_colours0to8  E1: 0x419748 | E2: 0x41CCC4 */
 void init_colours0to8(palette_entry_t *palette) {
     /* 8 hardcoded palette entries */
-    palette[0] = (palette_entry_t){0, 0, 0};       /* Black */
-    palette[1] = (palette_entry_t){63, 63, 63};     /* White */
-    palette[2] = (palette_entry_t){63, 0, 0};       /* Red */
-    palette[3] = (palette_entry_t){63, 63, 0};      /* Yellow */
-    palette[4] = (palette_entry_t){20, 20, 20};     /* Dark gray */
-    palette[5] = (palette_entry_t){40, 40, 40};     /* Gray */
-    palette[6] = (palette_entry_t){0, 0, 32};       /* Dark blue */
-    palette[7] = (palette_entry_t){32, 48, 63};     /* Light cyan */
+    palette[0] = pal_rgb(0, 0, 0);       /* Black */
+    palette[1] = pal_rgb(63, 63, 63);     /* White */
+    palette[2] = pal_rgb(63, 0, 0);       /* Red */
+    palette[3] = pal_rgb(63, 63, 0);      /* Yellow */
+    palette[4] = pal_rgb(20, 20, 20);     /* Dark gray */
+    palette[5] = pal_rgb(40, 40, 40);     /* Gray */
+    palette[6] = pal_rgb(0, 0, 32);       /* Dark blue */
+    palette[7] = pal_rgb(32, 48, 63);     /* Light cyan */
 }
 
 /* init_expand_colour_map_a_bit_41CD54 — palette interpolation.

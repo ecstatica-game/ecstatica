@@ -28,7 +28,8 @@
 #include <ctype.h>
 #include <sys/stat.h>
 #include "compat.h"
-#ifndef _WIN32
+/* compat.h supplies the shim on Win32 and DOS; elsewhere it is a real header. */
+#if !defined(_WIN32) && !defined(__WATCOMC__)
 #include <dirent.h>
 #endif
 
@@ -733,6 +734,21 @@ void file_write_event(event_t *event, FILE *f) {
     putw_be(event->param1, f);
     putw_be(event->param2, f);
     putw_be(event->param3, f);
+}
+
+/* Emit one event from loose fields. The save writer built each event with a
+ * compound literal passed straight to file_write_event; C99 allows that and
+ * Open Watcom does not. Same effect, and the call sites read no worse. */
+static void put_event(FILE *f, int16_t index, uint16_t type,
+                      int16_t p1, int16_t p2, int16_t p3) {
+    event_t e;
+    e.event_index = index;
+    e.event_type  = type;
+    e.param1      = p1;
+    e.param2      = p2;
+    e.param3      = p3;
+    e.next        = NULL;
+    file_write_event(&e, f);
 }
 
 /* file_write_a_merged_ev  E2: 0x4412B0 */
@@ -1643,48 +1659,29 @@ void save_game_parts(void *parent_v, FILE *f) {
         int16_t cidx = child->name_index;
 
         if (parent->type == 7)
-            file_write_event(&(event_t){0, ADD_PART_TO_THING,
-                cidx, child->flags, (int16_t)child->type, NULL}, f);
+            put_event(f, 0, ADD_PART_TO_THING, cidx, child->flags, (int16_t)child->type);
         else
-            file_write_event(&(event_t){parent->name_index, ADD_PART,
-                cidx, child->flags, (int16_t)child->type, NULL}, f);
+            put_event(f, parent->name_index, ADD_PART, cidx, child->flags, (int16_t)child->type);
 
-        file_write_event(&(event_t){cidx, OFFSET,
-            child->Offset.X, child->Offset.Y, child->Offset.Z, NULL}, f);
-        file_write_event(&(event_t){cidx, POSITION,
-            child->AbsPosition.X, child->AbsPosition.Y, child->AbsPosition.Z, NULL}, f);
-        file_write_event(&(event_t){cidx, ROTATE,
-            child->Rotate.X, child->Rotate.Y, child->Rotate.Z, NULL}, f);
-        file_write_event(&(event_t){cidx, VECTOR1,
-            child->VECTOR_Squash.X, child->VECTOR_Squash.Y, child->VECTOR_Squash.Z, NULL}, f);
-        file_write_event(&(event_t){cidx, VECTOR2,
-            child->VECTOR_RelCentre.X, child->VECTOR_RelCentre.Y, child->VECTOR_RelCentre.Z, NULL}, f);
-        file_write_event(&(event_t){cidx, COLOUR,
-            child->color, child->color_shade, child->max_squash, NULL}, f);
-        file_write_event(&(event_t){cidx, FLAGS,
-            child->flags, -1, 0, NULL}, f);
-        file_write_event(&(event_t){cidx, SHADE,
-            child->color_shade, 0, 0, NULL}, f);
-        file_write_event(&(event_t){cidx, DEF_OFFSET,
-            child->def_offset.X, child->def_offset.Y, child->def_offset.Z, NULL}, f);
-        file_write_event(&(event_t){cidx, DEF_POSITION,
-            child->def_position.X, child->def_position.Y, child->def_position.Z, NULL}, f);
-        file_write_event(&(event_t){cidx, DEF_ROTATE,
-            child->def_rotate.X, child->def_rotate.Y, child->def_rotate.Z, NULL}, f);
-        file_write_event(&(event_t){cidx, DEF_VECTOR1,
-            child->def_Squash.X, child->def_Squash.Y, child->def_Squash.Z, NULL}, f);
-        file_write_event(&(event_t){cidx, DEF_VECTOR2,
-            child->def_RelCentre.X, child->def_RelCentre.Y, child->def_RelCentre.Z, NULL}, f);
-        file_write_event(&(event_t){cidx, DEF_COLOUR,
-            child->default_color, child->work_color, (int16_t)child->default_flags, NULL}, f);
-        file_write_event(&(event_t){cidx, DEF_FLAGS,
-            (int16_t)child->default_flags, -1, 0, NULL}, f);
+        put_event(f, cidx, OFFSET, child->Offset.X, child->Offset.Y, child->Offset.Z);
+        put_event(f, cidx, POSITION, child->AbsPosition.X, child->AbsPosition.Y, child->AbsPosition.Z);
+        put_event(f, cidx, ROTATE, child->Rotate.X, child->Rotate.Y, child->Rotate.Z);
+        put_event(f, cidx, VECTOR1, child->VECTOR_Squash.X, child->VECTOR_Squash.Y, child->VECTOR_Squash.Z);
+        put_event(f, cidx, VECTOR2, child->VECTOR_RelCentre.X, child->VECTOR_RelCentre.Y, child->VECTOR_RelCentre.Z);
+        put_event(f, cidx, COLOUR, child->color, child->color_shade, child->max_squash);
+        put_event(f, cidx, FLAGS, child->flags, -1, 0);
+        put_event(f, cidx, SHADE, child->color_shade, 0, 0);
+        put_event(f, cidx, DEF_OFFSET, child->def_offset.X, child->def_offset.Y, child->def_offset.Z);
+        put_event(f, cidx, DEF_POSITION, child->def_position.X, child->def_position.Y, child->def_position.Z);
+        put_event(f, cidx, DEF_ROTATE, child->def_rotate.X, child->def_rotate.Y, child->def_rotate.Z);
+        put_event(f, cidx, DEF_VECTOR1, child->def_Squash.X, child->def_Squash.Y, child->def_Squash.Z);
+        put_event(f, cidx, DEF_VECTOR2, child->def_RelCentre.X, child->def_RelCentre.Y, child->def_RelCentre.Z);
+        put_event(f, cidx, DEF_COLOUR, child->default_color, child->work_color, (int16_t)child->default_flags);
+        put_event(f, cidx, DEF_FLAGS, (int16_t)child->default_flags, -1, 0);
 
         for (point_t *pt = child->points_list; pt; pt = pt->next) {
-            file_write_event(&(event_t){cidx, ADD_POINT,
-                pt->point_index, pt->point_use_flag, pt->offset_point.X, NULL}, f);
-            file_write_event(&(event_t){pt->point_index, OFFSET_POINT,
-                pt->offset_point.X, pt->offset_point.Y, pt->offset_point.Z, NULL}, f);
+            put_event(f, cidx, ADD_POINT, pt->point_index, pt->point_use_flag, pt->offset_point.X);
+            put_event(f, pt->point_index, OFFSET_POINT, pt->offset_point.X, pt->offset_point.Y, pt->offset_point.Z);
         }
 
         save_game_parts(child, f);
@@ -1695,29 +1692,16 @@ void save_game_parts(void *parent_v, FILE *f) {
 void save_game_thing(actor_t *actor, FILE *f) {
     if (!actor || !f) return;
 
-    file_write_event(&(event_t){0, ADD_THING,
-        actor->name_index, (int16_t)actor->flags, actor->type, NULL}, f);
-    file_write_event(&(event_t){0, START_POSITION,
-        actor->start_position.X, actor->start_position.Y, actor->start_position.Z, NULL}, f);
-    file_write_event(&(event_t){0, THING_FLAGS,
-        (int16_t)actor->flags, actor->state_flags, -1, NULL}, f);
-    file_write_event(&(event_t){0, HELD_OFFSET,
-        actor->held_offset.X, actor->held_offset.Y, actor->held_offset.Z, NULL}, f);
-    file_write_event(&(event_t){0, HELD_ROTATE,
-        actor->held_rotate.X, actor->held_rotate.Y, actor->held_rotate.Z, NULL}, f);
-    file_write_event(&(event_t){0, HELD_OFF_LEFT,
-        actor->held_off_left.X, actor->held_off_left.Y, actor->held_off_left.Z, NULL}, f);
-    file_write_event(&(event_t){0, HELD_ROT_LEFT,
-        actor->held_rot_left.X, actor->held_rot_left.Y, actor->held_rot_left.Z, NULL}, f);
-    file_write_event(&(event_t){0, ACTOR_REP,
-        actor->actor_rep_index, 1, actor->default_repert, NULL}, f);
-    file_write_event(&(event_t){0, THING_CODE,
-        (int16_t)(actor->code_at_hp_change + 1),
-        (int16_t)(actor->actor_hit_code + 1),
-        (int16_t)(actor->actor_init_code + 1), NULL}, f);
-    file_write_event(&(event_t){0, THING_CODE_2,
-        (int16_t)(actor->picked_up_code + 1),
-        (int16_t)(actor->dead_code_index + 1), 0, NULL}, f);
+    put_event(f, 0, ADD_THING, actor->name_index, (int16_t)actor->flags, actor->type);
+    put_event(f, 0, START_POSITION, actor->start_position.X, actor->start_position.Y, actor->start_position.Z);
+    put_event(f, 0, THING_FLAGS, (int16_t)actor->flags, actor->state_flags, -1);
+    put_event(f, 0, HELD_OFFSET, actor->held_offset.X, actor->held_offset.Y, actor->held_offset.Z);
+    put_event(f, 0, HELD_ROTATE, actor->held_rotate.X, actor->held_rotate.Y, actor->held_rotate.Z);
+    put_event(f, 0, HELD_OFF_LEFT, actor->held_off_left.X, actor->held_off_left.Y, actor->held_off_left.Z);
+    put_event(f, 0, HELD_ROT_LEFT, actor->held_rot_left.X, actor->held_rot_left.Y, actor->held_rot_left.Z);
+    put_event(f, 0, ACTOR_REP, actor->actor_rep_index, 1, actor->default_repert);
+    put_event(f, 0, THING_CODE, (int16_t)(actor->code_at_hp_change + 1), (int16_t)(actor->actor_hit_code + 1), (int16_t)(actor->actor_init_code + 1));
+    put_event(f, 0, THING_CODE_2, (int16_t)(actor->picked_up_code + 1), (int16_t)(actor->dead_code_index + 1), 0);
 
     save_game_parts(actor, f);
 
@@ -1725,37 +1709,26 @@ void save_game_thing(actor_t *actor, FILE *f) {
     for (part_t *pt = (part_t *)actor->actor_parts_list; pt;
          pt = pt->next_in_display_list) {
         if (pt->field_12E_point_to_point) {
-            file_write_event(&(event_t){pt->name_index, POINT_TO_POINT,
-                pt->field_12E_point_to_point->point_index, 0, 0, NULL}, f);
+            put_event(f, pt->name_index, POINT_TO_POINT, pt->field_12E_point_to_point->point_index, 0, 0);
         }
     }
 
     /* Triangle/polygon geometry */
     for (tri_t *tri = actor->polygone_tri_list; tri; tri = tri->next) {
-        file_write_event(&(event_t){tri->tri_index, ADD_TRIANGLE,
-            tri->point1->point_index, tri->point2->point_index,
-            tri->point3->point_index, NULL}, f);
+        put_event(f, tri->tri_index, ADD_TRIANGLE, tri->point1->point_index, tri->point2->point_index, tri->point3->point_index);
 
         if (tri->quad_point4)
-            file_write_event(&(event_t){tri->tri_index, MAKE_QUAD,
-                tri->quad_point4->point_index, 0, 0, NULL}, f);
+            put_event(f, tri->tri_index, MAKE_QUAD, tri->quad_point4->point_index, 0, 0);
 
-        file_write_event(&(event_t){tri->tri_index, COLOUR_TRIANGLE,
-            tri->tri_color_3, tri->tri_color_4, 0, NULL}, f);
-        file_write_event(&(event_t){tri->tri_index, TRIANGLE_FLAGS,
-            (int16_t)tri->tri_use_flag, -1, 0, NULL}, f);
-        file_write_event(&(event_t){tri->tri_index, TRI_SHADE_NAME,
-            tri->tri_shade_name, 0, 0, NULL}, f);
+        put_event(f, tri->tri_index, COLOUR_TRIANGLE, tri->tri_color_3, tri->tri_color_4, 0);
+        put_event(f, tri->tri_index, TRIANGLE_FLAGS, (int16_t)tri->tri_use_flag, -1, 0);
+        put_event(f, tri->tri_index, TRI_SHADE_NAME, tri->tri_shade_name, 0, 0);
 
         if (tri->texture_name_index >= 0) {
-            file_write_event(&(event_t){tri->tri_index, TRI_TEX_NAME,
-                tri->texture_name_index, 0, 0, NULL}, f);
-            file_write_event(&(event_t){tri->tri_index, TRI_TEXTURE1,
-                tri->tex1_u1, tri->tex1_v1, tri->tex1_u2, NULL}, f);
-            file_write_event(&(event_t){tri->tri_index, TRI_TEXTURE2,
-                tri->tex2_u1, tri->tex2_v1, tri->tex2_u2, NULL}, f);
-            file_write_event(&(event_t){tri->tri_index, TRI_TEXTURE3,
-                tri->tex3_u1, tri->tex3_v1, 0, NULL}, f);
+            put_event(f, tri->tri_index, TRI_TEX_NAME, tri->texture_name_index, 0, 0);
+            put_event(f, tri->tri_index, TRI_TEXTURE1, tri->tex1_u1, tri->tex1_v1, tri->tex1_u2);
+            put_event(f, tri->tri_index, TRI_TEXTURE2, tri->tex2_u1, tri->tex2_v1, tri->tex2_u2);
+            put_event(f, tri->tri_index, TRI_TEXTURE3, tri->tex3_u1, tri->tex3_v1, 0);
         }
     }
 }
@@ -1789,7 +1762,7 @@ void save_game(int slot) {
     /* 4. Actor hierarchy as events */
     for (actor_t *actor = root_thing; actor; actor = actor->next_in_display_list)
         save_game_thing(actor, f);
-    file_write_event(&(event_t){0, NO_EVENT, 0, 0, 0, NULL}, f);
+    put_event(f, 0, NO_EVENT, 0, 0, 0);
 
     /* 5. Repertoire list (only reps with use_flag & 2) */
     for (rephead_t *rep = repertoire_list; rep; rep = rep->next_rep) {

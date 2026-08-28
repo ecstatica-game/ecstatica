@@ -211,10 +211,10 @@ static int clampi(int v, int lo, int hi) {
 
 static void inject_palette(void) {
     palette_entry_t e[5];
-    e[0] = (palette_entry_t){ 63, 63, 63 };            /* COL_TEXT   */
-    e[1] = (palette_entry_t){ 63, 56,  0 };            /* COL_HILITE */
-    e[2] = (palette_entry_t){ 34, 34, 38 };            /* COL_DIM    */
-    e[3] = (palette_entry_t){  4,  6, 14 };            /* COL_PANEL  */
+    e[0] = pal_rgb(63, 63, 63);            /* COL_TEXT   */
+    e[1] = pal_rgb(63, 56, 0);            /* COL_HILITE */
+    e[2] = pal_rgb(34, 34, 38);            /* COL_DIM    */
+    e[3] = pal_rgb(4, 6, 14);            /* COL_PANEL  */
     e[4] = bg_choices[bg_choice];                      /* COL_BG     */
 
     static const int idx[5] = { COL_TEXT, COL_HILITE, COL_DIM, COL_PANEL, COL_BG };

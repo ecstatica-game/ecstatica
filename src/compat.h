@@ -29,6 +29,15 @@
 #define ecs_exit_now(code) _exit(code)
 #endif
 
+/* DOS (Open Watcom): no <dirent.h>, but <direct.h> carries the whole POSIX
+ * directory interface — struct dirent with d_name, DIR, opendir/readdir/
+ * closedir — so no shim is needed, only the different header name. mkdir
+ * takes one argument here, as on Win32. */
+#if defined(__WATCOMC__) && !defined(_WIN32)
+#include <direct.h>
+#define mkdir(path, mode) _mkdir(path)
+#endif
+
 /* POSIX string case-compare on Windows */
 #ifdef _WIN32
 #include <string.h>

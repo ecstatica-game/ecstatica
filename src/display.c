@@ -1930,14 +1930,14 @@ void put_a_cuboid(part_t *part) {
     point_t points[8];
     memset(points, 0, sizeof(points));
 
-    points[0].offset_point = (vector_t){{{ sx,  sy,  sz}}};
-    points[1].offset_point = (vector_t){{{-sx,  sy,  sz}}};
-    points[2].offset_point = (vector_t){{{ sx, -sy,  sz}}};
-    points[3].offset_point = (vector_t){{{-sx, -sy,  sz}}};
-    points[4].offset_point = (vector_t){{{ sx,  sy, -sz}}};
-    points[5].offset_point = (vector_t){{{-sx,  sy, -sz}}};
-    points[6].offset_point = (vector_t){{{ sx, -sy, -sz}}};
-    points[7].offset_point = (vector_t){{{-sx, -sy, -sz}}};
+    set_vector(&points[0].offset_point, sx, sy, sz);
+    set_vector(&points[1].offset_point, -sx, sy, sz);
+    set_vector(&points[2].offset_point, sx, -sy, sz);
+    set_vector(&points[3].offset_point, -sx, -sy, sz);
+    set_vector(&points[4].offset_point, sx, sy, -sz);
+    set_vector(&points[5].offset_point, -sx, sy, -sz);
+    set_vector(&points[6].offset_point, sx, -sy, -sz);
+    set_vector(&points[7].offset_point, -sx, -sy, -sz);
 
     for (int i = 0; i < 8; i++) {
         vector_t world;

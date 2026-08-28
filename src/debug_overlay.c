@@ -68,7 +68,8 @@ static int cell_has_blocking_material(int map_elem_idx);
 
 /* Project a world point to screen. Returns 1 on success, 0 if near-clipped. */
 static int proj(int16_t wx, int16_t wy, int16_t wz, int *sx, int *sy) {
-    vector_t world = { .X = wx, .Y = wy, .Z = wz };
+    vector_t world;
+    set_vector(&world, wx, wy, wz);
     vector_t out;
     view_transform(&out, &world);
     if (out.Z == 0) return 0;

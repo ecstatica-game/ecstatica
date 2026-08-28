@@ -58,7 +58,8 @@ void load_action_directory(void) {
 void recalc_cam(void) {
     calculate_view_matrices();
     if (selected_thing) {
-        vector_t input_vec = {{{0, 0, (int16_t)(-selected_thing->actor_box_size * 4)}}};
+        vector_t input_vec;
+        set_vector(&input_vec, 0, 0, (int16_t)(-selected_thing->actor_box_size * 4));
         vector_t result_vec;
         matrix_vector(&input_vec, &result_vec, &view_matrix);
         copy_vector(&view_pos, &selected_thing->position_vector);

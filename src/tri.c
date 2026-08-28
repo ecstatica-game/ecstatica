@@ -149,9 +149,13 @@ static void clip_and_raster(tri_t *tri, int plane, tri_t *shade) {
     }
 
     clip_vtx_t in[3];
-    point_t *pts[3] = { p1, p2, p3 };
-    int uu[3] = { tri->tex1_u1, tri->tex1_u2, tri->tex2_v1 };
-    int vv[3] = { tri->tex1_v1, tri->tex2_u1, tri->tex2_u2 };
+    /* Assigned rather than initialised — Open Watcom only accepts constant
+     * aggregate initialisers. */
+    point_t *pts[3];
+    int uu[3], vv[3];
+    pts[0] = p1; pts[1] = p2; pts[2] = p3;
+    uu[0] = tri->tex1_u1; uu[1] = tri->tex1_u2; uu[2] = tri->tex2_v1;
+    vv[0] = tri->tex1_v1; vv[1] = tri->tex2_u1; vv[2] = tri->tex2_u2;
 
     int inside_count = 0;
     for (int i = 0; i < 3; i++) {
