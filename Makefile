@@ -42,7 +42,13 @@ E1_DIR_ORIG		= data/e1-dos
 
 # ── DOS ───────────────────────────────────────────────────────
 WATCOM     ?= $(HOME)/watcom
+# Open Watcom ships a host binary directory per platform: bino64 on macOS,
+# binl64 on Linux. CI builds these targets on Linux runners.
+ifeq ($(shell uname -s),Darwin)
 WATCOM_BIN  = $(WATCOM)/bino64
+else
+WATCOM_BIN  = $(WATCOM)/binl64
+endif
 DOS_EXE     = dos/ecstatic.exe
 DOSBOX     ?= dosbox-x
 # DOS/4GW has to sit next to the executable for the stub to find it.

@@ -100,3 +100,8 @@ win9x/*.map
 win9x/link.lnk
 dos/*.err
 win9x/*.err
+
+# Release packaging output
+dist/
+ecstatica-dos.zip
+ecstatica-win9x.zip
