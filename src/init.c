@@ -1119,7 +1119,11 @@ void put_graphic_win95(char *data, int plane, int x, int y, int sx, int sy) {
         int off = (y + row) * hw + x;
         for (int col = col0; col < col1; col++) {
             char pixel = src[col];
-            if (pixel == -1) continue;
+            /* 0xFF is the transparency key. Comparing against -1 assumes a
+             * signed char, which is not universal — Open Watcom's default char
+             * is unsigned, and the test silently never fired there, so every
+             * graphic drew its transparent pixels as palette entry 255. */
+            if ((unsigned char)pixel == 0xFFu) continue;
             dst[off + col] = pixel;
             if (m) m[off + col] = 0;
         }

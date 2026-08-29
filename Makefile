@@ -145,7 +145,7 @@ define dos_run
 endef
 
 dos-e1: dos
-	$(call dos_run,$(E1_DIR_ORIG))
+	$(call dos_run,$(E1_DIR_DOS))
 
 dos-e2: dos
 	$(call dos_run,$(E2_DIR))
