@@ -92,3 +92,9 @@ dos/*.obj
 dos/*.exe
 dos/*.map
 dos/link.lnk
+
+# Win9x build output (win9x/Makefile is wmake, not GNU make)
+win9x/*.obj
+win9x/*.exe
+win9x/*.map
+win9x/link.lnk

@@ -10,7 +10,8 @@
  *   Mouse     INT 33h.
  *   Timing    BIOS tick plus a live PIT channel-0 read for the fraction
  *             within it, rather than the bare 18.2 Hz tick.
- *   Audio     not implemented; see the note above platform_audio_init().
+ *   Audio     Sound Blaster, 8-bit mono 22050 Hz, auto-init DMA with a
+ *             software mixer in the IRQ handler. Music is still silent.
  *
  * The 8-bit indexed framebuffer the engine hands to platform_blit() is exactly
  * what the hardware wants, so the blit is a copy with no palette expansion and
@@ -28,12 +29,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 /* ── State ──────────────────────────────────────────────────── */
 
 struct platform_t {
     int      fb_width;
     int      fb_height;
+    int      pitch;         /* bytes per scanline; not always == fb_width */
     uint8_t *vram;          /* mode 13h: 0xA0000. VESA: mapped LFB. */
     int      vesa_mode;     /* 0 when in mode 13h */
     uint32_t lfb_phys;
@@ -287,6 +290,7 @@ static bool apply_video_mode(platform_t *p, int w, int h)
         p->vesa_mode = 0;
         p->fb_width  = w;
         p->fb_height = h;
+        p->pitch     = w;
         return true;
     }
 
@@ -304,6 +308,10 @@ static bool apply_video_mode(platform_t *p, int w, int h)
         p->lfb_phys  = phys;
         p->fb_width  = w;
         p->fb_height = h;
+        /* Cards are free to pad scanlines, and several 640x480 modes do. The
+         * engine's buffer is always tightly packed, so a padded mode has to be
+         * copied row by row rather than in one block. */
+        p->pitch     = pitch ? pitch : w;
         return true;
     }
 }
@@ -343,11 +351,29 @@ void platform_set_render_size(platform_t *p, int w, int h)
     apply_video_mode(p, w, h);
 }
 
+/* Wait for the start of vertical retrace.
+ *
+ * The original did this (init_wait_vert_blank) and the port turned it into a
+ * no-op, on the reasoning that the platform layer handles vsync — true of a
+ * compositing desktop, false here. Without it the loop runs as fast as the CPU
+ * allows, which on a fast machine or an emulator set to max cycles is far
+ * faster than the game was ever paced to run, and it tears. */
+static void wait_retrace(void)
+{
+    int guard;
+    /* If a retrace is already in progress, let it finish first, so a single
+     * call cannot return twice within one interval. */
+    for (guard = 0; guard < 100000 && (inp(0x3DA) & 0x08); guard++)
+        ;
+    for (guard = 0; guard < 100000 && !(inp(0x3DA) & 0x08); guard++)
+        ;
+}
+
 void platform_blit(platform_t *p, const uint8_t *framebuffer, const uint8_t *palette)
 {
-    int n;
-
     if (!p || !p->vram || !framebuffer) return;
+
+    wait_retrace();
 
     if (palette) {
         /* VGA DAC, 6 bits per channel — which is the engine's own format, so
@@ -358,8 +384,15 @@ void platform_blit(platform_t *p, const uint8_t *framebuffer, const uint8_t *pal
             outp(0x3C9, palette[i]);
     }
 
-    n = p->fb_width * p->fb_height;
-    memcpy(p->vram, framebuffer, (size_t)n);
+    if (p->pitch == p->fb_width) {
+        memcpy(p->vram, framebuffer, (size_t)p->fb_width * (size_t)p->fb_height);
+    } else {
+        int y;
+        for (y = 0; y < p->fb_height; y++)
+            memcpy(p->vram + (size_t)y * (size_t)p->pitch,
+                   framebuffer + (size_t)y * (size_t)p->fb_width,
+                   (size_t)p->fb_width);
+    }
 }
 
 void platform_blit_rgba(platform_t *p, const uint8_t *framebuffer)
@@ -486,24 +519,310 @@ void platform_delay(uint32_t ms)
 }
 
 /* ── Audio ──────────────────────────────────────────────────────
- * Not implemented. Sound Blaster DMA output and MPU-401/OPL3 music are the
- * remaining piece of this backend; the engine runs silent until they land.
- * Every entry point is a no-op rather than a stub that pretends to succeed,
- * so nothing upstream waits on a voice that will never play.
+ * Sound Blaster, 8-bit mono at 22050 Hz, auto-initialise DMA over a
+ * double buffer. The card interrupts at each half-buffer boundary and the
+ * handler mixes the next half from the active voices.
+ *
+ * The engine's model — up to 16 concurrent 8-bit unsigned mono voices with
+ * per-voice volume — has no hardware equivalent here, so the mixing is done in
+ * software. Output is mono, so `pan` is accepted and ignored.
  */
 
-void platform_audio_init(void) { }
+#define SB_VOICES     16
+#define SB_RATE       22050
+#define SB_HALF       2048               /* bytes per half buffer */
+#define SB_BUFSZ      (SB_HALF * 2)
+
+typedef struct {
+    const uint8_t *data;
+    uint32_t       len;
+    uint32_t       pos;      /* 16.16 fixed point index into data */
+    uint32_t       step;     /* 16.16 increment: rate / SB_RATE */
+    int            vol;      /* 0..127 */
+    bool           loop;
+    volatile bool  active;
+} sb_voice_t;
+
+static sb_voice_t s_voices[SB_VOICES];
+static int        s_sfx_vol = 255;       /* 0..255 master */
+
+static uint16_t s_sb_base;               /* 0x220 etc, 0 when absent */
+static int      s_sb_irq;
+static int      s_sb_dma;
+static bool     s_sb_ready;
+
+static uint8_t *s_dma_buf;               /* conventional memory */
+static uint32_t s_dma_phys;
+static uint16_t s_dma_sel;
+static volatile int s_dma_half;          /* half the card is NOT playing */
+
+static void (__interrupt __far *s_old_irq)(void);
+
+/* ── DSP primitives ─────────────────────────────────────────── */
+
+static void sb_write_dsp(uint8_t v)
+{
+    int guard = 0xFFFF;
+    while ((inp(s_sb_base + 0x0C) & 0x80) && --guard)
+        ;
+    outp(s_sb_base + 0x0C, v);
+}
+
+static int sb_reset(void)
+{
+    int guard;
+    outp(s_sb_base + 0x06, 1);
+    { volatile int d; for (d = 0; d < 1000; d++) (void)inp(s_sb_base + 0x06); }
+    outp(s_sb_base + 0x06, 0);
+
+    for (guard = 0; guard < 0x10000; guard++) {
+        if (inp(s_sb_base + 0x0E) & 0x80) {
+            if ((inp(s_sb_base + 0x0A) & 0xFF) == 0xAA) return 1;
+        }
+    }
+    return 0;
+}
+
+/* BLASTER=A220 I7 D1 H5 T6 — the address, IRQ and 8-bit DMA channel are all
+ * that matter here. Without the variable there is nothing safe to probe, so
+ * audio simply stays off. */
+static int sb_parse_blaster(void)
+{
+    const char *e = getenv("BLASTER");
+    if (!e) return 0;
+
+    s_sb_base = 0;
+    s_sb_irq  = -1;
+    s_sb_dma  = -1;
+
+    while (*e) {
+        char k = (char)toupper((unsigned char)*e);
+        if (k == 'A' || k == 'I' || k == 'D') {
+            int v = 0, base = (k == 'A') ? 16 : 10;
+            e++;
+            while (*e && *e != ' ') {
+                int d;
+                if (*e >= '0' && *e <= '9')      d = *e - '0';
+                else if (*e >= 'A' && *e <= 'F') d = *e - 'A' + 10;
+                else if (*e >= 'a' && *e <= 'f') d = *e - 'a' + 10;
+                else break;
+                v = v * base + d;
+                e++;
+            }
+            if      (k == 'A') s_sb_base = (uint16_t)v;
+            else if (k == 'I') s_sb_irq  = v;
+            else               s_sb_dma  = v;
+        } else {
+            while (*e && *e != ' ') e++;
+        }
+        while (*e == ' ') e++;
+    }
+
+    return s_sb_base && s_sb_irq >= 0 && s_sb_dma >= 0;
+}
+
+/* ── Mixer ──────────────────────────────────────────────────── */
+
+/* Mix one half-buffer. Runs from the IRQ handler, so it does no allocation and
+ * touches nothing the foreground code can be halfway through modifying beyond
+ * the voice table, whose writers disable interrupts. */
+static void sb_mix(uint8_t *dst)
+{
+    int i, v;
+
+    for (i = 0; i < SB_HALF; i++) dst[i] = 128;
+
+    for (v = 0; v < SB_VOICES; v++) {
+        sb_voice_t *vo = &s_voices[v];
+        uint32_t pos, step;
+        int vol;
+
+        if (!vo->active) continue;
+        pos  = vo->pos;
+        step = vo->step;
+        vol  = vo->vol * s_sfx_vol / 255;
+
+        for (i = 0; i < SB_HALF; i++) {
+            uint32_t idx = pos >> 16;
+            int s;
+
+            if (idx >= vo->len) {
+                if (!vo->loop) { vo->active = false; break; }
+                pos = 0;
+                idx = 0;
+            }
+
+            /* 8-bit unsigned centred on 128; scale around the centre. */
+            s = ((int)vo->data[idx] - 128) * vol / 127;
+            s += (int)dst[i] - 128;
+            if (s < -128) s = -128;
+            if (s >  127) s =  127;
+            dst[i] = (uint8_t)(s + 128);
+
+            pos += step;
+        }
+        vo->pos = pos;
+    }
+}
+
+static void __interrupt __far sb_isr(void)
+{
+    /* Acknowledge the card first: reading the status port clears its
+     * interrupt latch for 8-bit transfers. */
+    (void)inp(s_sb_base + 0x0E);
+
+    sb_mix(s_dma_buf + (s_dma_half ? SB_HALF : 0));
+    s_dma_half ^= 1;
+
+    /* EOI — slave first when the IRQ is on the second controller. */
+    if (s_sb_irq >= 8) outp(0xA0, 0x20);
+    outp(0x20, 0x20);
+}
+
+/* ── DMA ────────────────────────────────────────────────────── */
+
+static void dma_setup(uint32_t phys, int len, int channel)
+{
+    static const uint8_t page_port[4] = { 0x87, 0x83, 0x81, 0x82 };
+    int mask_port  = 0x0A;
+    int mode_port  = 0x0B;
+    int clear_port = 0x0C;
+    int addr_port  = channel * 2;
+    int cnt_port   = channel * 2 + 1;
+
+    _disable();
+    outp(mask_port, 0x04 | channel);              /* mask channel */
+    outp(clear_port, 0x00);                       /* clear flip-flop */
+    /* 0x58 = single mode + auto-init + read (memory → device) */
+    outp(mode_port, 0x58 | channel);
+    outp(addr_port, (int)(phys & 0xFF));
+    outp(addr_port, (int)((phys >> 8) & 0xFF));
+    outp(page_port[channel], (int)((phys >> 16) & 0xFF));
+    outp(cnt_port, (int)((len - 1) & 0xFF));
+    outp(cnt_port, (int)(((len - 1) >> 8) & 0xFF));
+    outp(mask_port, channel);                     /* unmask */
+    _enable();
+}
+
+void platform_audio_init(void)
+{
+    uint16_t seg;
+    uint32_t phys;
+    int      irq_vec;
+
+    memset((void *)s_voices, 0, sizeof(s_voices));
+
+    if (!sb_parse_blaster()) return;
+    if (!sb_reset()) return;
+
+    /* The DMA buffer must be under 1 MB, physically contiguous, and must not
+     * straddle a 64 KB page — the controller only increments the low 16 bits.
+     * Allocating twice what is needed guarantees an aligned window inside it. */
+    {
+        uint8_t *raw = (uint8_t *)dos_alloc_real((SB_BUFSZ * 2) / 16 + 1,
+                                                 &s_dma_sel, &seg);
+        if (!raw) return;
+        phys = (uint32_t)seg << 4;
+        if ((phys & 0xFFFF0000UL) != ((phys + SB_BUFSZ - 1) & 0xFFFF0000UL))
+            phys = (phys + 0xFFFFUL) & 0xFFFF0000UL;   /* step to next page */
+        s_dma_phys = phys;
+        s_dma_buf  = (uint8_t *)phys;
+    }
+
+    memset(s_dma_buf, 128, SB_BUFSZ);
+    s_dma_half = 0;
+
+    irq_vec  = (s_sb_irq < 8) ? (0x08 + s_sb_irq) : (0x70 + s_sb_irq - 8);
+    s_old_irq = _dos_getvect(irq_vec);
+    _dos_setvect(irq_vec, sb_isr);
+
+    /* Unmask the IRQ at the PIC. */
+    if (s_sb_irq < 8) {
+        outp(0x21, inp(0x21) & ~(1 << s_sb_irq));
+    } else {
+        outp(0xA1, inp(0xA1) & ~(1 << (s_sb_irq - 8)));
+        outp(0x21, inp(0x21) & ~(1 << 2));   /* cascade */
+    }
+
+    dma_setup(s_dma_phys, SB_BUFSZ, s_sb_dma);
+
+    sb_write_dsp(0xD1);                      /* speaker on */
+    sb_write_dsp(0x40);                      /* set time constant */
+    sb_write_dsp((uint8_t)(256 - 1000000L / SB_RATE));
+    sb_write_dsp(0x48);                      /* set block size */
+    sb_write_dsp((uint8_t)((SB_HALF - 1) & 0xFF));
+    sb_write_dsp((uint8_t)((SB_HALF - 1) >> 8));
+    sb_write_dsp(0x1C);                      /* 8-bit auto-init DMA output */
+
+    s_sb_ready = true;
+}
 
 int platform_audio_play_pcm(const void *data, int length, int rate,
                             int volume, int pan, bool loop)
 {
-    (void)data; (void)length; (void)rate; (void)volume; (void)pan; (void)loop;
-    return -1;
+    int v, free_slot = -1;
+
+    (void)pan;                               /* mono output */
+    if (!s_sb_ready || !data || length <= 0) return -1;
+    if (rate <= 0) rate = SB_RATE;
+
+    for (v = 0; v < SB_VOICES; v++) {
+        if (!s_voices[v].active) { free_slot = v; break; }
+    }
+    if (free_slot < 0) free_slot = 0;        /* steal slot 0, as documented */
+
+    _disable();
+    s_voices[free_slot].active = false;      /* stop before rewriting */
+    s_voices[free_slot].data   = (const uint8_t *)data;
+    s_voices[free_slot].len    = (uint32_t)length;
+    s_voices[free_slot].pos    = 0;
+    s_voices[free_slot].step   = (uint32_t)(((uint64_t)rate << 16) / SB_RATE);
+    s_voices[free_slot].vol    = volume < 0 ? 0 : (volume > 127 ? 127 : volume);
+    s_voices[free_slot].loop   = loop;
+    s_voices[free_slot].active = true;
+    _enable();
+
+    return free_slot;
 }
 
-void platform_audio_stop_voice(int slot) { (void)slot; }
-void platform_audio_stop_all(void) { }
-void platform_audio_shutdown(void) { }
+void platform_audio_stop_voice(int slot)
+{
+    if (slot < 0 || slot >= SB_VOICES) return;
+    s_voices[slot].active = false;
+}
+
+void platform_audio_stop_all(void)
+{
+    int v;
+    for (v = 0; v < SB_VOICES; v++) s_voices[v].active = false;
+}
+
+void platform_audio_shutdown(void)
+{
+    int irq_vec;
+
+    if (!s_sb_ready) return;
+    s_sb_ready = false;
+
+    sb_write_dsp(0xDA);                      /* exit auto-init DMA */
+    sb_write_dsp(0xD3);                      /* speaker off */
+    sb_reset();
+
+    outp(0x0A, 0x04 | s_sb_dma);             /* mask the DMA channel */
+
+    /* Re-mask the IRQ before unhooking, so a late interrupt cannot land on a
+     * vector that no longer points anywhere useful. */
+    if (s_sb_irq < 8) outp(0x21, inp(0x21) | (1 << s_sb_irq));
+    else              outp(0xA1, inp(0xA1) | (1 << (s_sb_irq - 8)));
+
+    irq_vec = (s_sb_irq < 8) ? (0x08 + s_sb_irq) : (0x70 + s_sb_irq - 8);
+    if (s_old_irq) {
+        _dos_setvect(irq_vec, s_old_irq);
+        s_old_irq = NULL;
+    }
+
+    if (s_dma_sel) { dos_free_real(s_dma_sel); s_dma_sel = 0; }
+}
 
 int platform_midi_play(const void *smf_data, int length, bool loop)
 {
@@ -513,7 +832,12 @@ int platform_midi_play(const void *smf_data, int length, bool loop)
 
 void platform_midi_stop(void) { }
 
-void platform_set_sfx_volume(int vol) { (void)vol; }
+void platform_set_sfx_volume(int vol)
+{
+    if (vol < 0) vol = 0;
+    if (vol > 255) vol = 255;
+    s_sfx_vol = vol;
+}
 void platform_set_music_volume(int vol) { (void)vol; }
 
 /* ── Capabilities ───────────────────────────────────────────── */
