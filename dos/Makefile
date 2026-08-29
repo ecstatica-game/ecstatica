@@ -18,7 +18,29 @@ WATCOM_H = $(%WATCOM)/h
 SRC      = ../src
 
 CC     = wcc386
-CFLAGS = -bt=dos -6s -otexan -zp1 -zq -za99 -j -i=$(SRC) -i=$(WATCOM_H)
+
+# Optimisation level, overridable: `make dos OPT=-od` builds the whole engine
+# unoptimised, which is worth trying when chasing a suspected miscompile.
+!ifndef OPT
+OPT = -otexan
+!endif
+
+CFLAGS = -bt=dos -6s $(OPT) -zp1 -zq -za99 -j -i=$(SRC) -i=$(WATCOM_H)
+
+# The DOS backend is built without optimisation, deliberately.
+#
+# At -otexan the Sound Blaster mixer emits pure silence when called from the
+# interrupt handler, while the identical function called from ordinary code
+# mixes correctly — verified by feeding a synthetic square wave and dumping the
+# DMA buffer: -od gives min=56 max=200 as expected, -otexan gives a flat 128.
+# It is not inlining (forcing an indirect call through a volatile pointer does
+# not help), not the DMA buffer's volatility (marking it so does not help), and
+# not relaxed aliasing (-otexn fails the same way). Rather than keep bisecting
+# flags, this one file is compiled straight: it is a platform backend, and the
+# only loop in it that runs often is the mixer, which handles 2048 samples per
+# 93 ms and has cycles to spare. The renderers, which do need the optimiser,
+# are in other translation units and are unaffected.
+CFLAGS_SAFE = -bt=dos -6s -od -zp1 -zq -za99 -j -i=$(SRC) -i=$(WATCOM_H)
 
 # -6s   Pentium Pro scheduling, stack-based FP (no FPU instructions inlined)
 # -otexan  full optimisation: time, expand inlines, loop opt, no stack frames
@@ -87,7 +109,7 @@ main.obj: $(SRC)/main.c
 viewer.obj: $(SRC)/tools/viewer.c
 	$(CC) $(CFLAGS) $(SRC)/tools/viewer.c -fo=$^@
 dos.obj: $(SRC)/platforms/dos.c
-	$(CC) $(CFLAGS) $(SRC)/platforms/dos.c -fo=$^@
+	$(CC) $(CFLAGS_SAFE) $(SRC)/platforms/dos.c -fo=$^@
 
 clean: .SYMBOLIC
 	@if exist *.obj del *.obj
