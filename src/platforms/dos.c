@@ -598,7 +598,11 @@ static int      s_sb_irq;
 static int      s_sb_dma;
 static bool     s_sb_ready;
 
-static uint8_t *s_dma_buf;               /* conventional memory */
+/* volatile: the card DMAs out of this buffer continuously, so stores into it
+ * have an observer the compiler cannot see. Without that, a build with full
+ * optimisation is free to discard the mixer's writes — which is exactly what
+ * happened, and only in the interrupt path, where sb_mix gets inlined. */
+static volatile uint8_t *s_dma_buf;      /* conventional memory */
 static uint32_t s_dma_phys;
 static uint16_t s_dma_sel;
 static volatile int s_dma_half;          /* half the card is NOT playing */
@@ -690,7 +694,7 @@ static int16_t s_mixbuf[SB_HALF];
 /* Mix one half-buffer. Runs from the IRQ handler, so it does no allocation and
  * touches nothing the foreground code can be halfway through modifying beyond
  * the voice table, whose writers disable interrupts. */
-static void sb_mix(uint8_t *dst)
+static void sb_mix(volatile uint8_t *dst)
 {
     int i, v;
 
@@ -808,10 +812,12 @@ void platform_audio_init(void)
         if ((phys & 0xFFFF0000UL) != ((phys + SB_BUFSZ - 1) & 0xFFFF0000UL))
             phys = (phys + 0xFFFFUL) & 0xFFFF0000UL;   /* step to next page */
         s_dma_phys = phys;
-        s_dma_buf  = (uint8_t *)phys;
+        s_dma_buf  = (volatile uint8_t *)phys;
     }
 
-    memset(s_dma_buf, 128, SB_BUFSZ);
+    {   int i;
+        for (i = 0; i < SB_BUFSZ; i++) s_dma_buf[i] = 128;
+    }
     s_dma_half = 0;
 
     irq_vec  = (s_sb_irq < 8) ? (0x08 + s_sb_irq) : (0x70 + s_sb_irq - 8);
