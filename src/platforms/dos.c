@@ -575,7 +575,8 @@ void platform_delay(uint32_t ms)
 typedef struct {
     const uint8_t *data;
     uint32_t       len;
-    uint32_t       pos;      /* 16.16 fixed point index into data */
+    uint32_t       idx;      /* whole sample index into data */
+    uint32_t       frac;     /* fractional position, 0..0xFFFF */
     uint32_t       step;     /* 16.16 increment: rate / SB_RATE */
     int            vol;      /* 0..127 */
     bool           loop;
@@ -635,15 +636,28 @@ static int sb_reset(void)
 }
 
 /* DSP version, via command 0xE1: major then minor on the read port. */
-static int sb_dsp_major(void)
+/* Wait for the DSP to have a byte ready, then take it. */
+static int sb_read_dsp(void)
 {
     int guard;
+    for (guard = 0; guard < 0x10000; guard++)
+        if (inp(s_sb_base + 0x0E) & 0x80)
+            return inp(s_sb_base + 0x0A) & 0xFF;
+    return -1;
+}
+
+/* DSP version, via command 0xE1. It answers with *two* bytes, major then
+ * minor, and both have to be taken: leaving the minor byte in the read FIFO
+ * desynchronises every reply that follows. */
+static int sb_dsp_major(void)
+{
+    int major, minor;
 
     sb_write_dsp(0xE1);
-    for (guard = 0; guard < 0x10000; guard++)
-        if (inp(s_sb_base + 0x0E) & 0x80) break;
-    if (guard >= 0x10000) return 0;
-    return inp(s_sb_base + 0x0A) & 0xFF;
+    major = sb_read_dsp();
+    minor = sb_read_dsp();
+    (void)minor;
+    return major < 0 ? 0 : major;
 }
 
 /* BLASTER=A220 I7 D1 H5 T6 — the address, IRQ and 8-bit DMA channel are all
@@ -703,12 +717,13 @@ static void sb_mix(volatile uint8_t *dst)
     for (v = 0; v < SB_VOICES; v++) {
         sb_voice_t *vo = &s_voices[v];
         const uint8_t *data;
-        uint32_t pos, step, len;
+        uint32_t idx, frac, step, len;
         int scale;
 
         if (!vo->active) continue;
         data = vo->data;
-        pos  = vo->pos;
+        idx  = vo->idx;
+        frac = vo->frac;
         step = vo->step;
         len  = vo->len;
         /* 8.8 gain, so the inner loop shifts instead of dividing. A divide per
@@ -716,19 +731,26 @@ static void sb_mix(volatile uint8_t *dst)
         scale = (vo->vol * s_sfx_vol * 256) / (127 * 255);
 
         for (i = 0; i < SB_HALF; i++) {
-            uint32_t idx = pos >> 16;
-
             if (idx >= len) {
                 if (!vo->loop) { vo->active = false; break; }
-                pos = 0;
-                idx = 0;
+                idx  = 0;
+                frac = 0;
             }
 
             /* 8-bit unsigned, centred on 128. */
             s_mixbuf[i] += (int16_t)((((int)data[idx] - 128) * scale) >> 8);
-            pos += step;
+
+            /* Index and fraction are kept apart on purpose. Holding the
+             * position as a single 16.16 value in a uint32_t caps the
+             * addressable sample at 65535 bytes; past that it wraps to zero
+             * and the voice starts over, which is audible as a sample playing
+             * more than once. Speech lines comfortably exceed that. */
+            frac += step;
+            idx  += frac >> 16;
+            frac &= 0xFFFFu;
         }
-        vo->pos = pos;
+        vo->idx  = idx;
+        vo->frac = frac;
     }
 
     for (i = 0; i < SB_HALF; i++) {
@@ -883,7 +905,8 @@ int platform_audio_play_pcm(const void *data, int length, int rate,
     s_voices[free_slot].active = false;      /* stop before rewriting */
     s_voices[free_slot].data   = (const uint8_t *)data;
     s_voices[free_slot].len    = (uint32_t)length;
-    s_voices[free_slot].pos    = 0;
+    s_voices[free_slot].idx    = 0;
+    s_voices[free_slot].frac   = 0;
     s_voices[free_slot].step   = (uint32_t)(((uint64_t)rate << 16) / SB_RATE);
     s_voices[free_slot].vol    = volume < 0 ? 0 : (volume > 127 ? 127 : volume);
     s_voices[free_slot].loop   = loop;
