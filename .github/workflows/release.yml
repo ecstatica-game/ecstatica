@@ -180,8 +180,84 @@ jobs:
           name: windows-arm64-build
           path: ecstatica-windows-arm64.zip
 
+  build-dos:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Open Watcom
+        uses: open-watcom/setup-watcom@v1
+        with:
+          version: "2.0-64"
+          target: dos
+
+      - name: Build
+        run: make dos
+
+      - name: Package
+        run: |
+          mkdir -p dist/ecstatica-dos
+          cp dos/ecstatic.exe dist/ecstatica-dos/ECSTATIC.EXE
+          # DOS/4GW is the extender this binary is linked against; without it
+          # the executable cannot start. Open Watcom ships it for exactly this
+          # purpose.
+          cp "$WATCOM/binw/dos4gw.exe" dist/ecstatica-dos/DOS4GW.EXE
+          cat > dist/ecstatica-dos/README.TXT << 'EOF'
+          Ecstatica — DOS build
+
+          Copy ECSTATIC.EXE and DOS4GW.EXE into the game data directory (the one
+          holding CODE\ECSTATIC.FAN) and run ECSTATIC.EXE.
+
+          Requires a 386 or better, ~8 MB of free extended memory, and VESA 2.0
+          with a linear framebuffer for the 640x480 mode. Ecstatica 1's DOS data
+          runs in plain VGA and needs no VESA.
+
+          Sound Blaster output is located from the BLASTER environment variable;
+          without it the game runs silent. MIDI music is not implemented.
+          EOF
+          cd dist && zip -r ../ecstatica-dos.zip ecstatica-dos
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dos-build
+          path: ecstatica-dos.zip
+
+  build-win9x:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Open Watcom
+        uses: open-watcom/setup-watcom@v1
+        with:
+          version: "2.0-64"
+          target: nt
+
+      - name: Build
+        run: make win9x
+
+      - name: Package
+        run: |
+          mkdir -p dist/ecstatica-win9x
+          cp win9x/ecstatica.exe dist/ecstatica-win9x/
+          cat > dist/ecstatica-win9x/README.TXT << 'EOF'
+          Ecstatica — Win9x build
+
+          A 32-bit executable for Windows 95 and later. Copy ecstatica.exe into
+          the game data directory (the one holding CODE\ECSTATIC.FAN) and run it.
+
+          Built with Open Watcom against the Win32 API only, so it also runs on
+          modern Windows and under Wine. Gamepads use the winmm joystick API.
+          EOF
+          cd dist && zip -r ../ecstatica-win9x.zip ecstatica-win9x
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: win9x-build
+          path: ecstatica-win9x.zip
+
   release:
-    needs: [build-macos, build-linux-x86_64, build-linux-arm64, build-windows-x86_64, build-windows-arm64]
+    needs: [build-macos, build-linux-x86_64, build-linux-arm64, build-windows-x86_64, build-windows-arm64, build-dos, build-win9x]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -197,4 +273,6 @@ jobs:
             artifacts/linux-arm64-build/ecstatica-linux-arm64.AppImage
             artifacts/windows-x86_64-build/ecstatica-windows-x86_64.zip
             artifacts/windows-arm64-build/ecstatica-windows-arm64.zip
+            artifacts/dos-build/ecstatica-dos.zip
+            artifacts/win9x-build/ecstatica-win9x.zip
           generate_release_notes: true
