@@ -8,8 +8,8 @@
  *   Keyboard  INT 9 handler. The engine's PKEY_* values are already DOS
  *             scancodes, so the ISR indexes the key table directly.
  *   Mouse     INT 33h.
- *   Timing    BIOS tick plus a live PIT channel-0 read for the fraction
- *             within it, rather than the bare 18.2 Hz tick.
+ *   Timing    PIT channel 0 reprogrammed to 1 kHz with an INT 08 handler
+ *             counting milliseconds; chains to the old handler at 18.2 Hz.
  *   Audio     Sound Blaster, 8-bit mono 22050 Hz, auto-init DMA with a
  *             software mixer in the IRQ handler. Music is still silent.
  *
@@ -48,9 +48,9 @@ static bool        s_keys[256];
 static bool        s_keys_prev[256];
 static bool        s_keys_latched[256];   /* sticky until read */
 static bool        s_mouse_ok;
-static uint64_t    s_start_ticks;
 
-static uint64_t pit_now(void);   /* defined with the timing code below */
+static void timer_install(void);  /* defined with the timing code below */
+static void timer_remove(void);
 
 /* ── Keyboard ───────────────────────────────────────────────── */
 
@@ -340,7 +340,7 @@ platform_t *platform_init(const char *title, int fb_width, int fb_height, int sc
         s_mouse_ok = (r.w.ax == 0xFFFF);
     }
 
-    s_start_ticks = pit_now();
+    timer_install();
     return &s_plat;
 }
 
@@ -405,6 +405,8 @@ void platform_blit_rgba(platform_t *p, const uint8_t *framebuffer)
 void platform_shutdown(platform_t *p)
 {
     (void)p;
+    platform_audio_shutdown();
+    timer_remove();
     kbd_remove();
     set_text_mode();
 }
@@ -471,50 +473,87 @@ void platform_gamepad_poll(platform_t *p, platform_gamepad_state_t *state)
 }
 
 /* ── Timing ─────────────────────────────────────────────────────
- * The 18.2 Hz BIOS tick alone is 55 ms of granularity, far too coarse to drive
- * a frame loop. Rather than reprogram the PIT — which would upset the DOS
- * time-of-day count — this reads the BIOS tick and then latches channel 0's
- * live countdown for the fraction within that tick, giving sub-microsecond
- * resolution while leaving the timer rate alone.
+ * PIT channel 0 reprogrammed to 1 kHz, with an INT 08 handler counting
+ * milliseconds. platform_ticks() is then a single memory read.
+ *
+ * The previous version left the timer alone and derived the time by latching
+ * channel 0's live count on every call. That reads correctly — measured
+ * against the BIOS tick it was accurate to 0.1% — but it costs three port
+ * accesses per call, and the engine's frame pacer (do_movement, move.c:125)
+ * spins on my_time() until it changes. That is thousands of port triples per
+ * frame, which is cheap on real hardware and very much not cheap on an
+ * emulator, where every I/O access is trapped.
+ *
+ * Driving a counter from the timer interrupt instead is what the period
+ * libraries do — Adeline's LIB386 reprograms channel 0 the same way for
+ * exactly this reason — and it is what Ecstatica's own DOS build did, through
+ * the asm_add_timer_int_handler entry point this port had stubbed out.
+ *
+ * Reprogramming channel 0 would normally break the BIOS tick and the DOS
+ * time-of-day count, so the handler accumulates the divisor and chains to the
+ * original INT 08 each time that wraps — which reproduces the old 18.2 Hz
+ * exactly.
  */
 
-#define PIT_HZ 1193182UL
+#define PIT_HZ       1193182UL
+#define TIMER_HZ     1000UL
+#define PIT_DIVISOR  ((uint16_t)(PIT_HZ / TIMER_HZ))   /* 1193 */
 
-static uint64_t pit_now(void)
+static volatile uint32_t s_ms;
+static volatile uint32_t s_bios_accum;
+static void (__interrupt __far *s_old_int8)(void);
+
+static void __interrupt __far timer_isr(void)
 {
-    uint32_t t0, t1;
-    uint16_t count;
-    unsigned lo, hi;
+    s_ms++;
 
-    /* The tick counter can roll between the two reads; retry if it moved. */
-    do {
-        t0 = *(volatile uint32_t *)0x46C;
+    /* Once the accumulated divisor passes 65536 the original tick is due. The
+     * old handler issues its own EOI and returns, so do not send one here. */
+    s_bios_accum += PIT_DIVISOR;
+    if (s_bios_accum >= 0x10000UL) {
+        s_bios_accum -= 0x10000UL;
+        _chain_intr(s_old_int8);
+    }
 
-        _disable();
-        outp(0x43, 0x00);               /* latch channel 0 */
-        lo = (unsigned)inp(0x40);
-        hi = (unsigned)inp(0x40);
-        _enable();
-        count = (uint16_t)((hi << 8) | lo);
+    outp(0x20, 0x20);
+}
 
-        t1 = *(volatile uint32_t *)0x46C;
-    } while (t0 != t1);
+static void pit_set_divisor(uint16_t div)
+{
+    _disable();
+    outp(0x43, 0x36);                   /* channel 0, lo/hi, mode 3 */
+    outp(0x40, (int)(div & 0xFF));
+    outp(0x40, (int)(div >> 8));
+    _enable();
+}
 
-    /* Channel 0 counts down from 65536, so elapsed within the tick is the
-     * complement. */
-    return ((uint64_t)t0 << 16) + (uint64_t)(65535u - count);
+static void timer_install(void)
+{
+    s_ms         = 0;
+    s_bios_accum = 0;
+    s_old_int8   = _dos_getvect(8);
+    _dos_setvect(8, timer_isr);
+    pit_set_divisor(PIT_DIVISOR);
+}
+
+static void timer_remove(void)
+{
+    if (!s_old_int8) return;
+    pit_set_divisor(0);                 /* 0 means 65536 — the stock 18.2 Hz */
+    _dos_setvect(8, s_old_int8);
+    s_old_int8 = NULL;
 }
 
 uint32_t platform_ticks(platform_t *p)
 {
     (void)p;
-    return (uint32_t)(((pit_now() - s_start_ticks) * 1000ULL) / PIT_HZ);
+    return s_ms;
 }
 
 void platform_delay(uint32_t ms)
 {
-    uint64_t target = pit_now() + ((uint64_t)ms * PIT_HZ) / 1000ULL;
-    while (pit_now() < target)
+    uint32_t target = s_ms + ms;
+    while ((int32_t)(s_ms - target) < 0)
         ;
 }
 
