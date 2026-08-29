@@ -296,8 +296,29 @@ rejection test, so measure before committing.
 | `#pragma pack(push,1)` | throughout | Supported |
 | `-fwrapv` semantics | `CMakeLists.txt:51` | OW wraps signed overflow and shifts arithmetically — matches. Confirm alongside `-zp1`. |
 
-Compiler invocation: `wcc386 -6s -otexan -zp1 -zq -bt=dos` (or `-bt=nt` for
-Win9x), linked with `wlink` against DOS/4GW.
+Compiler invocation: `wcc386 -6s -otexan -zp1 -zq -za99 -bt=dos` (or `-bt=nt`
+for Win9x), linked with `wlink`.
+
+### Win9x — implemented
+
+`win9x/Makefile` builds a 386 PE with the same Watcom toolchain on `-bt=nt`,
+against the existing `src/platforms/windows.c`. `make win9x-e2` runs it under
+Wine, where it reaches the game loop and plays scenes. 386 KB.
+
+Two places that backend needed a Watcom path:
+
+- **XInput.** Watcom has no `<xinput.h>`, and XInput is XP-era — it never
+  existed on Win9x, so an XInput-only gamepad path was wrong for this target
+  regardless of the compiler. That build now uses `joyGetPosEx`, the API Win9x
+  actually had, normalising each axis against the driver's declared range
+  rather than assuming 0..65535.
+- `powf` (Watcom's `math.h` has no float variants) and one runtime-valued
+  `RECT` initialiser — the same C99 restriction as everywhere else.
+
+`compat.h` needed reordering for this: Watcom defines `_WIN32` when targeting
+NT, so the MSVC/MinGW `dirent` shim was being selected on top of the real
+interface Watcom already provides in `<direct.h>`. The Watcom branch now comes
+first and excludes the other.
 
 ---
 
@@ -314,8 +335,28 @@ DOS/4GW. Status as built:
 | Runs under DOSBox-X | reaches the game loop, no fault over 70 s |
 | VESA 640x480x8 LFB | set and mapped — confirmed by the emulator's mode trace |
 | Mouse / keyboard / timing | wired |
-| Audio | **not implemented** |
+| Audio | Sound Blaster PCM via auto-init DMA; **music still silent** |
 | Rendering correctness | **not verified** — no visual capture yet |
+
+Audio is 8-bit mono at 22050 Hz over an auto-initialise DMA double buffer, with
+the card interrupting at each half-buffer boundary and the handler mixing the
+next half from up to 16 voices. The engine's voice model has no hardware
+equivalent, so the mixing is in software; output is mono, so `pan` is accepted
+and ignored. The card is located from `BLASTER` rather than probed — without
+that variable there is nothing safe to poke, so audio just stays off. MIDI music
+is still unimplemented.
+
+Frame pacing: `platform_blit` waits for vertical retrace. The original did this
+(`init_wait_vert_blank`) and the port had turned it into a no-op with no callers
+at all, on the reasoning that the platform layer handles vsync — true of a
+compositing desktop, false here. Without it the loop runs as fast as the CPU
+allows, which on an emulator set to max cycles is far faster than the game was
+ever paced for, and it tears.
+
+One bug this shook out on the 640x480 path specifically: the blit assumed the
+VESA scanline pitch equals the visible width. Cards are free to pad, and several
+640x480 modes do, so a padded mode now gets copied row by row instead of as one
+block.
 
 What is confirmed is that `platform_init()` completes: the emulator logs the
 VESA mode being set and then the INT 33h mouse reset that follows it, and the
@@ -378,9 +419,11 @@ the DOS toolchain enters the picture.
 | — | Drop redundant `= {0}` on statics | none | [1.4](#14-redundant-zero-initialisers-inflate-the-binary) ✅ done |
 | 3 | Rotating cursors on the find-free scans | unevaluated | [2.5](#25-opool-free-slot-scans) ⛔ held, needs step 0 |
 | 4 | Hoist `check_fade` to per frame | needs IDA check | [2.2](#22-check_fade-runs-per-primitive) |
-| 5 | `platforms/dos.c` + wmake build | — | [4](#4-new-platform-backend) ✅ builds, links, runs; audio and on-screen verification outstanding |
-| 5a | Sound Blaster DMA + MPU-401/OPL3 | — | [4](#4-new-platform-backend) |
-| 5b | Run on a real display and check rendering | — | [4](#4-new-platform-backend) |
+| 5 | `platforms/dos.c` + wmake build | — | [4](#4-new-platform-backend) ✅ builds, links, runs |
+| 5a | Sound Blaster PCM | — | [4](#4-new-platform-backend) ✅ done |
+| 5b | MPU-401/OPL3 music | — | [4](#4-new-platform-backend) — still silent |
+| 5c | Run on a real display and check rendering | — | [4](#4-new-platform-backend) |
+| — | Win9x PE build + Wine harness | — | [3](#win9x--implemented) ✅ done |
 | 6 | Divide elimination and `#pragma aux` fixed-point | changes pixels | [2.3](#23-four-integer-divides-per-vertex), [2.4](#24-64-bit-arithmetic-on-a-32-bit-target) |
 | 7 | Trig table and pool sizing | needs IDA check | [1.2](#12-trigonometric-tables), [1.3](#13-pool-high-water-marks) |
 | 9 | shade_map/profile interleave | measure first | [2.7](#27-cache-behaviour-of-the-column-rasteriser--structural-leave-alone) |

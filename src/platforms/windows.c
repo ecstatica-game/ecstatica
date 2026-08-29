@@ -4,7 +4,12 @@
 #define NOMINMAX
 #include <windows.h>
 #include <mmsystem.h>
+/* XInput is XP-era and has no Win9x equivalent, and Open Watcom does not ship
+ * it. That target uses the winmm joystick API instead — the one Win9x actually
+ * had. See platform_gamepad_poll(). */
+#ifndef __WATCOMC__
 #include <xinput.h>
+#endif
 #include <math.h>
 #include <string.h>
 #include <stdlib.h>
@@ -12,8 +17,10 @@
 #include <stdbool.h>
 #include "platform.h"
 
+#ifndef __WATCOMC__
 #pragma comment(lib, "winmm.lib")
 #pragma comment(lib, "xinput.lib")
+#endif
 
 #define MAX_KEYS 256
 
@@ -167,8 +174,11 @@ platform_t *platform_init(const char *title, int fb_width, int fb_height, int sc
     int win_w = fb_width * scale;
     int win_h = fb_height * scale;
 
-    RECT rc = {0, 0, win_w, win_h};
+    /* Assigned rather than initialised: win_w/win_h are runtime values, and
+     * Open Watcom only accepts constant aggregate initialisers. */
+    RECT rc;
     DWORD style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX;
+    rc.left = 0; rc.top = 0; rc.right = win_w; rc.bottom = win_h;
     AdjustWindowRect(&rc, style, FALSE);
 
     p->hwnd = CreateWindowExA(
@@ -340,7 +350,65 @@ void platform_set_title(platform_t *p, const char *title) {
     SetWindowTextA(p->hwnd, title);
 }
 
-/* Gamepad — XInput */
+/* Gamepad — XInput, or the winmm joystick API where XInput does not exist */
+
+#ifdef __WATCOMC__
+
+/* Win9x path. joyGetPosEx reports axes over a driver-declared range, so each
+ * one is normalised against the caps rather than assumed to be 0..65535, and
+ * Y is inverted to match XInput's up-is-positive convention. */
+void platform_gamepad_poll(platform_t *p, platform_gamepad_state_t *state) {
+    JOYCAPS  caps;
+    JOYINFOEX ji;
+    DWORD    b;
+
+    memset(state, 0, sizeof(*state));
+    (void)p;
+
+    if (joyGetDevCaps(JOYSTICKID1, &caps, sizeof(caps)) != JOYERR_NOERROR)
+        return;
+
+    memset(&ji, 0, sizeof(ji));
+    ji.dwSize  = sizeof(ji);
+    ji.dwFlags = JOY_RETURNALL;
+    if (joyGetPosEx(JOYSTICKID1, &ji) != JOYERR_NOERROR)
+        return;
+
+    state->connected = true;
+
+    #define AXIS(v, lo, hi) \
+        ((int16_t)((hi) > (lo) ? (((int)(v) - (int)(lo)) * 65535 / ((int)(hi) - (int)(lo)) - 32768) : 0))
+
+    state->left_x  =  AXIS(ji.dwXpos, caps.wXmin, caps.wXmax);
+    state->left_y  = (int16_t)-AXIS(ji.dwYpos, caps.wYmin, caps.wYmax);
+    state->right_x =  AXIS(ji.dwRpos, caps.wRmin, caps.wRmax);
+    state->right_y = (int16_t)-AXIS(ji.dwUpos, caps.wUmin, caps.wUmax);
+    #undef AXIS
+
+    /* POV hat, in hundredths of a degree; 0xFFFF means centred. */
+    if (ji.dwPOV != JOY_POVCENTERED && ji.dwPOV <= 35900) {
+        state->dpad_up    = (ji.dwPOV > 27000 || ji.dwPOV <  9000);
+        state->dpad_right = (ji.dwPOV >     0 && ji.dwPOV < 18000);
+        state->dpad_down  = (ji.dwPOV >  9000 && ji.dwPOV < 27000);
+        state->dpad_left  = (ji.dwPOV > 18000);
+    }
+
+    b = ji.dwButtons;
+    state->btn_south  = (b & 0x01) != 0;
+    state->btn_east   = (b & 0x02) != 0;
+    state->btn_west   = (b & 0x04) != 0;
+    state->btn_north  = (b & 0x08) != 0;
+    state->btn_lb     = (b & 0x10) != 0;
+    state->btn_rb     = (b & 0x20) != 0;
+    state->btn_lt     = (b & 0x40) != 0;
+    state->btn_rt     = (b & 0x80) != 0;
+    state->btn_select = (b & 0x100) != 0;
+    state->btn_start  = (b & 0x200) != 0;
+    state->btn_lstick = (b & 0x400) != 0;
+    state->btn_rstick = (b & 0x800) != 0;
+}
+
+#else
 
 void platform_gamepad_poll(platform_t *p, platform_gamepad_state_t *state) {
     memset(state, 0, sizeof(*state));
@@ -375,6 +443,8 @@ void platform_gamepad_poll(platform_t *p, platform_gamepad_state_t *state) {
     state->btn_lstick = (b & XINPUT_GAMEPAD_LEFT_THUMB) != 0;
     state->btn_rstick = (b & XINPUT_GAMEPAD_RIGHT_THUMB) != 0;
 }
+
+#endif /* __WATCOMC__ */
 
 /* Audio backend -- waveOut + software mixer */
 
@@ -414,7 +484,8 @@ static void audio_fill_buffer(int16_t *buf, int frames) {
 
         double step = (double)voice->rate / (double)AUDIO_OUT_RATE;
         float db    = (float)(voice->volume - 127) * 0.25f;
-        float vol   = powf(10.0f, db / 20.0f) * s_master_sfx_volume;
+        /* pow, not powf — Open Watcom's math.h has no float variant. */
+        float vol   = (float)pow(10.0, (double)db / 20.0) * s_master_sfx_volume;
         float pan_norm = (float)voice->pan / 127.0f;
         float l_gain = vol * (pan_norm > 0 ? (1.0f - pan_norm) : 1.0f);
         float r_gain = vol * (pan_norm < 0 ? (1.0f + pan_norm) : 1.0f);
