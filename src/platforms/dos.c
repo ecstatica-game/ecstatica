@@ -544,6 +544,14 @@ typedef struct {
 } sb_voice_t;
 
 static sb_voice_t s_voices[SB_VOICES];
+
+/* Set while the interrupt handler is inside sb_mix. Mixing runs with
+ * interrupts enabled — it is far too long to hold the PIC off for — so the
+ * foreground must not rewrite a voice underneath it: sb_mix caches each
+ * voice's data/pos/len in registers and writes pos back at the end, which
+ * would both read through a stale pointer and clobber the new position.
+ * platform_audio_play_pcm waits this out. */
+static volatile int s_in_mix;
 static int        s_sfx_vol = 255;       /* 0..255 master */
 
 static uint16_t s_sb_base;               /* 0x220 etc, 0 when absent */
@@ -581,6 +589,18 @@ static int sb_reset(void)
         }
     }
     return 0;
+}
+
+/* DSP version, via command 0xE1: major then minor on the read port. */
+static int sb_dsp_major(void)
+{
+    int guard;
+
+    sb_write_dsp(0xE1);
+    for (guard = 0; guard < 0x10000; guard++)
+        if (inp(s_sb_base + 0x0E) & 0x80) break;
+    if (guard >= 0x10000) return 0;
+    return inp(s_sb_base + 0x0A) & 0xFF;
 }
 
 /* BLASTER=A220 I7 D1 H5 T6 — the address, IRQ and 8-bit DMA channel are all
@@ -678,8 +698,6 @@ static void sb_mix(uint8_t *dst)
 
 static void __interrupt __far sb_isr(void)
 {
-    static volatile int in_mix;
-
     /* Acknowledge the card: reading the status port clears its interrupt latch
      * for 8-bit transfers. */
     (void)inp(s_sb_base + 0x0E);
@@ -693,15 +711,15 @@ static void __interrupt __far sb_isr(void)
     /* Re-entrancy guard, because interrupts are enabled below: if a mix ever
      * overruns its buffer interval, drop the late one rather than corrupt the
      * half being written. */
-    if (in_mix) return;
-    in_mix = 1;
+    if (s_in_mix) return;
+    s_in_mix = 1;
 
     _enable();
     sb_mix(s_dma_buf + (s_dma_half ? SB_HALF : 0));
     s_dma_half ^= 1;
     _disable();
 
-    in_mix = 0;
+    s_in_mix = 0;
 }
 
 /* ── DMA ────────────────────────────────────────────────────── */
@@ -772,12 +790,27 @@ void platform_audio_init(void)
     dma_setup(s_dma_phys, SB_BUFSZ, s_sb_dma);
 
     sb_write_dsp(0xD1);                      /* speaker on */
-    sb_write_dsp(0x40);                      /* set time constant */
-    sb_write_dsp((uint8_t)(256 - 1000000L / SB_RATE));
-    sb_write_dsp(0x48);                      /* set block size */
-    sb_write_dsp((uint8_t)((SB_HALF - 1) & 0xFF));
-    sb_write_dsp((uint8_t)((SB_HALF - 1) >> 8));
-    sb_write_dsp(0x1C);                      /* 8-bit auto-init DMA output */
+
+    /* DSP 4.xx (SB16) has its own transfer commands and an exact sample-rate
+     * register. Driving an SB16 through the SB Pro time-constant path works on
+     * some implementations and misbehaves on others, so ask the DSP what it is
+     * and use the matching sequence. */
+    if (sb_dsp_major() >= 4) {
+        sb_write_dsp(0x41);                  /* set output sample rate, exact */
+        sb_write_dsp((uint8_t)(SB_RATE >> 8));
+        sb_write_dsp((uint8_t)(SB_RATE & 0xFF));
+        sb_write_dsp(0xC6);                  /* 8-bit auto-init, FIFO off */
+        sb_write_dsp(0x00);                  /* mono, unsigned PCM */
+        sb_write_dsp((uint8_t)((SB_HALF - 1) & 0xFF));
+        sb_write_dsp((uint8_t)((SB_HALF - 1) >> 8));
+    } else {
+        sb_write_dsp(0x40);                  /* set time constant */
+        sb_write_dsp((uint8_t)(256 - 1000000L / SB_RATE));
+        sb_write_dsp(0x48);                  /* set block size */
+        sb_write_dsp((uint8_t)((SB_HALF - 1) & 0xFF));
+        sb_write_dsp((uint8_t)((SB_HALF - 1) >> 8));
+        sb_write_dsp(0x1C);                  /* 8-bit auto-init DMA output */
+    }
 
     s_sb_ready = true;
 }
@@ -795,6 +828,11 @@ int platform_audio_play_pcm(const void *data, int length, int rate,
         if (!s_voices[v].active) { free_slot = v; break; }
     }
     if (free_slot < 0) free_slot = 0;        /* steal slot 0, as documented */
+
+    /* Let any in-progress mix finish first — see s_in_mix. A mix is a couple
+     * of milliseconds and starting a sound is rare, so the wait is cheap. */
+    while (s_in_mix)
+        ;
 
     _disable();
     s_voices[free_slot].active = false;      /* stop before rewriting */
