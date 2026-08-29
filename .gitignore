@@ -98,3 +98,5 @@ win9x/*.obj
 win9x/*.exe
 win9x/*.map
 win9x/link.lnk
+dos/*.err
+win9x/*.err
