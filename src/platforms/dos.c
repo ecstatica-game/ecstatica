@@ -623,6 +623,11 @@ static int sb_parse_blaster(void)
 
 /* ── Mixer ──────────────────────────────────────────────────── */
 
+/* Signed accumulator, so voices sum at full precision and clip once at the end
+ * rather than being clamped against each other one at a time. Static, not on
+ * the stack — this runs in an interrupt handler. */
+static int16_t s_mixbuf[SB_HALF];
+
 /* Mix one half-buffer. Runs from the IRQ handler, so it does no allocation and
  * touches nothing the foreground code can be halfway through modifying beyond
  * the voice table, whose writers disable interrupts. */
@@ -630,53 +635,73 @@ static void sb_mix(uint8_t *dst)
 {
     int i, v;
 
-    for (i = 0; i < SB_HALF; i++) dst[i] = 128;
+    memset(s_mixbuf, 0, sizeof(s_mixbuf));
 
     for (v = 0; v < SB_VOICES; v++) {
         sb_voice_t *vo = &s_voices[v];
-        uint32_t pos, step;
-        int vol;
+        const uint8_t *data;
+        uint32_t pos, step, len;
+        int scale;
 
         if (!vo->active) continue;
+        data = vo->data;
         pos  = vo->pos;
         step = vo->step;
-        vol  = vo->vol * s_sfx_vol / 255;
+        len  = vo->len;
+        /* 8.8 gain, so the inner loop shifts instead of dividing. A divide per
+         * sample per voice is far too much to spend inside an ISR. */
+        scale = (vo->vol * s_sfx_vol * 256) / (127 * 255);
 
         for (i = 0; i < SB_HALF; i++) {
             uint32_t idx = pos >> 16;
-            int s;
 
-            if (idx >= vo->len) {
+            if (idx >= len) {
                 if (!vo->loop) { vo->active = false; break; }
                 pos = 0;
                 idx = 0;
             }
 
-            /* 8-bit unsigned centred on 128; scale around the centre. */
-            s = ((int)vo->data[idx] - 128) * vol / 127;
-            s += (int)dst[i] - 128;
-            if (s < -128) s = -128;
-            if (s >  127) s =  127;
-            dst[i] = (uint8_t)(s + 128);
-
+            /* 8-bit unsigned, centred on 128. */
+            s_mixbuf[i] += (int16_t)((((int)data[idx] - 128) * scale) >> 8);
             pos += step;
         }
         vo->pos = pos;
+    }
+
+    for (i = 0; i < SB_HALF; i++) {
+        int s = s_mixbuf[i];
+        if (s < -128) s = -128;
+        if (s >  127) s =  127;
+        dst[i] = (uint8_t)(s + 128);
     }
 }
 
 static void __interrupt __far sb_isr(void)
 {
-    /* Acknowledge the card first: reading the status port clears its
-     * interrupt latch for 8-bit transfers. */
+    static volatile int in_mix;
+
+    /* Acknowledge the card: reading the status port clears its interrupt latch
+     * for 8-bit transfers. */
     (void)inp(s_sb_base + 0x0E);
 
-    sb_mix(s_dma_buf + (s_dma_half ? SB_HALF : 0));
-    s_dma_half ^= 1;
-
-    /* EOI — slave first when the IRQ is on the second controller. */
+    /* EOI before mixing, not after. Mixing a half-buffer is thousands of
+     * samples; holding the PIC off for that long starves the timer, which both
+     * drags the game clock and shows up as audible blips. */
     if (s_sb_irq >= 8) outp(0xA0, 0x20);
     outp(0x20, 0x20);
+
+    /* Re-entrancy guard, because interrupts are enabled below: if a mix ever
+     * overruns its buffer interval, drop the late one rather than corrupt the
+     * half being written. */
+    if (in_mix) return;
+    in_mix = 1;
+
+    _enable();
+    sb_mix(s_dma_buf + (s_dma_half ? SB_HALF : 0));
+    s_dma_half ^= 1;
+    _disable();
+
+    in_mix = 0;
 }
 
 /* ── DMA ────────────────────────────────────────────────────── */

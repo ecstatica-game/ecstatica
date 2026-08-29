@@ -18,12 +18,14 @@ WATCOM_H = $(%WATCOM)/h
 SRC      = ../src
 
 CC     = wcc386
-CFLAGS = -bt=dos -6s -otexan -zp1 -zq -za99 -i=$(SRC) -i=$(WATCOM_H)
+CFLAGS = -bt=dos -6s -otexan -zp1 -zq -za99 -j -i=$(SRC) -i=$(WATCOM_H)
 
 # -6s   Pentium Pro scheduling, stack-based FP (no FPU instructions inlined)
 # -otexan  full optimisation: time, expand inlines, loop opt, no stack frames
 # -zp1  byte-align structs, matching the #pragma pack the engine relies on
 # -za99 C99 mode
+# -j    signed char. Watcom defaults char to UNSIGNED; the engine is written
+#       against gcc/clang, where it is signed, and relies on that in places.
 
 OBJS = init.obj asm_f.obj display.obj debug_overlay.obj edit.obj game.obj &
        file.obj move.obj menu.obj req.obj music.obj topo.obj map.obj &

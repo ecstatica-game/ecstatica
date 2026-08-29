@@ -22,7 +22,7 @@ WATCOM_NT = $(%WATCOM)/h/nt
 SRC       = ../src
 
 CC     = wcc386
-CFLAGS = -bt=nt -6s -otexan -zp1 -zq -za99 -i=$(SRC) -i=$(WATCOM_H) -i=$(WATCOM_NT)
+CFLAGS = -bt=nt -6s -otexan -zp1 -zq -za99 -j -i=$(SRC) -i=$(WATCOM_H) -i=$(WATCOM_NT)
 
 OBJS = init.obj asm_f.obj display.obj debug_overlay.obj edit.obj game.obj &
        file.obj move.obj menu.obj req.obj music.obj topo.obj map.obj &
