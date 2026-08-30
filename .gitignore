@@ -101,6 +101,13 @@ win9x/link.lnk
 # Watcom writes <name>.err beside any source that produces a diagnostic
 *.err
 
+# PSP build output
+psp/obj/
+psp/build/
+psp/*.elf
+psp/*.PBP
+psp/PARAM.SFO
+
 # Release packaging output
 dist/
 ecstatica-dos.zip
