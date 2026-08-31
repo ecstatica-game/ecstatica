@@ -45,10 +45,20 @@ struct platform_t {
 };
 
 static platform_t  s_plat;
-static bool        s_keys[256];
-static bool        s_keys_prev[256];
-static bool        s_keys_latched[256];   /* sticky until read */
-static bool        s_mouse_ok;
+
+/* Written by the INT 9 handler, read by the game. Every backend but this one
+ * has a queue the pump drains, so a key's down-transition happens inside the
+ * pump, after the previous state has been copied aside. Here the ISR has
+ * already set it, and a naive prev←current copy at pump time would swallow
+ * that transition — the edge would be gone before anyone looked. So the ISR
+ * latches the make code, and the pump turns latch + last frame's level into
+ * the edge. */
+static volatile bool s_keys[256];         /* live level, owned by the ISR */
+static volatile bool s_keys_made[256];    /* a make code arrived since the last pump */
+static volatile bool s_keys_latched[256]; /* sticky until platform_key_hit reads it */
+static bool          s_keys_down[256];    /* level, sampled at the pump */
+static bool          s_keys_pressed[256]; /* edge, for this frame only */
+static bool          s_mouse_ok;
 
 static void timer_install(void);  /* defined with the timing code below */
 static void timer_remove(void);
@@ -76,7 +86,10 @@ static void __interrupt __far kbd_isr(void)
         s_extended = 0;
 
         s_keys[sc] = !released;
-        if (!released) s_keys_latched[sc] = true;
+        if (!released) {
+            s_keys_made[sc]    = true;
+            s_keys_latched[sc] = true;
+        }
     }
 
     _chain_intr(s_old_int9);
@@ -85,8 +98,10 @@ static void __interrupt __far kbd_isr(void)
 static void kbd_install(void)
 {
     memset((void *)s_keys, 0, sizeof(s_keys));
-    memset((void *)s_keys_prev, 0, sizeof(s_keys_prev));
+    memset((void *)s_keys_made, 0, sizeof(s_keys_made));
     memset((void *)s_keys_latched, 0, sizeof(s_keys_latched));
+    memset(s_keys_down, 0, sizeof(s_keys_down));
+    memset(s_keys_pressed, 0, sizeof(s_keys_pressed));
     s_old_int9 = _dos_getvect(9);
     _dos_setvect(9, kbd_isr);
 }
@@ -450,8 +465,28 @@ void platform_set_title(platform_t *p, const char *title)
 
 bool platform_pump_events(platform_t *p)
 {
+    int i;
     (void)p;
-    memcpy((void *)s_keys_prev, (const void *)s_keys, sizeof(s_keys));
+
+    /* Interrupts off for the sweep: a make code arriving between the read of
+     * the latch and the clear would be dropped, and a lost keypress is exactly
+     * the bug this whole arrangement exists to avoid. 256 iterations is a few
+     * microseconds — the 1 kHz timer tick can wait that long. */
+    _disable();
+    for (i = 0; i < 256; i++) {
+        bool made = s_keys_made[i];
+        bool was_down = s_keys_down[i];
+
+        s_keys_made[i] = false;
+        s_keys_down[i] = s_keys[i];
+
+        /* Gate on last frame's level, not this one: a tap whose make and break
+         * both land between two pumps still reads as a press, while typematic
+         * repeat on a held key does not — the key was already down. */
+        s_keys_pressed[i] = made && !was_down;
+    }
+    _enable();
+
     return true;
 }
 
@@ -459,14 +494,14 @@ bool platform_key_down(platform_t *p, int keycode)
 {
     (void)p;
     if (keycode < 0 || keycode > 255) return false;
-    return s_keys[keycode];
+    return s_keys_down[keycode];
 }
 
 bool platform_key_pressed(platform_t *p, int keycode)
 {
     (void)p;
     if (keycode < 0 || keycode > 255) return false;
-    return s_keys[keycode] && !s_keys_prev[keycode];
+    return s_keys_pressed[keycode];
 }
 
 bool platform_key_hit(platform_t *p, int keycode)
