@@ -124,6 +124,14 @@ void platform_blit(platform_t *p, const uint8_t *framebuffer, const uint8_t *pal
 void platform_set_render_size(platform_t *p, int w, int h);
 
 /**
+ * False when the backend cannot present 640x480, so the engine must stay in
+ * its 320x200 mode whatever the game data offers. Only real hardware says no:
+ * a period VGA card with no VESA 2.0 linear framebuffer has nothing above mode
+ * 13h that this port can drive.
+ */
+bool platform_hires_supported(platform_t *p);
+
+/**
  * Blit a 32-bit RGBA framebuffer to the window.
  *
  * @param p           Platform handle

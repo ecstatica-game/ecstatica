@@ -330,6 +330,11 @@ platform_t *platform_init(const char *title, int fb_width, int fb_height, int sc
     return p;
 }
 
+bool platform_hires_supported(platform_t *p) {
+    (void)p;
+    return true;
+}
+
 void platform_set_render_size(platform_t *p, int w, int h) {
     if (!p) return;
     p->render_width  = w;

@@ -41,6 +41,7 @@ struct platform_t {
     int      vesa_mode;     /* 0 when in mode 13h */
     uint32_t lfb_phys;
     uint16_t lfb_sel;       /* DPMI selector for the mapped LFB, 0 if none */
+    bool     hires_ok;      /* card has a 640x480x8 linear-framebuffer mode */
 };
 
 static platform_t  s_plat;
@@ -322,12 +323,31 @@ platform_t *platform_init(const char *title, int fb_width, int fb_height, int sc
 
     memset(&s_plat, 0, sizeof(s_plat));
 
+    /* The engine always asks for 640x480 here, before it has looked at the
+     * game data — it settles on the real resolution in init(). A card with no
+     * VESA 2.0 linear framebuffer (plenty of period ones, and every plain VGA)
+     * cannot give that, but it can still run the whole 320x200 side of both
+     * games, so come up in mode 13h and let the engine know. */
     if (!apply_video_mode(&s_plat, fb_width, fb_height)) {
-        set_text_mode();
-        fprintf(stderr, "No %dx%d 8-bit video mode with a linear framebuffer.\n",
+        fprintf(stderr, "No %dx%d 8-bit video mode with a linear framebuffer; "
+                        "falling back to 320x200.\n", fb_width, fb_height);
+        DBG_LOG(1, "[DOS] no %dx%d LFB mode; falling back to 320x200\n",
                 fb_width, fb_height);
-        return NULL;
+        if (!apply_video_mode(&s_plat, 320, 200)) {
+            set_text_mode();
+            fprintf(stderr, "No 320x200 video mode either — giving up.\n");
+            return NULL;
+        }
+    } else {
+        s_plat.hires_ok = true;
     }
+
+    /* From here the screen belongs to the game. Anything still writing to
+     * stderr — a stray trace, a library complaint — would go through the BIOS
+     * into the visible framebuffer, so send it nowhere; the debug log is the
+     * one that matters and it goes to a file. Done after the mode-selection
+     * messages above, which the player does need to see. */
+    freopen("NUL", "w", stderr);
 
     kbd_install();
 
@@ -348,7 +368,17 @@ void platform_set_render_size(platform_t *p, int w, int h)
 {
     if (!p) return;
     if (p->fb_width == w && p->fb_height == h) return;
-    apply_video_mode(p, w, h);
+    if (!apply_video_mode(p, w, h)) {
+        /* Nothing sane to do but keep the mode we have: the engine draws into
+         * its own buffer, and the blit is clipped to fb_width/fb_height. */
+        DBG_LOG(1, "[DOS] no %dx%d video mode; staying at %dx%d\n",
+                w, h, p->fb_width, p->fb_height);
+    }
+}
+
+bool platform_hires_supported(platform_t *p)
+{
+    return p ? p->hires_ok : false;
 }
 
 /* Wait for the start of vertical retrace.

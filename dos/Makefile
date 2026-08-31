@@ -54,6 +54,8 @@ OBJS = init.obj asm_f.obj display.obj debug_overlay.obj edit.obj game.obj &
        anim.obj ellipse.obj tri.obj icon.obj win.obj chars.obj main.obj &
        viewer.obj dos.obj
 
+# option stack: 64 KB is the DOS/4GW default, and an overflow there is silent —
+# the frame simply runs off the end. Give the engine room rather than shave it.
 all: ecstatic.exe
 
 ecstatic.exe: $(OBJS)
@@ -61,6 +63,7 @@ ecstatic.exe: $(OBJS)
 	@%append link.lnk system dos4g
 	@%append link.lnk name ecstatic.exe
 	@%append link.lnk option quiet,map=ecstatic.map
+	@%append link.lnk option stack=262144
 	@for %i in ($(OBJS)) do @%append link.lnk file %i
 	wlink @link.lnk
 

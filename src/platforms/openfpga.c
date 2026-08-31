@@ -168,6 +168,12 @@ platform_t *platform_init(const char *title, int fb_width, int fb_height, int sc
     return p;
 }
 
+bool platform_hires_supported(platform_t *p) {
+    (void)p;
+    /* The core scales whatever the engine renders into the panel mode. */
+    return true;
+}
+
 void platform_set_render_size(platform_t *p, int w, int h) {
     if (!p || w <= 0 || h <= 0)
         return;
