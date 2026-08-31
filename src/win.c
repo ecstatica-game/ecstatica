@@ -115,16 +115,19 @@ void window_proc(void) {
     ctrl_pressed        = platform_key_down(g_platform, PKEY_LCTRL);
     alt_pressed         = platform_key_down(g_platform, PKEY_LALT);
 
-    keys_were_pressed_codes[0x31] = platform_key_pressed(g_platform, PKEY_1);
-    keys_were_pressed_codes[0x32] = platform_key_pressed(g_platform, PKEY_2);
-    keys_were_pressed_codes[0x33] = platform_key_pressed(g_platform, PKEY_3);
-    keys_were_pressed_codes[0x41] = platform_key_pressed(g_platform, PKEY_A);
-    keys_were_pressed_codes[0x43] = platform_key_pressed(g_platform, PKEY_C);
-    keys_were_pressed_codes[0x44] = platform_key_pressed(g_platform, PKEY_D);
-    keys_were_pressed_codes[0x4D] = platform_key_pressed(g_platform, PKEY_M);
-    keys_were_pressed_codes[0x50] = platform_key_pressed(g_platform, PKEY_P);
-    keys_were_pressed_codes[0x51] = platform_key_pressed(g_platform, PKEY_Q);
-    keys_were_pressed_codes[0x57] = platform_key_pressed(g_platform, PKEY_W);
+    /* Set, never cleared — the consumer clears its own entry, the way the
+     * F-key block below already works. Plain assignment would wipe a press
+     * that nothing has read yet whenever window_proc runs twice before the
+     * consumer does, which it does through present_delay and the menus. */
+    static const struct { int pk, vk; } edge_keys[] = {
+        { PKEY_1, 0x31 }, { PKEY_2, 0x32 }, { PKEY_3, 0x33 },
+        { PKEY_A, 0x41 }, { PKEY_C, 0x43 }, { PKEY_D, 0x44 },
+        { PKEY_M, 0x4D }, { PKEY_P, 0x50 }, { PKEY_Q, 0x51 },
+        { PKEY_W, 0x57 },
+    };
+    for (int i = 0; i < (int)(sizeof(edge_keys) / sizeof(edge_keys[0])); i++)
+        if (platform_key_pressed(g_platform, edge_keys[i].pk))
+            keys_were_pressed_codes[edge_keys[i].vk] = 1;
     keys_pressed[0x5A]            = platform_key_down(g_platform,    PKEY_Z);
 
     int arrow_up    = platform_key_down(g_platform, PKEY_UP)    || platform_key_down(g_platform, PKEY_W);
