@@ -45,9 +45,99 @@ struct platform_t {
 
     HWND hwnd;
     BITMAPINFO bmi;
+
+    bool  fullscreen;
+    bool  mode_changed;      /* display mode was switched, restore on the way out */
+    DWORD saved_style;
+    RECT  saved_rect;        /* window rect to come back to */
+
+    /* Destination rectangle inside the client area — the whole of it when the
+     * aspect happens to match, letterboxed when it does not. */
+    int dst_x, dst_y, dst_w, dst_h;
 };
 
 static platform_t *s_platform = NULL;
+
+/* Largest fb-aspect rectangle that fits the client area, centred. Recomputed
+ * per frame rather than cached: it costs one GetClientRect and it cannot then
+ * go stale behind a resize, a mode change or a taskbar appearing. */
+static void compute_dest_rect(platform_t *p) {
+    RECT rc;
+    int cw, ch, sw, sh;
+
+    if (!GetClientRect(p->hwnd, &rc)) {
+        p->dst_x = p->dst_y = 0;
+        p->dst_w = p->fb_width * p->scale;
+        p->dst_h = p->fb_height * p->scale;
+        return;
+    }
+
+    cw = rc.right - rc.left;
+    ch = rc.bottom - rc.top;
+    if (cw <= 0 || ch <= 0) { cw = p->fb_width; ch = p->fb_height; }
+
+    sw = cw;
+    sh = (int)((int64_t)cw * p->fb_height / p->fb_width);
+    if (sh > ch) {
+        sh = ch;
+        sw = (int)((int64_t)ch * p->fb_width / p->fb_height);
+    }
+
+    p->dst_x = (cw - sw) / 2;
+    p->dst_y = (ch - sh) / 2;
+    p->dst_w = sw;
+    p->dst_h = sh;
+}
+
+/* Alt+Enter, the convention every DirectDraw-era game used — which is what a
+ * Win9x machine expects, and this port had no way to do at all.
+ *
+ * The display mode is switched to the framebuffer size when the card offers
+ * it, so the blit stays 1:1 and no scaler sits in the way; if that is refused
+ * the window still goes borderless over the whole desktop and the blit
+ * stretches, which is the better of the two failure modes. */
+static void set_fullscreen(platform_t *p, bool on) {
+    if (!p || !p->hwnd || p->fullscreen == on) return;
+
+    if (on) {
+        DEVMODEA dm;
+
+        p->saved_style = (DWORD)GetWindowLongA(p->hwnd, GWL_STYLE);
+        GetWindowRect(p->hwnd, &p->saved_rect);
+
+        memset(&dm, 0, sizeof(dm));
+        dm.dmSize = sizeof(dm);
+        if (EnumDisplaySettingsA(NULL, ENUM_CURRENT_SETTINGS, &dm)) {
+            dm.dmPelsWidth  = (DWORD)p->fb_width;
+            dm.dmPelsHeight = (DWORD)p->fb_height;
+            dm.dmFields     = DM_PELSWIDTH | DM_PELSHEIGHT | DM_BITSPERPEL;
+            if (ChangeDisplaySettingsA(&dm, CDS_FULLSCREEN) == DISP_CHANGE_SUCCESSFUL)
+                p->mode_changed = true;
+        }
+
+        SetWindowLongA(p->hwnd, GWL_STYLE, WS_POPUP | WS_VISIBLE);
+        SetWindowPos(p->hwnd, HWND_TOP, 0, 0,
+                     GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN),
+                     SWP_FRAMECHANGED | SWP_SHOWWINDOW);
+        p->fullscreen = true;
+    } else {
+        if (p->mode_changed) {
+            ChangeDisplaySettingsA(NULL, 0);
+            p->mode_changed = false;
+        }
+        SetWindowLongA(p->hwnd, GWL_STYLE, p->saved_style | WS_VISIBLE);
+        SetWindowPos(p->hwnd, HWND_NOTOPMOST,
+                     p->saved_rect.left, p->saved_rect.top,
+                     p->saved_rect.right - p->saved_rect.left,
+                     p->saved_rect.bottom - p->saved_rect.top,
+                     SWP_FRAMECHANGED | SWP_SHOWWINDOW);
+        p->fullscreen = false;
+    }
+
+    /* The old contents are the wrong size now, and nothing repaints the parts
+     * the next blit does not cover. */
+    InvalidateRect(p->hwnd, NULL, TRUE);
+}
 
 static int win32_scancode(LPARAM lParam, WPARAM wParam) {
     int scancode = (lParam >> 16) & 0xFF;
@@ -68,13 +158,16 @@ static int win32_scancode(LPARAM lParam, WPARAM wParam) {
 static void update_mouse_pos(platform_t *p, LPARAM lParam) {
     int raw_x = (short)LOWORD(lParam);
     int raw_y = (short)HIWORD(lParam);
-    int win_w = p->fb_width * p->scale;
-    int win_h = p->fb_height * p->scale;
     int rw = p->render_width;
     int rh = p->render_height;
 
-    p->mouse_x = raw_x * rw / win_w;
-    p->mouse_y = raw_y * rh / win_h;
+    /* Through the same rectangle the frame is drawn into, so the pointer lands
+     * where the picture is and not where the window is. */
+    compute_dest_rect(p);
+    if (p->dst_w <= 0 || p->dst_h <= 0) return;
+
+    p->mouse_x = (raw_x - p->dst_x) * rw / p->dst_w;
+    p->mouse_y = (raw_y - p->dst_y) * rh / p->dst_h;
 
     if (p->mouse_x < 0) p->mouse_x = 0;
     if (p->mouse_y < 0) p->mouse_y = 0;
@@ -93,7 +186,15 @@ static LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
 
         case WM_KEYDOWN:
         case WM_SYSKEYDOWN: {
-            int sc = win32_scancode(lParam, wParam);
+            int sc;
+            /* Bit 29 of lParam is the Alt state. Swallowed here rather than
+             * passed on: the engine has no use for Alt+Enter, and letting it
+             * through would also feed Enter to whatever menu is open. */
+            if (msg == WM_SYSKEYDOWN && wParam == VK_RETURN && (lParam & (1 << 29))) {
+                set_fullscreen(p, !p->fullscreen);
+                return 0;
+            }
+            sc = win32_scancode(lParam, wParam);
             if (sc >= 0 && sc < MAX_KEYS) {
                 if (!p->key_state[sc]) p->key_hit[sc] = true;
                 p->key_state[sc] = true;
@@ -202,10 +303,50 @@ platform_t *platform_init(const char *title, int fb_width, int fb_height, int sc
     return p;
 }
 
+bool platform_hires_supported(platform_t *p) {
+    (void)p;
+    return true;
+}
+
 void platform_set_render_size(platform_t *p, int w, int h) {
     if (!p) return;
     p->render_width  = w;
     p->render_height = h;
+}
+
+/* Put p->rgba_buffer on the screen, letterboxed into the client area. */
+static void present(platform_t *p) {
+    HDC hdc = GetDC(p->hwnd);
+    if (!hdc) return;
+
+    compute_dest_rect(p);
+
+    /* Only the bars, and only when there are any: repainting the whole client
+     * area every frame would flicker. */
+    if (p->dst_x > 0 || p->dst_y > 0) {
+        RECT rc;
+        HBRUSH black = (HBRUSH)GetStockObject(BLACK_BRUSH);
+        if (GetClientRect(p->hwnd, &rc)) {
+            RECT bar;
+            if (p->dst_y > 0) {
+                bar = rc; bar.bottom = p->dst_y;                    FillRect(hdc, &bar, black);
+                bar = rc; bar.top    = p->dst_y + p->dst_h;         FillRect(hdc, &bar, black);
+            }
+            if (p->dst_x > 0) {
+                bar = rc; bar.right  = p->dst_x;                    FillRect(hdc, &bar, black);
+                bar = rc; bar.left   = p->dst_x + p->dst_w;         FillRect(hdc, &bar, black);
+            }
+        }
+    }
+
+    StretchDIBits(
+        hdc,
+        p->dst_x, p->dst_y, p->dst_w, p->dst_h,
+        0, 0, p->fb_width, p->fb_height,
+        p->rgba_buffer, &p->bmi,
+        DIB_RGB_COLORS, SRCCOPY
+    );
+    ReleaseDC(p->hwnd, hdc);
 }
 
 void platform_blit(platform_t *p, const uint8_t *framebuffer, const uint8_t *palette) {
@@ -239,15 +380,7 @@ void platform_blit(platform_t *p, const uint8_t *framebuffer, const uint8_t *pal
         }
     }
 
-    HDC hdc = GetDC(p->hwnd);
-    StretchDIBits(
-        hdc,
-        0, 0, p->fb_width * p->scale, p->fb_height * p->scale,
-        0, 0, p->fb_width, p->fb_height,
-        p->rgba_buffer, &p->bmi,
-        DIB_RGB_COLORS, SRCCOPY
-    );
-    ReleaseDC(p->hwnd, hdc);
+    present(p);
 }
 
 void platform_blit_rgba(platform_t *p, const uint8_t *framebuffer) {
@@ -255,15 +388,7 @@ void platform_blit_rgba(platform_t *p, const uint8_t *framebuffer) {
 
     memcpy(p->rgba_buffer, framebuffer, p->fb_width * p->fb_height * 4);
 
-    HDC hdc = GetDC(p->hwnd);
-    StretchDIBits(
-        hdc,
-        0, 0, p->fb_width * p->scale, p->fb_height * p->scale,
-        0, 0, p->fb_width, p->fb_height,
-        p->rgba_buffer, &p->bmi,
-        DIB_RGB_COLORS, SRCCOPY
-    );
-    ReleaseDC(p->hwnd, hdc);
+    present(p);
 }
 
 bool platform_pump_events(platform_t *p) {
@@ -333,6 +458,12 @@ void platform_delay(uint32_t ms) {
 
 void platform_shutdown(platform_t *p) {
     if (!p) return;
+    /* Leaving the desktop at 640x480 because the game exited from fullscreen
+     * is the classic way to rearrange somebody's icons for them. */
+    if (p->mode_changed) {
+        ChangeDisplaySettingsA(NULL, 0);
+        p->mode_changed = false;
+    }
     if (p->hwnd) {
         DestroyWindow(p->hwnd);
         p->hwnd = NULL;

@@ -894,10 +894,7 @@ void open_read_file2(const char *filename) {
 }
 
 void detect_game_version(void) {
-    if (debug_log_file) {
-        fprintf(debug_log_file, "[FILE] detect_game_version: entering, debug_verbose=%d\n", debug_verbose);
-        fflush(debug_log_file);
-    }
+    DBG_LOG(1, "[FILE] detect_game_version: entering, debug_verbose=%d\n", debug_verbose);
     FILE *f = fopen_ci("OFFSETS", "rb");
     if (!f) f = fopen_ci("FILES/OFFSETS.DAT", "rb");
     if (!f) f = fopen_ci("../OFFSETS", "rb");

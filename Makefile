@@ -153,6 +153,9 @@ endef
 dos-e1: dos
 	$(call dos_run,$(E1_DIR_DOS))
 
+dos-e1-original: dos
+	$(call dos_run,$(E1_DIR_ORIG))
+
 dos-e2: dos
 	$(call dos_run,$(E2_DIR))
 

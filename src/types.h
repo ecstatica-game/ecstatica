@@ -308,9 +308,32 @@ typedef enum CODE_TOKENS {
 
 extern int debug_verbose;  /* 0 = quiet, 1 = important, 2 = verbose */
 extern FILE *debug_log_file;
+
+/* fflush only gets the bytes as far as DOS. The last thing the game does when
+ * it hangs or faults is never a clean close, so the directory entry is left
+ * stale and the log reads back empty — which is also what happens when the
+ * emulator is killed, since it buffers the host file itself. INT 21h AH=68h
+ * commits the file, and DOSBox implements it by flushing to the host. */
+#if defined(__WATCOMC__) && defined(__DOS__)
+void dbg_log_commit(void);
+#else
+#define dbg_log_commit() ((void)0)
+#endif
+
+/* DOS has nowhere for stderr to go but the screen the game is drawing on: once
+ * the video mode is set, every trace line is written straight into the visible
+ * framebuffer as text, and it is slow on top of that — each character goes out
+ * through the BIOS. The file gets everything; the screen gets nothing. */
+#if defined(__WATCOMC__) && defined(__DOS__)
+#define DBG_LOG_STDERR(...) ((void)0)
+#else
+#define DBG_LOG_STDERR(...) fprintf(stderr, __VA_ARGS__)
+#endif
+
 #define DBG_LOG(level, ...) do { if (debug_verbose >= (level)) { \
-    fprintf(stderr, __VA_ARGS__); \
-    if (debug_log_file) { fprintf(debug_log_file, __VA_ARGS__); fflush(debug_log_file); } \
+    DBG_LOG_STDERR(__VA_ARGS__); \
+    if (debug_log_file) { fprintf(debug_log_file, __VA_ARGS__); fflush(debug_log_file); \
+                          dbg_log_commit(); } \
 } } while(0)
 
 #endif /* TYPES_H */

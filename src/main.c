@@ -22,6 +22,18 @@
 int debug_verbose = 1;  /* 0=quiet, 1=important, 2=verbose */
 FILE *debug_log_file = NULL;
 
+#if defined(__WATCOMC__) && defined(__DOS__)
+#include <dos.h>
+void dbg_log_commit(void) {
+    union REGS r;
+    if (!debug_log_file) return;
+    memset(&r, 0, sizeof(r));
+    r.w.ax = 0x6800;
+    r.w.bx = (unsigned short)fileno(debug_log_file);
+    int386(0x21, &r, &r);
+}
+#endif
+
 static void crash_handler(int sig) {
     fprintf(stderr, "\n=== CRASH sig=%d ===\n", sig);
 #ifdef HAVE_BACKTRACE
@@ -81,6 +93,7 @@ int main(int argc, char *argv[]) {
         setvbuf(debug_log_file, NULL, _IONBF, 0);
         fprintf(debug_log_file, "MAIN: debug_log_file=%p debug_verbose=%d\n", (void*)debug_log_file, debug_verbose);
         fflush(debug_log_file);
+        dbg_log_commit();
     }
 
     /* The original game went through WinMain → do_init → win_main_game.

@@ -81,13 +81,13 @@ palette_entry_t edit_map_cmap[256];
 
 /* init_setup  E1: 0x41007C | E2: 0x41007C */
 void setup(void) {
-    if (debug_log_file) { fprintf(debug_log_file, "SETUP: entering\n"); fflush(debug_log_file); }
+    DBG_LOG(1, "SETUP: entering\n");
     free_all_heaps();
-    if (debug_log_file) { fprintf(debug_log_file, "SETUP: after free_all_heaps\n"); fflush(debug_log_file); }
+    DBG_LOG(1, "SETUP: after free_all_heaps\n");
     initialise_parts();
-    if (debug_log_file) { fprintf(debug_log_file, "SETUP: after initialise_parts\n"); fflush(debug_log_file); }
+    DBG_LOG(1, "SETUP: after initialise_parts\n");
     init();
-    if (debug_log_file) { fprintf(debug_log_file, "SETUP: after init\n"); fflush(debug_log_file); }
+    DBG_LOG(1, "SETUP: after init\n");
 
     /* Read config file */
     FILE *f = fopen_ci("e_config", "rb");
@@ -192,8 +192,16 @@ void init(void) {
      * graphics toggle never changes. Drives the SFX sample rate. */
     e1_dos_data = vga_data;
 
-    hires_available = hires_data_available();
-    low_res_only = vga_data && !hires_available;
+    /* Hi-res needs both halves: the assets, and a display mode to put them in.
+     * On DOS the second one is not a given — a card with no VESA 2.0 linear
+     * framebuffer has nothing above mode 13h — so the data check alone would
+     * leave the engine rendering 640x480 into a 320x200 screen. */
+    int display_hires = platform_hires_supported(win_platform());
+    hires_available = hires_data_available() && display_hires;
+    low_res_only = (vga_data || !display_hires) && !hires_available;
+
+    if (!display_hires)
+        DBG_LOG(1, "[INIT] display has no 640x480 8-bit mode; staying in VGA\n");
 
     /* Follows the database, so E2 and Win95 E1 come up in SVGA.
      *
@@ -203,7 +211,7 @@ void init(void) {
      * so load_raw_graphic() falls through to the 640x480 GRAPHICS/ art and
      * the whole HUD draws at the wrong size. Backgrounds would survive — E2's
      * VIEWS/ is a genuine 320x200 set — but the interface does not. */
-    int boot_vga = vga_data;
+    int boot_vga = vga_data || !display_hires;
 
     /* Must agree with the boot resolution before the first asset load, or the
      * swappable lookups prefer the wrong root. It only mattered once the W/
@@ -1443,8 +1451,13 @@ void load_shade_map(void) {
     if (!f) return;
 
     /* Bulk-read entire file (128*128 * 3 bytes per cell = 49152 bytes)
-     * instead of 49K individual fgetc/getw_be calls. */
-    uint8_t buf[128 * 128 * 3];
+     * instead of 49K individual fgetc/getw_be calls.
+     *
+     * static, because 48 KB does not fit in a DOS stack: DOS/4GW gives the
+     * program 64 KB by default and nothing traps the overflow — the frame just
+     * runs off the end into whatever is below and the game wanders off. This
+     * is called once, from one thread, so a static buffer costs nothing. */
+    static uint8_t buf[128 * 128 * 3];
     size_t n = fread(buf, 1, sizeof(buf), f);
     fclose(f);
     if (n < sizeof(buf)) return;
