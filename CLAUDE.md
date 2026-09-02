@@ -22,6 +22,11 @@ openfpgaOS (rv32 soft CPU inside an openFPGA core) via the openfpgaSDK; see
 `pocket/README.md`. It stages a flat copy of `src/` into the SDK tree, so edit
 `src/`, never the staged copy.
 
+**PlayStation Portable:** a separate build under `psp/` targets the pspdev
+toolchain; see `psp/README.md`. GNU make on top of the SDK's `build.mak`, and
+it compiles `src/` in place — objects go to `psp/obj/`. Video goes through
+sceGu as a T8 texture + CLUT; music is silent (no OS synth).
+
 **Linux music (optional):** macOS and Windows get a General MIDI synth from the
 OS (`AVMIDIPlayer` / MCI `sequencer`); Linux has no equivalent, so tunes are
 rendered by FluidSynth. `libfluidsynth` is `dlopen`'d at runtime, not linked —
@@ -66,6 +71,7 @@ src/
   tools/viewer.c     — model/animation/scene browser (--viewer, --scenes); not in the original
   platforms/macos.m  — Cocoa NSView framebuffer, input, timing
   platforms/openfpga.c — openfpgaOS (Analogue Pocket / MiSTer) backend
+  platforms/psp.c    — PlayStation Portable backend (sceGu / sceCtrl / sceAudio)
   platform.h    — platform abstraction interface
   types.h       — all structs, enums, constants, forward decls
 ```
