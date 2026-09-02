@@ -27,8 +27,15 @@
 #   make win9x-e2   — build + run the E2 data under Wine
 #   make win9x-clean
 #
+# PSP target (pspdev toolchain, runs on hardware or PPSSPP):
+#   make psp          — build psp/EBOOT.PBP
+#   make psp-release  — stage psp/build/PSP/GAME/ECSTATICA with the game data
+#   make psp-install  — copy that onto a Memory Stick
+#   make psp-clean
+#
 # Set WATCOM if Open Watcom is not in ~/watcom. Both cross builds live in their
-# own directories and are driven by Watcom's wmake, not by this file.
+# own directories and are driven by Watcom's wmake, not by this file. The PSP
+# build lives in psp/ and is GNU make, driven by the PSP SDK's build.mak.
 
 TARGET   = ecstatica
 SRCDIR   = src
@@ -58,7 +65,8 @@ WIN9X_EXE   = win9x/ecstatica.exe
 WINE       ?= wine
 
 .PHONY: all run e1 e2 e1-viewer e2-viewer e1-scenes e2-scenes build clean dump \
-        dos dos-e1 dos-e2 dos-clean win9x win9x-e1 win9x-e2 win9x-clean
+        dos dos-e1 dos-e2 dos-clean win9x win9x-e1 win9x-e2 win9x-clean \
+        psp psp-release psp-install psp-clean
 
 all: build
 
@@ -192,3 +200,24 @@ win9x-e2: win9x
 
 win9x-clean:
 	cd win9x && rm -f *.obj *.exe *.map link.lnk
+
+# ── PSP build and packaging ───────────────────────────────────
+#
+# psp/Makefile is GNU make on top of the PSP SDK's build.mak, so it is invoked
+# directly. GAME_DATA picks which game gets staged onto the Memory Stick; the
+# 320x200 DOS data is the one worth shipping, see psp/README.md.
+
+psp:
+	@command -v psp-config >/dev/null || { \
+	  echo "PSP toolchain not found. Install pspdev and put \$$PSPDEV/bin on PATH."; \
+	  exit 1; }
+	$(MAKE) -C psp
+
+psp-release: psp
+	$(MAKE) -C psp release GAME_DATA=$(abspath $(E2_DIR))
+
+psp-install: psp
+	$(MAKE) -C psp install GAME_DATA=$(abspath $(E2_DIR))
+
+psp-clean:
+	$(MAKE) -C psp clean
