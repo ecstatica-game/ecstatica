@@ -5,9 +5,6 @@
 #include <X11/keysym.h>
 #include <X11/XKBlib.h>
 #ifdef ECS_ENABLE_GL
-/* glx.h drags in gl.h, whose typedefs would collide with gl_loader.h's. The two
- * are never included in the same translation unit: this file only ever creates
- * the context, and render_gl.c only ever uses it. */
 #include <GL/glx.h>
 #endif
 #include <stdio.h>
@@ -105,7 +102,7 @@ struct platform_t {
     Window   gl_window;
     GLXContext gl_ctx;
 #endif
-    bool     gl_active;
+    bool     gl_active;   /* stays false on a software-only build */
 
     js_pad_t js_pads[JS_MAX_PADS];
     uint32_t js_next_scan;

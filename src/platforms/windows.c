@@ -17,8 +17,14 @@
 #include <stdbool.h>
 /* gl.h's typedefs would collide with gl_loader.h's. The two are never in the
  * same translation unit: this file only creates the context, render_gl.c only
- * uses it. */
+ * uses it.
+ *
+ * Only the hardware build pulls this in. The Win9x/Watcom target is software
+ * only — it links no opengl32 — so it leaves ECS_ENABLE_GL undefined and every
+ * WGL path below drops out. */
+#ifdef ECS_ENABLE_GL
 #include <GL/gl.h>
+#endif
 #include "platform.h"
 
 #ifndef __WATCOMC__
@@ -362,6 +368,7 @@ static void present(platform_t *p) {
 }
 
 /* ── Hardware rendering (WGL) ─────────────────────────────── */
+#ifdef ECS_ENABLE_GL
 
 typedef HGLRC (WINAPI *PFN_wglCreateContextAttribsARB)(HDC, HGLRC, const int *);
 typedef BOOL  (WINAPI *PFN_wglSwapIntervalEXT)(int);
@@ -494,6 +501,8 @@ void *platform_gl_proc(const char *name) {
     }
     return fn;
 }
+
+#endif /* ECS_ENABLE_GL */
 
 void platform_blit(platform_t *p, const uint8_t *framebuffer, const uint8_t *palette) {
     if (!p || !framebuffer || !palette) return;

@@ -33,7 +33,7 @@ CFLAGS = -bt=nt -6s $(OPT) -zp1 -zq -za99 -j -i=$(SRC) -i=$(WATCOM_H) -i=$(WATCO
 OBJS = init.obj asm_f.obj display.obj debug_overlay.obj edit.obj game.obj &
        file.obj move.obj menu.obj req.obj music.obj topo.obj map.obj &
        anim.obj ellipse.obj tri.obj icon.obj win.obj chars.obj main.obj &
-       viewer.obj windows.obj desktop_common.obj
+       render.obj viewer.obj windows.obj desktop_common.obj
 
 all: ecstatica.exe
 
@@ -87,6 +87,11 @@ chars.obj: $(SRC)/chars.c
 	$(CC) $(CFLAGS) $(SRC)/chars.c -fo=$^@
 main.obj: $(SRC)/main.c
 	$(CC) $(CFLAGS) $(SRC)/main.c -fo=$^@
+# ECS_ENABLE_GL stays undefined here, so render.c is just the four port-only
+# renderer preferences that file.c and menu.c reference; render_gl.c and
+# gl_loader.c collapse to nothing and are left out entirely.
+render.obj: $(SRC)/render.c
+	$(CC) $(CFLAGS) $(SRC)/render.c -fo=$^@
 viewer.obj: $(SRC)/tools/viewer.c
 	$(CC) $(CFLAGS) $(SRC)/tools/viewer.c -fo=$^@
 windows.obj: $(SRC)/platforms/windows.c
