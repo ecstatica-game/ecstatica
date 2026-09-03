@@ -16,6 +16,7 @@
 #include "init.h"
 #include "menu.h"
 #include "platform.h"
+#include "render.h"
 #include "compat.h"
 #include <string.h>
 #include <stdlib.h>
@@ -37,6 +38,14 @@ platform_t *win_platform(void) {
 void flip_win95(void) {
     int pitch;
     char *plane_data = (char *)dd_lock(db, &pitch);
+
+    if (render_backend == RENDER_HARDWARE) {
+        /* The hardware path presents the composited frame itself; the software
+         * plane it reads is the same one dd_lock just handed back. */
+        render_frame_end();
+        dd_unlock(db, plane_data);
+        return;
+    }
 
 #ifdef ENABLE_FRAME_DUMP
     /* F12 — manual dump. Also auto-dump frames 60, 120, 180 for headless validation. */
@@ -187,7 +196,7 @@ void window_proc(void) {
      * stops set_enhanced_graphics, which re-enters window_proc through
      * make_game_screen, from seeing the same press again. */
     if (platform_key_hit(g_platform, PKEY_G))
-        set_enhanced_graphics(!mode_svga);
+        graphics_mode_cycle(1);
 
     /* mouse */
     int mx, my;

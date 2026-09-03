@@ -17,6 +17,7 @@
 #include "map.h"
 #include "move.h"
 #include "music.h"
+#include "render.h"
 #include "topo.h"
 #include "tri.h"
 #include "win.h"
@@ -542,6 +543,12 @@ void prepare_parts(void) {
 
 
     number_to_clear[db] = 0;
+
+    /* The software work above is still wanted under the hardware renderer: it
+     * leaves the draw plane holding the background, which is what the 2D
+     * composite diffs against to find the pixels menus and subtitles touched.
+     * Only the 3D rasterisation is replaced. */
+    render_frame_begin();
 }
 
 /* display_clear_a_stuck_thing_421684 — Bug 55 pt.4: was strict `>` and
@@ -628,6 +635,27 @@ void clear_parts(void) {
 void draw_stuck_parts(void) {
     if (editor_mode) return;
 
+    /* Baking is a software-renderer optimisation and does not survive a
+     * hardware frame. It paints an actor once into the persistent background
+     * store (bitmap[2]) and sets 0x0800, after which both this function and
+     * draw_parts skip it — correct when those pixels stay put, fatal when the
+     * scene target is cleared and rebuilt from the background texture every
+     * frame, because the actor is submitted once and then never again.
+     *
+     * check_view (map.c) sets 0x0400 on *every* actor at a camera change, so
+     * leaving this in place made the whole cast disappear one frame after any
+     * cut. Skipping the loop means 0x0800 is never set, and draw_parts — whose
+     * only skip condition is that bit — picks all of them up every frame,
+     * which is what a GPU wants anyway.
+     *
+     * make_backgrounds is the tool that authors the pre-rendered views; it
+     * genuinely needs the baked store, and it runs on the software renderer. */
+    if (render_backend == RENDER_HARDWARE && !make_backgrounds) {
+        if (need_clear_graphics) clear_graphics();
+        if (need_draw_graphics) draw_graphics();
+        return;
+    }
+
     for (actor_t *actor = root_thing; actor; actor = actor->next_in_display_list) {
         if (!(actor->flags & 0x0400)) continue;    /* Not stuck */
         if (actor->flags & 0x0800) continue;       /* Already drawn this frame */
@@ -676,6 +704,27 @@ void draw_stuck_parts(void) {
      * bars never appeared. */
     if (need_clear_graphics) clear_graphics();
     if (need_draw_graphics) draw_graphics();
+}
+
+/**
+ * Discard every baked copy of an actor and the background store holding them.
+ *
+ * The software renderer paints "stuck" actors once into bitmap[2] and marks
+ * them 0x0800 so nothing redraws them. Switching renderers invalidates that on
+ * both sides: the hardware path rebuilds the frame from scratch each time and
+ * would never draw them again, and the pixels already baked into bitmap[2]
+ * would ghost through the 2D composite on top of the live geometry.
+ *
+ * Restoring the background store from the pristine copy and clearing the mark
+ * puts every actor back in the hands of draw_parts, which is where a renderer
+ * switch has to leave things.
+ */
+void unbake_stuck_actors(void) {
+    for (actor_t *a = root_thing; a; a = a->next_in_display_list)
+        a->flags &= (uint16_t)~0x0800;
+
+    copy_background3to012();
+    background_status = 2;
 }
 
 /* display_add_polygons  E1: 0x41E3A0 | E2: 0x421EE0 */
@@ -1836,7 +1885,10 @@ void put_a_triangle(tri_t *tri) {
         shade = tri->parent_actor->_TriangleTab->field_0[tri->tri_shade_name];
 
     int target_plane = (tri->parent_actor->flags & 0x400) ? 2 : (1 - db);
-    draw_polygon(tri, target_plane, shade);
+    if (render_backend == RENDER_HARDWARE)
+        render_triangle(tri, target_plane, shade);
+    else
+        draw_polygon(tri, target_plane, shade);
 }
 
 /* display_view_transform_ellipse  E1: 0x4212C0 | E2: 0x424EA0 */
@@ -2014,7 +2066,9 @@ void put_a_cuboid(part_t *part) {
         shade_tri.point2 = &points[fvb[si]];
         shade_tri.point3 = &points[fvc[si]];
 
-        if (tex && !eagle_card)
+        if (render_backend == RENDER_HARDWARE)
+            render_triangle(&draw_tri, plane, &shade_tri);
+        else if (tex && !eagle_card)
             draw_textured_tri(&draw_tri, plane, &shade_tri);
         else
             draw_triangle_ell(&draw_tri, plane, &shade_tri);
@@ -2053,6 +2107,18 @@ void put_an_ellipse(part_t *part) {
             matrix_mult(&result, &rot, &part->matrix_2);
             copy_matrix(&part->matrix_2, &result);
         }
+    }
+
+    /* The hardware path wants the ellipsoid in view space, and matrix_2 above
+     * plus persp_origin/vector_persp.Z already are exactly that. find_ellipse
+     * only produces the projected 2D ellipse the column sweep needs, so it is
+     * skipped rather than computed and discarded. */
+    if (render_backend == RENDER_HARDWARE) {
+        int hw_plane = 1 - db;
+        if (part->parent_actor && (part->parent_actor->flags & 0x400))
+            hw_plane = 2;
+        render_ellipsoid(part, hw_plane);
+        return;
     }
 
     /* Compute ellipse on screen and shade */

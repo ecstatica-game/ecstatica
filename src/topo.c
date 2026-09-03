@@ -9,6 +9,7 @@
  */
 
 #include "topo.h"
+#include "render.h"
 #include "asm_f.h"
 #include "display.h"
 #include "ellipse.h"
@@ -714,6 +715,14 @@ int load_raw(void) {
     load_palette(NULL);
     clip_mask(2, 1, 0, 0, screen_width, screen_height);
     clip_mask(2, 0, 0, 0, screen_width, screen_height);
+
+    /* Here rather than at the call sites: this is the one function that
+     * rewrites bitmap[3] and mask_map[2], and it has two callers that each do
+     * their own camera switch — check_view for scripted scenes and
+     * check_camera for the player walking between map areas. Invalidating in
+     * only one of them left the hardware renderer holding the previous room's
+     * colour and depth for the whole of normal play. */
+    render_invalidate_background();
 
     return 0;
 }

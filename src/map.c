@@ -16,6 +16,7 @@
 #include "init.h"
 #include "menu.h"
 #include "move.h"
+#include "render.h"
 #include "req.h"
 #include "topo.h"
 #include <string.h>
@@ -85,6 +86,10 @@ void check_view(int camera_idx) {
     clip_blit(3, 0, 0, 2, 0, 0, screen_width, screen_height, 192);
     clip_mask(2, 1, 0, 0, screen_width, screen_height);
     clip_mask(2, 0, 0, 0, screen_width, screen_height);
+
+    /* New view: bitmap[3] and mask_map[2] both changed, and the hardware
+     * renderer holds them as textures. This is the only place they move. */
+    render_invalidate_background();
 
     for (int i = 0; i < THING_TAB_SIZE; ++i) {
         if (thing_name_flags[i] & 2)

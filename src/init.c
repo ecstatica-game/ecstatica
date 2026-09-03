@@ -16,6 +16,7 @@
 #include "map.h"
 #include "menu.h"
 #include "music.h"
+#include "render.h"
 #include "req.h"
 #include "topo.h"
 #include "tools/viewer.h"
@@ -104,6 +105,12 @@ void setup(void) {
     }
 
     load_port_settings();
+
+    /* Here, not in do_init(), because the stored renderer preference is only
+     * known once load_port_settings() above has run — and do_init() runs
+     * before this. The window already exists by now, which is all a backend
+     * needs; a failure leaves the software renderer selected. */
+    render_init();
 
     init_gadgets();
     setup_directory_paths();

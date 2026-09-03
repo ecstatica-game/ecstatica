@@ -4,6 +4,10 @@
 #include <X11/Xutil.h>
 #include <X11/keysym.h>
 #include <X11/XKBlib.h>
+/* glx.h drags in gl.h, whose typedefs would collide with gl_loader.h's. The two
+ * are never included in the same translation unit: this file only ever creates
+ * the context, and render_gl.c only ever uses it. */
+#include <GL/glx.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -89,6 +93,15 @@ struct platform_t {
     XImage  *ximage;
     Atom     wm_delete;
     int      screen;
+
+    /* Hardware renderer. GLX fixes the visual at window creation and the game
+     * window already exists with the default one, so the context goes on a
+     * child window covering the parent. The parent keeps the event mask, so
+     * input, the WM protocol and the software blit path are all untouched and
+     * the renderer can be switched at runtime without recreating anything. */
+    Window   gl_window;
+    GLXContext gl_ctx;
+    bool     gl_active;
 
     js_pad_t js_pads[JS_MAX_PADS];
     uint32_t js_next_scan;
@@ -270,6 +283,133 @@ void platform_set_render_size(platform_t *p, int w, int h) {
     p->render_height = h;
 }
 
+/* ── Hardware rendering (GLX) ─────────────────────────────── */
+
+typedef GLXContext (*PFN_glXCreateContextAttribsARB)(Display *, GLXFBConfig, GLXContext,
+                                                     Bool, const int *);
+
+bool platform_gfx_create(platform_t *p) {
+    if (!p || !p->display) return false;
+    if (p->gl_ctx) return true;
+
+    int attrs[] = {
+        GLX_X_RENDERABLE,  True,
+        GLX_DRAWABLE_TYPE, GLX_WINDOW_BIT,
+        GLX_RENDER_TYPE,   GLX_RGBA_BIT,
+        GLX_X_VISUAL_TYPE, GLX_TRUE_COLOR,
+        GLX_RED_SIZE,      8,
+        GLX_GREEN_SIZE,    8,
+        GLX_BLUE_SIZE,     8,
+        GLX_ALPHA_SIZE,    8,
+        GLX_DEPTH_SIZE,    24,
+        GLX_DOUBLEBUFFER,  True,
+        None
+    };
+
+    int n = 0;
+    GLXFBConfig *cfgs = glXChooseFBConfig(p->display, p->screen, attrs, &n);
+    if (!cfgs || n <= 0) return false;
+    GLXFBConfig cfg = cfgs[0];
+
+    XVisualInfo *vi = glXGetVisualFromFBConfig(p->display, cfg);
+    if (!vi) { XFree(cfgs); return false; }
+
+    /* A child window, because the visual cannot be changed on the parent. It
+     * carries no event mask, so every event still arrives at the parent and
+     * the input code does not know this exists. */
+    XSetWindowAttributes swa;
+    memset(&swa, 0, sizeof(swa));
+    swa.colormap = XCreateColormap(p->display, p->window, vi->visual, AllocNone);
+    swa.background_pixmap = None;
+    swa.border_pixel = 0;
+    swa.event_mask = 0;
+
+    int win_w = p->fb_width  * p->scale;
+    int win_h = p->fb_height * p->scale;
+
+    p->gl_window = XCreateWindow(p->display, p->window, 0, 0, win_w, win_h, 0,
+                                 vi->depth, InputOutput, vi->visual,
+                                 CWColormap | CWBorderPixel | CWEventMask, &swa);
+    XFree(vi);
+    if (!p->gl_window) { XFree(cfgs); return false; }
+
+    PFN_glXCreateContextAttribsARB create_ctx =
+        (PFN_glXCreateContextAttribsARB)glXGetProcAddressARB(
+            (const GLubyte *)"glXCreateContextAttribsARB");
+
+    if (create_ctx) {
+        int ctx_attrs[] = {
+            GLX_CONTEXT_MAJOR_VERSION_ARB, 3,
+            GLX_CONTEXT_MINOR_VERSION_ARB, 3,
+            GLX_CONTEXT_PROFILE_MASK_ARB,  GLX_CONTEXT_CORE_PROFILE_BIT_ARB,
+            None
+        };
+        p->gl_ctx = create_ctx(p->display, cfg, NULL, True, ctx_attrs);
+    }
+    XFree(cfgs);
+
+    if (!p->gl_ctx) {
+        /* No ARB_create_context means no way to ask for a core profile, and a
+         * legacy context will not compile #version 330. Fail rather than
+         * present something that cannot work. */
+        XDestroyWindow(p->display, p->gl_window);
+        p->gl_window = 0;
+        return false;
+    }
+
+    /* Left unmapped: the child window would cover the parent and hide the
+     * software blit, and the context is created before the renderer choice is
+     * acted on. platform_gfx_set_active maps it. */
+    XSync(p->display, False);
+    return true;
+}
+
+void platform_gfx_set_active(platform_t *p, bool active) {
+    if (!p || !p->gl_window) return;
+    if (active) XMapWindow(p->display, p->gl_window);
+    else        XUnmapWindow(p->display, p->gl_window);
+    XSync(p->display, False);
+    p->gl_active = active;
+    if (!active) {
+        /* Repaint the parent, which has been covered up to now. */
+        XClearArea(p->display, p->window, 0, 0, 0, 0, True);
+    }
+}
+
+void platform_gfx_make_current(platform_t *p) {
+    if (!p || !p->gl_ctx) return;
+    glXMakeCurrent(p->display, p->gl_window, p->gl_ctx);
+}
+
+void platform_gfx_swap(platform_t *p) {
+    if (!p || !p->gl_ctx) return;
+    glXSwapBuffers(p->display, p->gl_window);
+}
+
+void platform_gfx_destroy(platform_t *p) {
+    if (!p || !p->gl_ctx) return;
+    glXMakeCurrent(p->display, None, NULL);
+    glXDestroyContext(p->display, p->gl_ctx);
+    p->gl_ctx = NULL;
+    if (p->gl_window) {
+        XDestroyWindow(p->display, p->gl_window);
+        p->gl_window = 0;
+    }
+    p->gl_active = false;
+}
+
+void platform_gfx_drawable_size(platform_t *p, int *w, int *h) {
+    if (!p) return;
+    /* The window is fixed size (XSetWMNormalHints pins it in platform_init) and
+     * X11 has no backing-scale concept, so this is just the window size. */
+    if (w) *w = p->fb_width  * p->scale;
+    if (h) *h = p->fb_height * p->scale;
+}
+
+void *platform_gl_proc(const char *name) {
+    return (void *)glXGetProcAddressARB((const GLubyte *)name);
+}
+
 void platform_blit(platform_t *p, const uint8_t *framebuffer, const uint8_t *palette) {
     if (!p || !framebuffer || !palette) return;
 
@@ -448,6 +588,10 @@ bool platform_pump_events(platform_t *p) {
                 break;
             }
             case Expose: {
+                /* The GL child window owns the surface while hardware
+                 * rendering is up; repainting the parent underneath it would
+                 * do nothing useful and can flicker during the swap. */
+                if (p->gl_active) break;
                 if (p->ximage) {
                     if (p->scale == 1) {
                         XPutImage(p->display, p->window, p->gc, p->ximage,
