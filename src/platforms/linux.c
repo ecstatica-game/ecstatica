@@ -6,8 +6,14 @@
 #include <X11/XKBlib.h>
 /* glx.h drags in gl.h, whose typedefs would collide with gl_loader.h's. The two
  * are never included in the same translation unit: this file only ever creates
- * the context, and render_gl.c only ever uses it. */
+ * the context, and render_gl.c only ever uses it.
+ *
+ * Only the hardware build pulls this in. A Linux box without the GL development
+ * headers still gets a working software build — CMake leaves ECS_ENABLE_GL
+ * undefined and every GLX path below drops out. */
+#ifdef ECS_ENABLE_GL
 #include <GL/glx.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -99,9 +105,11 @@ struct platform_t {
      * child window covering the parent. The parent keeps the event mask, so
      * input, the WM protocol and the software blit path are all untouched and
      * the renderer can be switched at runtime without recreating anything. */
+#ifdef ECS_ENABLE_GL
     Window   gl_window;
     GLXContext gl_ctx;
-    bool     gl_active;
+#endif
+    bool     gl_active;   /* stays false on a software-only build */
 
     js_pad_t js_pads[JS_MAX_PADS];
     uint32_t js_next_scan;
@@ -284,6 +292,7 @@ void platform_set_render_size(platform_t *p, int w, int h) {
 }
 
 /* ── Hardware rendering (GLX) ─────────────────────────────── */
+#ifdef ECS_ENABLE_GL
 
 typedef GLXContext (*PFN_glXCreateContextAttribsARB)(Display *, GLXFBConfig, GLXContext,
                                                      Bool, const int *);
@@ -409,6 +418,8 @@ void platform_gfx_drawable_size(platform_t *p, int *w, int *h) {
 void *platform_gl_proc(const char *name) {
     return (void *)glXGetProcAddressARB((const GLubyte *)name);
 }
+
+#endif /* ECS_ENABLE_GL */
 
 void platform_blit(platform_t *p, const uint8_t *framebuffer, const uint8_t *palette) {
     if (!p || !framebuffer || !palette) return;
