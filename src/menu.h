@@ -26,4 +26,8 @@ void delete_point(point_t *point);
 void delete_script(script_t *script);
 void find_svga_card(void);
 
+/* Step the graphics mode: asset set and renderer as one setting. Shared by the
+ * Enhanced menu row and the G hotkey so the two cannot drift apart. */
+void graphics_mode_cycle(int dir);
+
 #endif /* MENU_H */

@@ -12,6 +12,7 @@
 #import <mach/mach_time.h>
 #include <string.h>
 #include <stdlib.h>
+#include <dlfcn.h>
 #include "platform.h"
 
 /* ── Internal structures ── */
@@ -19,6 +20,7 @@
 #define MAX_KEYS 256
 
 @class ECView;
+@class ECGLView;
 
 struct platform_t {
     int fb_width;
@@ -28,6 +30,13 @@ struct platform_t {
     int scale;
     uint32_t *rgba_buffer;     /* fb_width * fb_height * 4 bytes (RGBA8888) */
     bool      quit_requested;
+
+    /* hardware renderer — the context is attached to the same ECView the
+     * software path draws into, so switching renderers changes nothing about
+     * the window, the responder chain or event handling. */
+    NSOpenGLContext *gl_ctx;
+    ECGLView        *gl_view;
+    bool             gl_active;
 
     /* input */
     bool key_state[MAX_KEYS];
@@ -48,6 +57,28 @@ struct platform_t {
     id app_delegate;  /* strong ref — NSApp/NSWindow hold delegate weakly */
 };
 
+/* A view that exists only to own the GL surface.
+ *
+ * The context must not be attached to ECView: once an NSOpenGLContext has been
+ * given an NSView, AppKit backs that view with a GL surface and Quartz drawing
+ * into it stops being composited — permanently, and clearDrawable does not undo
+ * it. Merely creating the context to probe for GL 3.3 was therefore enough to
+ * leave the software renderer painting into a window that showed nothing.
+ *
+ * So GL gets its own sibling on top, hidden while the software renderer runs.
+ * hitTest: returns nil so mouse events fall straight through to ECView, and the
+ * view never becomes first responder, which leaves the whole input path — keys,
+ * mouse mapping, responder chain — exactly as it was. Same shape as the child
+ * window the GLX backend uses, and for the same reason. */
+@interface ECGLView : NSView
+@end
+
+@implementation ECGLView
+- (BOOL)isOpaque                       { return YES; }
+- (BOOL)acceptsFirstResponder          { return NO; }
+- (NSView *)hitTest:(NSPoint)p         { (void)p; return nil; }
+@end
+
 /* ── Cocoa view that displays the RGBA buffer ── */
 
 @interface ECView : NSView
@@ -62,6 +93,9 @@ struct platform_t {
 - (void)drawRect:(NSRect)dirtyRect {
     platform_t *p = self.platform;
     if (!p || !p->rgba_buffer) return;
+    /* GL owns the surface while the hardware renderer is up; letting Quartz
+     * also paint here would race it and flicker. */
+    if (p->gl_active) return;
 
     CGColorSpaceRef cs = CGColorSpaceCreateDeviceRGB();
     CGContextRef ctx = CGBitmapContextCreate(
@@ -341,6 +375,121 @@ void platform_set_render_size(platform_t *p, int w, int h) {
     p->render_height = h;
 }
 
+/* ── Hardware rendering (OpenGL) ──────────────────────────── */
+
+bool platform_gfx_create(platform_t *p) {
+    if (!p || !p->view) return false;
+    if (p->gl_ctx) return true;
+
+    @autoreleasepool {
+        /* macOS has no 3.3 profile constant. NSOpenGLProfileVersion3_2Core
+         * caps GLSL at 150; 330 needs the 4.1 core profile, which is a strict
+         * superset of 3.3 and the smallest one that will compile the shaders. */
+        NSOpenGLPixelFormatAttribute attrs[] = {
+            NSOpenGLPFAOpenGLProfile, NSOpenGLProfileVersion4_1Core,
+            NSOpenGLPFADoubleBuffer,
+            NSOpenGLPFAAccelerated,
+            NSOpenGLPFAColorSize,   24,
+            NSOpenGLPFAAlphaSize,    8,
+            NSOpenGLPFADepthSize,   24,
+            0
+        };
+
+        NSOpenGLPixelFormat *pf = [[NSOpenGLPixelFormat alloc] initWithAttributes:attrs];
+        if (!pf) return false;
+
+        NSOpenGLContext *ctx = [[NSOpenGLContext alloc] initWithFormat:pf shareContext:nil];
+        if (!ctx) return false;
+
+        ECGLView *glv = [[ECGLView alloc] initWithFrame:[p->view bounds]];
+        [glv setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
+        [glv setHidden:YES];
+        [p->view addSubview:glv];
+
+        /* GL_SILENCE_DEPRECATION covers the OpenGL symbols but not these two,
+         * which AppKit deprecates in favour of NSOpenGLView. */
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        [glv setWantsBestResolutionOpenGLSurface:YES];
+        [ctx setView:glv];
+#pragma clang diagnostic pop
+
+        GLint swap = 1;
+        [ctx setValues:&swap forParameter:NSOpenGLContextParameterSwapInterval];
+
+        p->gl_ctx  = ctx;
+        p->gl_view = glv;
+        /* The context holds a drawable so render_gl_init can compile and upload
+         * against it, but the view is hidden, so ECView is still what the window
+         * shows. gl_active tracks the latter. */
+        p->gl_active = false;
+    }
+    return true;
+}
+
+/**
+ * Show or hide the GL surface.
+ *
+ * The context keeps its drawable throughout — it is attached to a view of its
+ * own, so it is not competing with Quartz for ECView's surface and there is
+ * nothing to hand back. Visibility is the whole of it.
+ */
+void platform_gfx_set_active(platform_t *p, bool active) {
+    if (!p || !p->gl_ctx || !p->gl_view) { if (p) p->gl_active = false; return; }
+    if (p->gl_active == active) return;
+
+    @autoreleasepool {
+        [p->gl_view setHidden:!active];
+        if (active) {
+            [p->gl_ctx makeCurrentContext];
+            [p->gl_ctx update];
+        } else {
+            [NSOpenGLContext clearCurrentContext];
+            [p->view setNeedsDisplay:YES];
+        }
+    }
+    p->gl_active = active;
+}
+
+void platform_gfx_make_current(platform_t *p) {
+    if (!p || !p->gl_ctx) return;
+    @autoreleasepool { [p->gl_ctx makeCurrentContext]; }
+}
+
+void platform_gfx_swap(platform_t *p) {
+    if (!p || !p->gl_ctx) return;
+    @autoreleasepool { [p->gl_ctx flushBuffer]; }
+}
+
+void platform_gfx_destroy(platform_t *p) {
+    if (!p || !p->gl_ctx) return;
+    @autoreleasepool {
+        [NSOpenGLContext clearCurrentContext];
+        [p->gl_ctx clearDrawable];
+        [p->gl_view removeFromSuperview];
+        p->gl_ctx  = nil;
+        p->gl_view = nil;
+        [p->view setNeedsDisplay:YES];
+    }
+    p->gl_active = false;
+}
+
+void platform_gfx_drawable_size(platform_t *p, int *w, int *h) {
+    if (!p || !p->view) return;
+    @autoreleasepool {
+        NSView *src = p->gl_view ? (NSView *)p->gl_view : (NSView *)p->view;
+        NSRect b = [src convertRectToBacking:[src bounds]];
+        if (w) *w = (int)b.size.width;
+        if (h) *h = (int)b.size.height;
+    }
+}
+
+void *platform_gl_proc(const char *name) {
+    /* OpenGL.framework exports every 4.1 symbol directly, so there is no
+     * loader dance here the way there is on Windows. */
+    return dlsym(RTLD_DEFAULT, name);
+}
+
 void platform_blit(platform_t *p, const uint8_t *framebuffer, const uint8_t *palette) {
     if (!p || !framebuffer || !palette) return;
 
@@ -402,8 +551,12 @@ bool platform_pump_events(platform_t *p) {
             [p->app sendEvent:event];
         }
 
-        /* Force display update */
-        [p->view displayIfNeeded];
+        /* Force display update — but only while Quartz owns the surface.
+         * Driving the parent view's drawing cycle while the GL child is
+         * presenting makes AppKit composite the two on its own schedule
+         * instead of ours, which shows up as a stale or half-updated frame. */
+        if (!p->gl_active)
+            [p->view displayIfNeeded];
     }
 
     return !p->quit_requested;

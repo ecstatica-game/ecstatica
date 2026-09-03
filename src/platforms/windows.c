@@ -15,6 +15,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdbool.h>
+/* gl.h's typedefs would collide with gl_loader.h's. The two are never in the
+ * same translation unit: this file only creates the context, render_gl.c only
+ * uses it. */
+#include <GL/gl.h>
 #include "platform.h"
 
 #ifndef __WATCOMC__
@@ -54,6 +58,14 @@ struct platform_t {
     /* Destination rectangle inside the client area — the whole of it when the
      * aspect happens to match, letterboxed when it does not. */
     int dst_x, dst_y, dst_w, dst_h;
+
+    /* Hardware renderer. The context goes on the game window's own DC — unlike
+     * GLX there is no visual to fix up front, only a pixel format, and that can
+     * be set on an existing window. */
+    HDC   gl_dc;
+    HGLRC gl_rc;
+    bool  gl_active;
+    HMODULE gl_lib;
 };
 
 static platform_t *s_platform = NULL;
@@ -347,6 +359,140 @@ static void present(platform_t *p) {
         DIB_RGB_COLORS, SRCCOPY
     );
     ReleaseDC(p->hwnd, hdc);
+}
+
+/* ── Hardware rendering (WGL) ─────────────────────────────── */
+
+typedef HGLRC (WINAPI *PFN_wglCreateContextAttribsARB)(HDC, HGLRC, const int *);
+typedef BOOL  (WINAPI *PFN_wglSwapIntervalEXT)(int);
+
+#define ECS_WGL_CONTEXT_MAJOR_VERSION_ARB  0x2091
+#define ECS_WGL_CONTEXT_MINOR_VERSION_ARB  0x2092
+#define ECS_WGL_CONTEXT_PROFILE_MASK_ARB   0x9126
+#define ECS_WGL_CONTEXT_CORE_PROFILE_BIT   0x00000001
+
+bool platform_gfx_create(platform_t *p) {
+    if (!p || !p->hwnd) return false;
+    if (p->gl_rc) return true;
+
+    HDC dc = GetDC(p->hwnd);
+    if (!dc) return false;
+
+    PIXELFORMATDESCRIPTOR pfd;
+    memset(&pfd, 0, sizeof(pfd));
+    pfd.nSize      = sizeof(pfd);
+    pfd.nVersion   = 1;
+    pfd.dwFlags    = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
+    pfd.iPixelType = PFD_TYPE_RGBA;
+    pfd.cColorBits = 32;
+    pfd.cDepthBits = 24;
+    pfd.iLayerType = PFD_MAIN_PLANE;
+
+    int fmt = ChoosePixelFormat(dc, &pfd);
+    if (!fmt || !SetPixelFormat(dc, fmt, &pfd)) {
+        ReleaseDC(p->hwnd, dc);
+        return false;
+    }
+
+    /* The two-step every WGL program does: a legacy context is the only way to
+     * resolve wglCreateContextAttribsARB, which is the only way to ask for a
+     * core profile. A 1.1 context would never compile #version 330. */
+    HGLRC legacy = wglCreateContext(dc);
+    if (!legacy) { ReleaseDC(p->hwnd, dc); return false; }
+    wglMakeCurrent(dc, legacy);
+
+    PFN_wglCreateContextAttribsARB create_ctx =
+        (PFN_wglCreateContextAttribsARB)wglGetProcAddress("wglCreateContextAttribsARB");
+
+    HGLRC core = NULL;
+    if (create_ctx) {
+        int attrs[] = {
+            ECS_WGL_CONTEXT_MAJOR_VERSION_ARB, 3,
+            ECS_WGL_CONTEXT_MINOR_VERSION_ARB, 3,
+            ECS_WGL_CONTEXT_PROFILE_MASK_ARB,  ECS_WGL_CONTEXT_CORE_PROFILE_BIT,
+            0
+        };
+        core = create_ctx(dc, NULL, attrs);
+    }
+
+    wglMakeCurrent(NULL, NULL);
+    wglDeleteContext(legacy);
+
+    if (!core) {
+        ReleaseDC(p->hwnd, dc);
+        return false;
+    }
+
+    wglMakeCurrent(dc, core);
+
+    PFN_wglSwapIntervalEXT swap_interval =
+        (PFN_wglSwapIntervalEXT)wglGetProcAddress("wglSwapIntervalEXT");
+    if (swap_interval) swap_interval(1);
+
+    /* opengl32.dll exports only the 1.1 entry points; everything above it comes
+     * from wglGetProcAddress, and a handful of drivers answer only one of the
+     * two. platform_gl_proc tries both. */
+    p->gl_lib = LoadLibraryA("opengl32.dll");
+    p->gl_dc  = dc;
+    p->gl_rc  = core;
+    /* Not active yet — see platform_gfx_set_active. */
+    return true;
+}
+
+void platform_gfx_set_active(platform_t *p, bool active) {
+    if (!p || !p->gl_rc) { if (p) p->gl_active = false; return; }
+    if (p->gl_active == active) return;
+
+    if (active) {
+        wglMakeCurrent(p->gl_dc, p->gl_rc);
+    } else {
+        /* GDI and GL share the window DC, so releasing the context from the
+         * thread is what lets StretchDIBits own it again. */
+        wglMakeCurrent(NULL, NULL);
+        if (p->hwnd) InvalidateRect(p->hwnd, NULL, TRUE);
+    }
+    p->gl_active = active;
+}
+
+void platform_gfx_make_current(platform_t *p) {
+    if (!p || !p->gl_rc) return;
+    wglMakeCurrent(p->gl_dc, p->gl_rc);
+}
+
+void platform_gfx_swap(platform_t *p) {
+    if (!p || !p->gl_dc) return;
+    SwapBuffers(p->gl_dc);
+}
+
+void platform_gfx_destroy(platform_t *p) {
+    if (!p || !p->gl_rc) return;
+    wglMakeCurrent(NULL, NULL);
+    wglDeleteContext(p->gl_rc);
+    ReleaseDC(p->hwnd, p->gl_dc);
+    if (p->gl_lib) { FreeLibrary(p->gl_lib); p->gl_lib = NULL; }
+    p->gl_rc     = NULL;
+    p->gl_dc     = NULL;
+    p->gl_active = false;
+    InvalidateRect(p->hwnd, NULL, TRUE);
+}
+
+void platform_gfx_drawable_size(platform_t *p, int *w, int *h) {
+    if (!p || !p->hwnd) return;
+    RECT r;
+    if (!GetClientRect(p->hwnd, &r)) return;
+    if (w) *w = r.right  - r.left;
+    if (h) *h = r.bottom - r.top;
+}
+
+void *platform_gl_proc(const char *name) {
+    void *fn = (void *)wglGetProcAddress(name);
+    /* wglGetProcAddress returns these sentinels, not NULL, for 1.1 functions. */
+    if (fn == (void *)0 || fn == (void *)1 || fn == (void *)2 ||
+        fn == (void *)3 || fn == (void *)-1) {
+        HMODULE m = GetModuleHandleA("opengl32.dll");
+        fn = m ? (void *)GetProcAddress(m, name) : NULL;
+    }
+    return fn;
 }
 
 void platform_blit(platform_t *p, const uint8_t *framebuffer, const uint8_t *palette) {

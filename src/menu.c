@@ -17,6 +17,7 @@
 #include "game.h"
 #include "init.h"
 #include "music.h"
+#include "render.h"
 #include "req.h"
 #include "platform.h"
 #include "win.h"
@@ -528,8 +529,91 @@ enum {
     SETT_SUBTITLE_SIZE,
     SETT_SUBTITLE_HOLD,
     SETT_GRAPHICS,
+    SETT_SUPERSAMPLE,
+    SETT_LIGHTING,
+    SETT_MAP3D,
     SETT_MAX
 };
+
+/* ── Graphics mode ────────────────────────────────────────────
+ * One row covering both the asset set and the renderer, because from the
+ * player's side they are one question: how should the game look.
+ *
+ * E1 shipped two asset sets, so it gets three modes. E2's low-resolution set is
+ * incomplete (no LOWGRAPH twin for the HUD art, see init.c), so it always runs
+ * the 640x480 assets and the only choice left is the renderer.
+ *
+ *   E1:  Original (VGA, software)  Enhanced (SVGA, software)  Hardware
+ *   E2:  Software                                             Hardware
+ *
+ * Hardware implies the enhanced asset set on E1: it is offered as a step past
+ * Enhanced, and running the GPU renderer against the low-resolution art would
+ * be a strange thing to ask for deliberately.
+ */
+enum { GFX_ORIGINAL = 0, GFX_ENHANCED, GFX_HARDWARE };
+
+static void gfx_apply(int mode);
+
+/* Fills `out` with the modes this build and this game can actually reach, and
+ * returns how many. One mode means there is no choice and the row is hidden. */
+static int gfx_mode_list(int *out) {
+    int n = 0;
+    if (game_version == GAME_VERSION_E1) {
+        out[n++] = GFX_ORIGINAL;
+        if (hires_available) out[n++] = GFX_ENHANCED;
+    } else {
+        out[n++] = GFX_ENHANCED;          /* labelled "Software" on E2 */
+    }
+    if (render_available()) out[n++] = GFX_HARDWARE;
+    return n;
+}
+
+static int gfx_current_mode(void) {
+    if (render_backend == RENDER_HARDWARE) return GFX_HARDWARE;
+    return mode_svga ? GFX_ENHANCED : GFX_ORIGINAL;
+}
+
+static const char *gfx_mode_name(int mode) {
+    switch (mode) {
+    case GFX_ORIGINAL: return "Original";
+    case GFX_HARDWARE: return "Hardware";
+    default:
+        /* The same underlying mode reads differently depending on what it is
+         * being contrasted with. */
+        return (game_version == GAME_VERSION_E1) ? "Enhanced" : "Software";
+    }
+}
+
+/* Step through the available modes. Shared with the G key (win.c) so the
+ * hotkey and the menu row cannot drift apart about what a graphics mode is. */
+void graphics_mode_cycle(int dir) {
+    int modes[3];
+    int n = gfx_mode_list(modes);
+    if (n < 2) return;
+    int cur = gfx_current_mode();
+    int at = 0;
+    for (int i = 0; i < n; i++) if (modes[i] == cur) at = i;
+    at = (at + (dir > 0 ? 1 : n - 1)) % n;
+    gfx_apply(modes[at]);
+}
+
+static void gfx_apply(int mode) {
+    /* Drop to software before touching the asset set: set_enhanced_graphics
+     * rebuilds icons and parts and re-enters the frame loop, which is not
+     * something to do underneath a live GL context. */
+    if (mode != GFX_HARDWARE && render_backend == RENDER_HARDWARE)
+        render_select(RENDER_SOFTWARE);
+
+    int want_svga = (mode != GFX_ORIGINAL);
+    if (hires_available && mode_svga != want_svga)
+        set_enhanced_graphics(want_svga);
+
+    if (mode == GFX_HARDWARE && render_backend != RENDER_HARDWARE)
+        render_select(RENDER_HARDWARE);
+
+    render_hardware_pref = (render_backend == RENDER_HARDWARE);
+    save_port_settings();
+}
 
 /* Port options that only bite in the enhanced graphics set: in the original
  * VGA mode the subtitle renderer pins them to their original values, so the
@@ -572,7 +656,20 @@ static void settings_get_value(int id, char *buf, int bufsz) {
         snprintf(buf, bufsz, "%s", subtitle_hold_names[h]);
         break;
     }
-    case SETT_GRAPHICS:  snprintf(buf, bufsz, "%s", mode_svga ? "Enhanced" : "Original"); break;
+    case SETT_GRAPHICS:
+        snprintf(buf, bufsz, "%s", gfx_mode_name(gfx_current_mode()));
+        break;
+    case SETT_SUPERSAMPLE:
+        if (render_supersample <= 0)      snprintf(buf, bufsz, "Auto");
+        else if (render_supersample == 1) snprintf(buf, bufsz, "Off");
+        else snprintf(buf, bufsz, "%dx", (int)render_supersample);
+        break;
+    case SETT_LIGHTING:
+        snprintf(buf, bufsz, "%s", render_enhanced_light ? "Enhanced" : "Original");
+        break;
+    case SETT_MAP3D:
+        snprintf(buf, bufsz, "%s", render_map3d ? "3D Map" : "Pre-rendered");
+        break;
     }
 }
 
@@ -617,14 +714,35 @@ static void settings_adjust(int id, int dir) {
         save_port_settings();
         break;
     case SETT_GRAPHICS:
-        set_enhanced_graphics(!mode_svga);
+        graphics_mode_cycle(dir);
+        break;
+    case SETT_SUPERSAMPLE:
+        /* Auto, then powers of two only, so the downsample stays a clean
+         * average rather than a resample. Auto follows the drawable, which on
+         * a Retina panel is already 2x the engine's own resolution. */
+        if (dir > 0) render_supersample = (render_supersample <= 0) ? 1
+                                        : (render_supersample >= 4) ? 0
+                                        : (int16_t)(render_supersample * 2);
+        else         render_supersample = (render_supersample <= 0) ? 4
+                                        : (render_supersample == 1) ? 0
+                                        : (int16_t)(render_supersample / 2);
+        save_port_settings();
+        break;
+    case SETT_LIGHTING:
+        render_enhanced_light = !render_enhanced_light;
+        save_port_settings();
+        break;
+    case SETT_MAP3D:
+        render_map3d = !render_map3d;
+        save_port_settings();
         break;
     }
 }
 
 static const char *settings_labels[] = {
     "Difficulty", "Language", "Music", "Sound FX", "Subtitles",
-    "Subtitle Size", "Subtitle Hold", "Graphics"
+    "Subtitle Size", "Subtitle Hold", "Graphics",
+    "Supersampling", "3D Lighting", "Background"
 };
 
 /* Shared driver for Settings and its Enhanced sub-panel: same rows, same
@@ -678,7 +796,8 @@ static void run_settings_panel(const char *title, const int *items, int num_item
         if (menu_confirm()) {
             int id = items[sel];
             if (id == SETT_MUSIC || id == SETT_SOUNDFX || id == SETT_SUBTITLES ||
-                id == SETT_GRAPHICS)
+                id == SETT_GRAPHICS || id == SETT_LIGHTING ||
+                id == SETT_MAP3D)
                 settings_adjust(id, 1);
             platform_delay(150);
         }
@@ -698,10 +817,22 @@ static void run_settings_panel(const char *title, const int *items, int num_item
 void do_enhanced_menu(void) {
     int items[SETT_MAX];
     int num_items = 0;
-    if (game_version == GAME_VERSION_E1 && hires_available)
-        items[num_items++] = SETT_GRAPHICS;
+
+    /* Hidden when there is nothing to switch between — an E2 build whose GL
+     * context failed has exactly one graphics mode. */
+    {
+        int modes[3];
+        if (gfx_mode_list(modes) > 1) items[num_items++] = SETT_GRAPHICS;
+    }
     items[num_items++] = SETT_SUBTITLE_SIZE;
     items[num_items++] = SETT_SUBTITLE_HOLD;
+    /* Only where a backend actually came up, so a machine that failed to get a
+     * 3.3 context is not offered switches that would silently do nothing. */
+    if (render_available()) {
+        items[num_items++] = SETT_SUPERSAMPLE;
+        items[num_items++] = SETT_LIGHTING;
+        items[num_items++] = SETT_MAP3D;
+    }
 
     run_settings_panel("Enhanced", items, num_items);
 }

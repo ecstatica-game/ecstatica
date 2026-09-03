@@ -241,6 +241,7 @@ void prepare_parts(void);
 void clear_a_stuck_thing(actor_t *actor);
 void clear_a_subtitle(int index);
 void draw_stuck_parts(void);
+void unbake_stuck_actors(void);
 void add_polygons(void);
 void add_a_triangle(void);
 void add_actor_polys(actor_t *actor);

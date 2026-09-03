@@ -27,6 +27,7 @@
 #include <stdint.h>
 #include <ctype.h>
 #include <sys/stat.h>
+#include "render.h"
 #include "compat.h"
 /* compat.h supplies the shim on Win32 and DOS; elsewhere it is a real header. */
 #if !defined(_WIN32) && !defined(__WATCOMC__)
@@ -1601,6 +1602,17 @@ void load_port_settings(void) {
             if (value < 0) value = 0;
             if (value > 2) value = 2;
             subtitle_hold = (int16_t)value;
+        } else if (sscanf(line, "renderer = %d", &value) == 1) {
+            render_hardware_pref = (value != 0);
+        } else if (sscanf(line, "supersample = %d", &value) == 1) {
+            /* 0 = auto (match the drawable); otherwise 1..4. */
+            if (value < 0) value = 0;
+            if (value > 4) value = 4;
+            render_supersample = (int16_t)value;
+        } else if (sscanf(line, "enhanced_light = %d", &value) == 1) {
+            render_enhanced_light = (value != 0);
+        } else if (sscanf(line, "map3d = %d", &value) == 1) {
+            render_map3d = (value != 0);
         }
     }
     fclose(f);
@@ -1611,6 +1623,10 @@ void save_port_settings(void) {
     if (!f) return;
     fprintf(f, "subtitle_scale = %d\n", (int)subtitle_scale);
     fprintf(f, "subtitle_hold = %d\n", (int)subtitle_hold);
+    fprintf(f, "renderer = %d\n", (int)render_hardware_pref);
+    fprintf(f, "supersample = %d\n", (int)render_supersample);
+    fprintf(f, "enhanced_light = %d\n", (int)render_enhanced_light);
+    fprintf(f, "map3d = %d\n", (int)render_map3d);
     fclose(f);
 }
 

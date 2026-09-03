@@ -26,6 +26,9 @@ set(C_SRCS
     win.c
     chars.c
     main.c
+    render.c
+    render_gl.c
+    gl_loader.c
 )
 
 list(APPEND C_SRCS platforms/desktop_common.c)
@@ -54,6 +57,11 @@ else()
         target_compile_options(ecstatica PRIVATE
             $<$<COMPILE_LANGUAGE:OBJC>:-fobjc-arc>
         )
+        # OpenGL has been deprecated on macOS since 10.14 and still works. The
+        # renderer is confined to render_gl.c plus five platform functions
+        # precisely so that a Metal backend would be a replacement rather than
+        # a rewrite; until then the warning says nothing actionable.
+        target_compile_definitions(ecstatica PRIVATE GL_SILENCE_DEPRECATION)
     endif()
 endif()
 
@@ -61,6 +69,23 @@ target_compile_definitions(ecstatica PRIVATE
     $<$<CONFIG:Debug>:DEBUG>
     ENABLE_FRAME_DUMP
 )
+
+# The hardware renderer. Only this build defines ECS_ENABLE_GL; dos/, pocket/
+# and psp/ compile the same sources with it undefined, which reduces
+# render_gl.c and gl_loader.c to empty translation units.
+#
+# Not REQUIRED: a machine without the GL development files should still get a
+# working software build rather than a configure error, so the feature is
+# switched off instead. ECS_HARDWARE_RENDERER=OFF forces that by hand.
+option(ECS_HARDWARE_RENDERER "Build the OpenGL 3.3 renderer" ON)
+find_package(OpenGL)
+if(ECS_HARDWARE_RENDERER AND OPENGL_FOUND)
+    target_compile_definitions(ecstatica PRIVATE ECS_ENABLE_GL)
+    target_link_libraries(ecstatica PRIVATE OpenGL::GL)
+    message(STATUS "Hardware renderer: OpenGL 3.3 enabled")
+else()
+    message(STATUS "Hardware renderer: disabled (software renderer only)")
+endif()
 
 # backtrace() lives in libc on glibc and macOS; musl has no execinfo.h.
 if(NOT WIN32)

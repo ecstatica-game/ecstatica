@@ -343,4 +343,55 @@ void platform_save_path(char *buf, int bufsz, int slot, int game_version);
  */
 void platform_save_prepare(void);
 
+/* ── Hardware rendering ───────────────────────────────────────
+ * A 3D context alongside the software framebuffer, for the enhanced graphics
+ * renderer (render.h). Every backend implements these; the ones with no
+ * hardware path return false from platform_gfx_create and stub the rest, the
+ * same way platform_hires_supported reports a capability rather than forcing
+ * an #ifdef into shared code.
+ */
+
+/**
+ * Create a rendering context on the game window.
+ *
+ * Desktop backends make an OpenGL 3.3 core context. Note that macOS has no 3.3
+ * profile constant — 4.1 core is requested there because it is the smallest
+ * profile that provides GLSL 330.
+ *
+ * @return false if the context could not be had, which sends the engine back
+ *         to the software renderer for the session.
+ */
+bool platform_gfx_create(platform_t *p);
+
+/** Make the context current on the calling thread. */
+void platform_gfx_make_current(platform_t *p);
+
+/**
+ * Hand the window's surface to the hardware renderer, or give it back.
+ *
+ * Distinct from platform_gfx_create because the context is created once at
+ * startup just to find out whether the machine can do OpenGL 3.3 at all, which
+ * says nothing about whether the player wants it. While inactive the backend
+ * must leave the surface alone so the software blit keeps working — conflating
+ * the two leaves the window blank in software mode.
+ */
+void platform_gfx_set_active(platform_t *p, bool active);
+
+/** Present the back buffer. */
+void platform_gfx_swap(platform_t *p);
+
+/** Destroy the context and any window resources it needed. */
+void platform_gfx_destroy(platform_t *p);
+
+/**
+ * Size of the drawable in pixels, which is not the window size on a Retina
+ * display and not the framebuffer size at any time.
+ */
+void platform_gfx_drawable_size(platform_t *p, int *w, int *h);
+
+/**
+ * Resolve a GL entry point by name. NULL on backends with no GL.
+ */
+void *platform_gl_proc(const char *name);
+
 #endif /* PLATFORM_H */
