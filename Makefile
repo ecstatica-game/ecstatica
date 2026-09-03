@@ -217,7 +217,7 @@ psp-release: psp
 	$(MAKE) -C psp release GAME_DATA=$(abspath $(E2_DIR))
 
 psp-install: psp
-	$(MAKE) -C psp install GAME_DATA=$(abspath $(E2_DIR))
+	$(MAKE) -C psp install GAME_DATA=$(abspath $(E2_DIR)) FORCE_DATA=$(FORCE_DATA)
 
 psp-clean:
 	$(MAKE) -C psp clean
