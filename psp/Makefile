@@ -63,7 +63,7 @@ $(OBJ)/%.o: $(SRC_DIR)/%.c
 # A PSP game is a folder under PSP/GAME containing EBOOT.PBP. The engine reads
 # every asset relative to the folder the EBOOT was launched from, so the game
 # data goes in beside it — exactly the layout the desktop builds run from.
-GAME_DATA ?= ../data/e2
+GAME_DATA ?= ../data/e1
 STAGE     := build/PSP/GAME/ECSTATICA
 
 release: EBOOT.PBP
@@ -79,12 +79,29 @@ release: EBOOT.PBP
 	@echo "Ready: build/ ($$(du -sh build | cut -f1))"
 
 MSTICK ?= /Volumes/PSP
+CARD   := $(MSTICK)/PSP/GAME/ECSTATICA
 
-install: release
+# Push the game onto a Memory Stick. The EBOOT is always refreshed, but the
+# game data — hundreds of MB that never change between code builds — is copied
+# only when the card does not already carry a database (CODE/ECSTATIC.FAN is
+# the same marker the engine probes for). So the first install is slow and
+# every reinstall after that is a one-second EBOOT swap. Force a data refresh
+# with `make install FORCE_DATA=1`.
+install: EBOOT.PBP
 	@test -d "$(MSTICK)" || { \
 	  echo "no Memory Stick at $(MSTICK) — set MSTICK=<mount point>"; exit 1; }
-	cp -R build/PSP "$(MSTICK)/"
-	@echo "Installed to $(MSTICK)/PSP/GAME/ECSTATICA"
+	@mkdir -p "$(CARD)"
+	cp EBOOT.PBP "$(CARD)/"
+	@if [ -n "$(FORCE_DATA)" ] || [ ! -f "$(CARD)/CODE/ECSTATIC.FAN" ]; then \
+	  test -d "$(GAME_DATA)" || { \
+	    echo "no game data at $(GAME_DATA) — set GAME_DATA=<dir>"; exit 1; }; \
+	  echo "copying game data from $(GAME_DATA) ..."; \
+	  cp -R "$(GAME_DATA)/" "$(CARD)/"; \
+	  rm -f "$(CARD)/ecstatica" "$(CARD)/ecstatica_debug.log"; \
+	else \
+	  echo "game data already on card — EBOOT only (FORCE_DATA=1 to refresh)"; \
+	fi
+	@echo "Installed to $(CARD)"
 
 # build.mak's clean only knows about $(OBJS) and the ELF/PBP; obj/ and build/
 # are ours. Extra prerequisite, so its recipe still runs.

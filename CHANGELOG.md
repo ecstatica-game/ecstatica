@@ -5,12 +5,28 @@ All notable changes to this project are documented in this file.
 ## [Unreleased]
 
 ### Added
-- Enhanced menu: port-only options (graphics set, subtitle size, subtitle hold) moved out of Settings into their own main-menu entry. The graphics toggle only appears for E1.
-- Data folder is searched beyond the working directory — `ECSTATICA_DATA`, the folder next to the AppImage, the launch directory, then the executable's folder — so an AppImage or desktop shortcut finds the game files. Failing that, the game says so on stderr and exits 2 instead of quitting silently.
+- DOS platform backend and Open Watcom `wmake` build.
+- Win9x target with DOS-style audio and vsync.
+- PlayStation Portable port (`psp/`, sceGu/sceAudio/sceCtrl).
+- Optional OpenGL renderer, selectable from the menu.
+- CI releases DOS and Win9x builds; release workflow runnable manually.
+- Enhanced menu: port-only options in their own main-menu entry.
+- Data folder searched outside the working directory; clear stderr error and exit 2 if not found.
 
 ### Changed
-- Subtitles keep their original layout and timing in the original 320x200 mode: no scaling, block anchored at the top of the screen, original hold.
-- ESC opens the menu during the intro instead of only after it. Intro skipping stays on space/enter; saving is refused while the intro runs.
+- Platform audio API takes integer samples; float removed from the mix path.
+- Pre-clipped blitters, hoisted per-pixel reloads, planes sized to the video mode.
+- Original 320x200 subtitles keep their native layout, anchor, and hold.
+- ESC opens the menu during the intro; saving refused while it runs.
+
+### Fixed
+- DOS keyboard handling.
+- DOS clock driven from a timer interrupt, not by polling the PIT.
+- SB16 driven with its own commands; voice-table race closed.
+- DOS audio optimised away; silent `wmake` syntax error.
+- Samples over 65535 bytes restarted mid-playback.
+- `signed char` under Watcom; DOS audio interrupt reworked.
+- Three heap allocations handed out without being zeroed.
 
 ## [0.4.0] - 2026-08-27
 

@@ -111,6 +111,7 @@ void setup(void) {
      * before this. The window already exists by now, which is all a backend
      * needs; a failure leaves the software renderer selected. */
     render_init();
+    DBG_LOG(1, "SETUP: after render_init\n");
 
     init_gadgets();
     setup_directory_paths();
@@ -122,7 +123,9 @@ void setup(void) {
      * check_sound_loaded cascade during boot is understood (garbles
      * file_pointer offset → subsequent merges parse wrong section). */
     set_up_sound_driver();
+    DBG_LOG(1, "SETUP: after set_up_sound_driver\n");
     platform_audio_init();
+    DBG_LOG(1, "SETUP: after platform_audio_init\n");
     if (!sound_driver) sound_driver = 1;
     sound_is_on = true;
     sound_fx_on = true;
@@ -133,7 +136,9 @@ void setup(void) {
     /* Load main data — pump events between heavy steps so the title
      * screen stays visible and the window doesn't appear frozen. */
     present_delay(0);
+    DBG_LOG(1, "SETUP: before merge CODE\\ECSTATIC.FAN\n");
     merge_a_file_no_message("CODE\\ECSTATIC.FAN", 0);
+    DBG_LOG(1, "SETUP: after merge CODE\\ECSTATIC.FAN\n");
     present_delay(0);
 
     FILE *offsets_check = fopen_ci("OFFSETS", "rb");
