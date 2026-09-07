@@ -4,10 +4,12 @@
 #include <X11/Xutil.h>
 #include <X11/keysym.h>
 #include <X11/XKBlib.h>
+#ifdef ECS_ENABLE_GL
 /* glx.h drags in gl.h, whose typedefs would collide with gl_loader.h's. The two
  * are never included in the same translation unit: this file only ever creates
  * the context, and render_gl.c only ever uses it. */
 #include <GL/glx.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -99,8 +101,10 @@ struct platform_t {
      * child window covering the parent. The parent keeps the event mask, so
      * input, the WM protocol and the software blit path are all untouched and
      * the renderer can be switched at runtime without recreating anything. */
+#ifdef ECS_ENABLE_GL
     Window   gl_window;
     GLXContext gl_ctx;
+#endif
     bool     gl_active;
 
     js_pad_t js_pads[JS_MAX_PADS];
@@ -284,6 +288,7 @@ void platform_set_render_size(platform_t *p, int w, int h) {
 }
 
 /* ── Hardware rendering (GLX) ─────────────────────────────── */
+#ifdef ECS_ENABLE_GL
 
 typedef GLXContext (*PFN_glXCreateContextAttribsARB)(Display *, GLXFBConfig, GLXContext,
                                                      Bool, const int *);
@@ -409,6 +414,8 @@ void platform_gfx_drawable_size(platform_t *p, int *w, int *h) {
 void *platform_gl_proc(const char *name) {
     return (void *)glXGetProcAddressARB((const GLubyte *)name);
 }
+
+#endif /* ECS_ENABLE_GL */
 
 void platform_blit(platform_t *p, const uint8_t *framebuffer, const uint8_t *palette) {
     if (!p || !framebuffer || !palette) return;
