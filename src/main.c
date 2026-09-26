@@ -8,6 +8,7 @@
 #include "win.h"
 #include "platform.h"
 #include "tools/viewer.h"
+#include "layout.h"
 #include "compat.h"
 #include <signal.h>
 #include <stdlib.h>
