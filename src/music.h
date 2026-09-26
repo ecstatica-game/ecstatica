@@ -4,14 +4,15 @@
 #include "types.h"
 
 #pragma pack(push, 1)
+/* WAVEFORMATEX */
 typedef struct wave_s {
-    int16_t field_0;
-    int16_t field_2;
-    int32_t field_4;
-    int32_t field_8;
-    int16_t field_C;
-    int16_t field_E;
-    int16_t field_10;
+    int16_t format_tag;
+    int16_t channels;
+    int32_t samples_per_sec;
+    int32_t avg_bytes_per_sec;
+    int16_t block_align;
+    int16_t bits_per_sample;
+    int16_t extra_size;
 } wave_t;
 #pragma pack(pop)
 

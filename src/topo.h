@@ -17,23 +17,17 @@ typedef struct profile_height_s {
 #pragma pack(pop)
 
 #pragma pack(push, 1)
+/* Graphic Workshop RAW header ("mhwanh"). Words are big-endian on disk. */
 typedef struct bitmap_hdr_s {
-    int16_t field_0;
-    int16_t field_2;
-    int16_t field_4;
-    int16_t field_6;
+    char magic[6];
+    int16_t version;
     int16_t size_x;
     int16_t size_y;
-    int16_t field_C;
-    int16_t field_E;
-    int16_t field_10;
-    int16_t field_12;
-    int16_t field_14;
-    int16_t field_16;
-    int16_t field_18;
-    int16_t field_1A;
-    int16_t field_1C;
-    int16_t field_1E;
+    int16_t palette_size;
+    int16_t h_dpi;
+    int16_t v_dpi;
+    int16_t gamma;
+    int16_t reserved[6];
 } bitmap_hdr_t;  /* 32 bytes */
 #pragma pack(pop)
 

@@ -1739,9 +1739,9 @@ void save_game_thing(actor_t *actor, FILE *f) {
 
         if (tri->texture_name_index >= 0) {
             put_event(f, tri->tri_index, TRI_TEX_NAME, tri->texture_name_index, 0, 0);
-            put_event(f, tri->tri_index, TRI_TEXTURE1, tri->tex1_u1, tri->tex1_v1, tri->tex1_u2);
-            put_event(f, tri->tri_index, TRI_TEXTURE2, tri->tex2_u1, tri->tex2_v1, tri->tex2_u2);
-            put_event(f, tri->tri_index, TRI_TEXTURE3, tri->tex3_u1, tri->tex3_v1, 0);
+            put_event(f, tri->tri_index, TRI_TEXTURE1, tri->u1, tri->v1, tri->u2);
+            put_event(f, tri->tri_index, TRI_TEXTURE2, tri->v2, tri->u3, tri->v3);
+            put_event(f, tri->tri_index, TRI_TEXTURE3, tri->u4, tri->v4, 0);
         }
     }
 }

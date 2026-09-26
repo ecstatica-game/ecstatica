@@ -13,24 +13,24 @@ struct gadget_s {
     void (*handle_click)(void);
     int16_t flags;
     struct gadget_s *next_gdg;
-    int16_t field_16;
-    int16_t field_18;
-    int16_t field_1A;
-    int16_t field_1C;
+    int16_t pixel_left;     /* screen rect, set by show_gadget */
+    int16_t pixel_right;
+    int16_t pixel_top;
+    int16_t pixel_bottom;
 };
 #pragma pack(pop)
 
 struct request_s {
-    uint16_t field_0;
-    uint16_t field_2;
-    int16_t max_length;
-    int16_t field_6;
+    uint16_t pos_x;         /* negative: centred on screen */
+    uint16_t pos_y;
+    int16_t max_length;     /* requested width */
+    int16_t max_height;
     char *gadget_header_text;
     gadget_t *gadget_list;
     int16_t pixelX;
-    int16_t field_12;
+    int16_t pixel_right;
     int16_t pixelY;
-    int16_t field_16;
+    int16_t pixel_bottom;
     int16_t width;
     int16_t height;
 };

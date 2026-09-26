@@ -2603,22 +2603,22 @@ void modify_part(event_t *event, actor_t *actor, int some_time, action_t *action
         break;
     case TRI_TEXTURE1:
         if (triangle) {
-            triangle->tex1_u1 = event->param1;
-            triangle->tex1_v1 = event->param2;
-            triangle->tex1_u2 = event->param3;
+            triangle->u1 = event->param1;
+            triangle->v1 = event->param2;
+            triangle->u2 = event->param3;
         }
         break;
     case TRI_TEXTURE2:
         if (triangle) {
-            triangle->tex2_u1 = event->param1;
-            triangle->tex2_v1 = event->param2;
-            triangle->tex2_u2 = event->param3;
+            triangle->v2 = event->param1;
+            triangle->u3 = event->param2;
+            triangle->v3 = event->param3;
         }
         break;
     case TRI_TEXTURE3:
         if (triangle) {
-            triangle->tex3_u1 = event->param1;
-            triangle->tex3_v1 = event->param2;
+            triangle->u4 = event->param1;
+            triangle->v4 = event->param2;
         }
         break;
     case PART_TEXTURE:

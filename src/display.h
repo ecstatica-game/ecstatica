@@ -14,9 +14,9 @@ struct camera_data_s {
     vector_t view_pos;
     vector_t view_rot;
     int16_t zoom_factor;
-    int32_t field_E;
-    int16_t field_12;
-    int16_t field_14;
+    int32_t unused_E;       /* never read; init_map sets 0x12 and 0x14 to -1 */
+    int16_t unused_12;
+    int16_t unused_14;
     int32_t time;
     int16_t top_clip;
 };
@@ -34,24 +34,24 @@ struct tri_s {
     int16_t tri_color_1;
     int16_t tri_color_2;
     int16_t triangle_flags;
-    int16_t field_1A;
+    int16_t unused_1A;
     int16_t tri_shade_name;
     struct tri_s *next;
     actor_t *parent_actor;
     int16_t shade_multiplier;
     point_t *quad_point4;
     int16_t texture_name_index;
-    int16_t tex1_u1;
-    int16_t tex1_v1;
-    int16_t tex1_u2;
-    int16_t tex2_u1;
-    int16_t tex2_v1;
-    int16_t tex2_u2;
-    int16_t tex3_u1;
-    int16_t tex3_v1;
-    int16_t field_3E;
-    int16_t field_40;
-    int16_t field_42;
+    /* Per-vertex texture coords; u4/v4 belong to quad_point4. TRI_TEXTURE1..3
+     * events carry them three at a time: (u1 v1 u2) (v2 u3 v3) (u4 v4). */
+    int16_t u1;
+    int16_t v1;
+    int16_t u2;
+    int16_t v2;
+    int16_t u3;
+    int16_t v3;
+    int16_t u4;
+    int16_t v4;
+    int16_t unused_3E[3];
 };  /* 68 bytes */
 #pragma pack(pop)
 

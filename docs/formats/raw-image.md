@@ -16,20 +16,21 @@ u8[W*H]  pixels               # row-major, 8-bpp indexed
 
 Total on-disk size = 32 + 768 + W × H.
 
-## Header (`bitmap_hdr_t`, `src/game.h:747`)
+## Header (`bitmap_hdr_t`, `src/topo.h`)
 
-Signature is `mhwanh` at offset 0 (Amiga DPaint IFF-like magic reused). All int16 fields are **big-endian** on disk; the loader byteswaps via `reverse_char_word_val()`.
+Alchemy Mindworks Graphic Workshop RAW: signature `mhwanh` at offset 0. All int16 fields are **big-endian** on disk; the loader byteswaps via `reverse_char_word_val()`.
 
 ```
-offset  type   name       notes
-  0x00  u8[6]  signature  "mhwanh"
-  0x06  be16   field_6    typically 0x0004
-  0x08  be16   size_x     image width, pixels
-  0x0A  be16   size_y     image height, pixels
-  0x0C  be16   field_C    0x0100 in shipped files
-  0x0E  be16   field_E
-  0x10  be16   field_10
-  0x12  be16[7] padding   0x00
+offset  type    name          notes
+  0x00  u8[6]   magic         "mhwanh"
+  0x06  be16    version       4
+  0x08  be16    size_x        image width, pixels
+  0x0A  be16    size_y        image height, pixels
+  0x0C  be16    palette_size  256 in shipped files
+  0x0E  be16    h_dpi         equal to v_dpi; values vary, unused by the game
+  0x10  be16    v_dpi
+  0x12  be16    gamma         0
+  0x14  be16[6] reserved      0
 ```
 
 Example (`TITLE_S.RAW`): `6d 68 77 61 6e 68 00 04 01 40 00 c8` → 320 × 200.
