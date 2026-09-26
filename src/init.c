@@ -118,10 +118,8 @@ void setup(void) {
     setup_long_screen();
     height_shift = 7;
 
-    /* Sound initialization. Backend runs unconditionally so mixer is
-     * ready when sound_fx_on flips on. Gate sound_fx_on off until the
-     * check_sound_loaded cascade during boot is understood (garbles
-     * file_pointer offset → subsequent merges parse wrong section). */
+    /* The mixer comes up here, ahead of the archive merges, so it is ready
+     * the first time a scene plays a sound. */
     set_up_sound_driver();
     DBG_LOG(1, "SETUP: after set_up_sound_driver\n");
     platform_audio_init();
@@ -501,11 +499,6 @@ void setup_long_screen(void) {
     hires_bitmap[5] = bitmap[5];
 }
 
-/* init_setup_hi_res_long_screen  E1: 0x411AD0 | E2: 0x4148F0 */
-void setup_hi_res_long_screen(void) {
-    /* Stub */
-}
-
 /* init_load_logo  E1: 0x411B4C | E2: 0x41496C */
 void load_logo(const char *file_name) {
     FILE *f = fopen_ci(file_name, "rb");
@@ -742,11 +735,6 @@ void load_shadow_tab(void) {
 /* init_load_anti_alias  E1: ? | E2: 0x415C3C */
 int load_anti_alias(void) {
     return 1;  /* Anti-aliasing not in final game */
-}
-
-/* init_load_hires_path  E1: 0x4125C8 | E2: 0x415BD8 */
-int load_hires_path(void) {
-    return 0;  /* Stub */
 }
 
 /* init_wait_for_interrupt  E1: 0x41262C | E2: 0x415CF4 */

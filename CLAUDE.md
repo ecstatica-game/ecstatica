@@ -122,7 +122,7 @@ These original functions were intentionally removed — empty stubs, dead wrappe
 or unused in the C port. Do not recreate them when decompiling nearby code.
 
 **Empty stubs (no-op in original or irrelevant to C port):**
-- `init`: `analyse_view`, `archive_all`, `archive_all_fast`, `display_beep`, `expand_palette`, `set_grey_palette`, `zeroise_bitmap_pointers`, `read_from_dsp`, `write_to_dsp`
+- `init`: `analyse_view`, `archive_all`, `archive_all_fast`, `display_beep`, `expand_palette`, `set_grey_palette`, `zeroise_bitmap_pointers`, `read_from_dsp`, `write_to_dsp`, `load_hires_path` (fills `hires_path`, never read), `setup_hi_res_long_screen` (no callers)
 - `anim`: `clear_choice_box`, `draw_choice_box`, `load_action_directory`, `draw_view_cone_tri`, `draw_world_square`
 - `map`: `reposition_fixed_parts`
 - `req`: `handle_ok2`, `handle_test`, `handle_strings_gadg`, `handle_file_gadg`, `handle_uninstall`

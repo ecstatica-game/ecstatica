@@ -483,10 +483,8 @@ void make_thing(void) {
     top_edge = 0;
     screen_centre_x = screen_width / 2;
     screen_centre_y = screen_height / 2;
-    /* asm clears active_camera; prepare_parts re-sets it each frame in
-     * asm via check_camera/check_view. C prepare_parts doesn't yet port
-     * that block — keep camera alive from initial check_view. */
-    /* active_camera = NULL; */
+    active_camera = NULL;
+    script_mode = 0;
 
     for (;;) {
         /* Pump events + read input (assembly: get_mouse handles msg pump) */

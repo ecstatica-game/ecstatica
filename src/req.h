@@ -10,7 +10,7 @@ struct gadget_s {
     int16_t width;
     int16_t height;
     char *gadget_text;
-    int32_t handle_click;
+    void (*handle_click)(void);
     int16_t flags;
     struct gadget_s *next_gdg;
     int16_t field_16;

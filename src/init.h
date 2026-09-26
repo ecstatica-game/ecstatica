@@ -83,7 +83,6 @@ void setup_directory_paths(void);
 void set_up_sound_driver(void);
 void set_up_bitmaps(void);
 void setup_long_screen(void);
-void setup_hi_res_long_screen(void);
 void load_logo(const char *file_name);
 void load_def_palette(void);
 void load_background_title(void);
@@ -112,7 +111,6 @@ void fill_in_sin_tables(void);
 void fill_in_shadow_tab(void);
 void load_shadow_tab(void);
 int  load_anti_alias(void);
-int  load_hires_path(void);
 
 /* Pointer table / flags init */
 void clear_ptr_tabs(void);
