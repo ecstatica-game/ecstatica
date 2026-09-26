@@ -4451,7 +4451,7 @@ void start_scene(scene_t *scene) {
             int16_t save_rep = actor->actor_rep_index;
             copy_defaults_to_actual_not_flags(actor);
             actor->actor_rep_index = save_rep;
-            actor->field_BC = actor->actor_parts_list;
+            actor->anchored_part = actor->actor_parts_list;
             set_vector(&actor->rotate_vector, 0, 0, 0);
             make_identity(&actor->matrix33_2);
         }

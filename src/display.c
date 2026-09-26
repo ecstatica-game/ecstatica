@@ -290,8 +290,8 @@ static void trace_held_actor(actor_t *actor) {
                 pp->def_Squash.X, pp->def_Squash.Y, pp->def_Squash.Z,
                 pp->VECTOR_RelCentre.X, pp->VECTOR_RelCentre.Y, pp->VECTOR_RelCentre.Z,
                 pp->Offset.X, pp->Offset.Y, pp->Offset.Z,
-                pp->field_12E_point_to_point
-                    ? pp->field_12E_point_to_point->point_index : -1,
+                pp->point_to_point
+                    ? pp->point_to_point->point_index : -1,
                 pp->actor_parts_list ? 1 : 0);
     }
     int ntri = 0;
@@ -1233,7 +1233,7 @@ void find_position_of_extremity(part_t *part) {
  *
  * parent_joint_position  – parent's joint world position
  * parent_matrix    – parent's accumulated rotation matrix
- * parent_offset    – actor->field_6E_vect (root) or part->VECTOR_RelCentre (sub‑limb)
+ * parent_offset    – actor->root_offset (root) or part->VECTOR_RelCentre (sub‑limb)
  * parent_type      – actor->type (root) or part->type (sub‑limb)
  * first_part       – first part (limb) to process
  * skip_first       – if true, start from first_part->next (a2 flag in original)
@@ -1271,11 +1271,11 @@ static void find_positions_recursive(
         }
 
         /* 2. Transform offset into world space → field_50 */
-        matrix_vector(&input, &part->field_50, parent_matrix);
+        matrix_vector(&input, &part->world_offset, parent_matrix);
 
         /* 3. Joint world position = parent joint pos + transformed offset */
         copy_vector(&part->joint_position, parent_joint_position);
-        add_vector(&part->joint_position, &part->field_50);
+        add_vector(&part->joint_position, &part->world_offset);
 
         /* 4. Build part rotation matrix */
         if (part->flags & 0x10) {
@@ -1438,7 +1438,7 @@ static void find_positions_recursive(
             continue;
         }
 
-        point_t *target_pt = part->field_12E_point_to_point;
+        point_t *target_pt = part->point_to_point;
         if (target_pt) {
             if (target_pt->parent_part &&
                     (target_pt->parent_part->flags & 0x8000)) {
@@ -1554,7 +1554,7 @@ void find_positions(actor_t *actor, int skip_first) {
     find_positions_recursive(
         &actor->joint_position,
         &actor->matrix_1,
-        &actor->field_6E_vect,
+        &actor->root_offset,
         actor->type,
         actor->actor_parts_list,
         skip_first);
@@ -2185,10 +2185,10 @@ void put_a_line(part_t *part) {
     int16_t hw = screen_width / 2;
     int16_t hh = screen_height / 2;
 
-    int16_t x0 = (int16_t)(part->vector_persp.X >> 4) + hw;
-    int16_t y0 = (int16_t)(part->vector_persp.Y >> 4) + hh;
-    int16_t x1 = (int16_t)(part->vector_persp.Z >> 4) + hw;
-    int16_t y1 = (int16_t)(part->field_90 >> 4) + hh;
+    int16_t x0 = (int16_t)(part->line_x >> 4) + hw;
+    int16_t y0 = (int16_t)(part->line_y >> 4) + hh;
+    int16_t x1 = (int16_t)(part->vector_persp.X >> 4) + hw;
+    int16_t y1 = (int16_t)(part->vector_persp.Y >> 4) + hh;
 
     /* Clip to screen edges */
     if (x0 < left_edge) {
@@ -2285,7 +2285,7 @@ void xxx_stick_to_background(actor_t *actor) {
     }
 
     /* Add to stuck_thing_list */
-    actor->field_10E = (int16_t)(intptr_t)stuck_thing_list;
+    actor->next_stuck = stuck_thing_list;
     stuck_thing_list = actor;
 
     /* Init bounding box to full range */

@@ -2588,9 +2588,9 @@ void modify_part(event_t *event, actor_t *actor, int some_time, action_t *action
     case POINT_TO_POINT:
         if (!part) break;
         if (event->param1 < 0) {
-            part->field_12E_point_to_point = NULL;
+            part->point_to_point = NULL;
         } else if (part->parent_actor && part->parent_actor->_PointTab) {
-            part->field_12E_point_to_point = part->parent_actor->_PointTab->field_0[event->param1];
+            part->point_to_point = part->parent_actor->_PointTab->field_0[event->param1];
         }
         break;
     case TRI_SHADE_NAME:
@@ -3851,7 +3851,7 @@ void loosen_joint(actor_t *actor) {
     self->next_in_path = NULL;
 
     find_rotations_on_path(self->parent_actor);
-    find_inverse_of_attitude(self->actor_parts_list, &self->field_FE);
+    find_inverse_of_attitude(self->actor_parts_list, &self->inverse_attitude);
 
     part_t *child = self->actor_parts_list;
     self->matr_d = child->matrix_1;
@@ -3877,7 +3877,7 @@ void find_inverse_of_attitude(part_t *part, matrix3x3_t *output) {
 
             if (p->flags & 0x10) {  /* Loosen */
                 matrix3x3_t temp;
-                matrix_mult(&temp, output, &p->field_FE);
+                matrix_mult(&temp, output, &p->inverse_attitude);
                 *output = temp;
                 found_loosened = 1;
                 break;

@@ -503,7 +503,7 @@ void swap_in_actor(int actor_idx) {
                 int saved_rep_idx = actor->actor_rep_index;
                 copy_defaults_to_actual(actor);
                 actor->actor_rep_index = saved_rep_idx;
-                actor->field_BC = actor->actor_parts_list;
+                actor->anchored_part = actor->actor_parts_list;
             }
 
             actor->actor_act.act_action = &script->script_action;
