@@ -1203,23 +1203,6 @@ void update_relatives(part_t *part) {
     }
 }
 
-/* edit_anchor_part  E1: ? | E2P: 0x420428 */
-void anchor_part(actor_t *actor) {
-    if (!actor) return;
-    part_t *part = actor->actor_parts_list;
-    if (!part) return;
-    part->flags |= 0x200;  /* Mark as world-space part */
-    copy_vector(&part->AbsPosition, &part->ellipse_center);
-}
-
-/* edit_unloosen_joint  E1: ? | E2P: 0x420458 */
-void unloosen_joint(actor_t *actor) {
-    if (!actor) return;
-    part_t *part = actor->actor_parts_list;
-    if (!part) return;
-    part->flags &= ~0x200;  /* Clear world-space flag */
-}
-
 /* edit_beep_error  E1: 0x423280 | E2: 0x426F54 */
 void beep_error(const char *msg) {
     if (msg)
