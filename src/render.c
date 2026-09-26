@@ -12,7 +12,7 @@
 
 #include "render.h"
 
-/* The three preferences exist on every target so file.c can round-trip the
+/* The four preferences exist on every target so file.c can round-trip the
  * config on a build that has no backend to apply them to. render_backend is a
  * real variable only where there is something for it to switch to; elsewhere
  * render.h makes it a constant. */
