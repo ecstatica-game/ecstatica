@@ -2543,6 +2543,15 @@ void modify_part(event_t *event, actor_t *actor, int some_time, action_t *action
     case CUT_PART:
         if (part) remove_part(part);
         break;
+    case ANCHOR_PART:
+        if (part) anchor_part(part, part->parent_actor);
+        break;
+    case LOOSEN_JOINT:
+        if (part) loosen_joint(part);
+        break;
+    case UNLOOSEN_JOINT:
+        if (part) unloosen_joint(part);
+        break;
     case TWO_PART_LIMB:
         if (part) make_2_part_limb(part);
         break;
@@ -3834,83 +3843,83 @@ void init_act_heap(void) {
         act_arr[i].flags = 0;
 }
 
-/* move_loosen_joint  E1: ? | E2: 0x42D118 */
-void loosen_joint(actor_t *actor) {
-    part_t *self = (part_t *)actor;
+/* move_anchor_part  E1: ? | E2: 0x42D048
+ * Moves the actor so the part that was anchored stays where it was pinned,
+ * then pins `part` where it is now. The root part means "no anchor". */
+void anchor_part(part_t *part, actor_t *actor) {
+    if (part == actor->anchored_part) return;
 
-    if (self->flags & 0x10)  /* already loosened */
-        return;
-
-    if (self->actor_parts_list) {
-        part_t *walk = self;
-        while (walk->actor_parts_list) {
-            walk->actor_parts_list->next_in_path = walk;
-            walk = walk->actor_parts_list;
-        }
+    part_t *old = actor->anchored_part;
+    if (old && old != actor->actor_parts_list) {
+        make_path(old);
+        find_positions_on_path(actor);
+        for (int i = 0; i < 3; i++)
+            actor->position_vector.data[i] +=
+                actor->anchor_position.data[i] - old->ellipse_center.data[i];
     }
-    self->next_in_path = NULL;
-
-    find_rotations_on_path(self->parent_actor);
-    find_inverse_of_attitude(self->actor_parts_list, &self->inverse_attitude);
-
-    part_t *child = self->actor_parts_list;
-    self->matr_d = child->matrix_1;
-
-    self->flags |= 0x10;  /* Loosen */
+    if (part != actor->actor_parts_list) {
+        make_path(part);
+        find_positions_on_path(actor);
+        copy_vector(&actor->anchor_position, &part->ellipse_center);
+    }
+    actor->anchored_part = part;
 }
 
-/* move_find_inverse_of_attitude  E1: ? | E2: 0x42D1C4 */
+/* move_loosen_joint  E1: ? | E2: 0x42D118 */
+void loosen_joint(part_t *part) {
+    if (part->flags & 0x10) return;
+
+    make_path(part);
+    find_rotations_on_path(part->parent_actor);
+    part_t *parent = (part_t *)part->holding_actor;
+    find_inverse_of_attitude(parent, &part->inverse_attitude);
+    copy_matrix(&part->matr_d, &parent->matrix_1);
+    part->flags |= 0x10;
+}
+
+/* move_unloosen_joint  E1: ? | E2: 0x42D180 */
+void unloosen_joint(part_t *part) {
+    if (!(part->flags & 0x10)) return;
+
+    matrix3x3_t inverse, combined;
+    find_inverse_of_attitude((part_t *)part->holding_actor, &inverse);
+    matrix_mult(&combined, &inverse, &part->matrix_1);
+    find_relative_rotations(part, &combined);
+    part->flags &= ~0x10;
+}
+
+/* move_find_inverse_of_attitude  E1: ? | E2: 0x42D1C4
+ * Climbs from `part` towards the root (holding_actor is a part's parent),
+ * undoing each rotation, until a loosened joint supplies its stored inverse.
+ * With none on the way, the actor's own rotation is undone instead. */
 void find_inverse_of_attitude(part_t *part, matrix3x3_t *output) {
     make_identity(output);
 
-    part_t *p = part;
-    int found_loosened = 0;
+    for (part_t *p = part; p->holding_actor; p = (part_t *)p->holding_actor) {
+        if (p->Rotate.Z) rotate_about_z(output, -p->Rotate.Z);
+        if (p->Rotate.X) rotate_about_x(output, -p->Rotate.X);
+        if (p->Rotate.Y) rotate_about_y(output, -p->Rotate.Y);
 
-    if (p->actor_parts_list) {
-        while (1) {
-            if (p->Rotate.Z)
-                rotate_about_z(output, -p->Rotate.Z);
-            if (p->Rotate.X)
-                rotate_about_x(output, -p->Rotate.X);
-            if (p->Rotate.Y)
-                rotate_about_y(output, -p->Rotate.Y);
-
-            if (p->flags & 0x10) {  /* Loosen */
-                matrix3x3_t temp;
-                matrix_mult(&temp, output, &p->inverse_attitude);
-                *output = temp;
-                found_loosened = 1;
-                break;
-            }
-            if (!p->actor_parts_list)
-                break;
-            p = p->actor_parts_list;
+        if (p->flags & 0x10) {
+            matrix3x3_t temp;
+            matrix_mult(&temp, output, &p->inverse_attitude);
+            *output = temp;
+            return;
         }
     }
 
-    if (!found_loosened) {
-        actor_t *actor = part->parent_actor;
-        if (actor->rotate_vector.Z)
-            rotate_about_z(output, -actor->rotate_vector.Z);
-        if (actor->rotate_vector.X)
-            rotate_about_x(output, -actor->rotate_vector.X);
-        if (actor->rotate_vector.Y)
-            rotate_about_y(output, -actor->rotate_vector.Y);
-    }
+    actor_t *actor = part->parent_actor;
+    if (actor->rotate_vector.Z) rotate_about_z(output, -actor->rotate_vector.Z);
+    if (actor->rotate_vector.X) rotate_about_x(output, -actor->rotate_vector.X);
+    if (actor->rotate_vector.Y) rotate_about_y(output, -actor->rotate_vector.Y);
 }
 
-/* move_make_path  E1: ? | E2: 0x42D2BC */
+/* move_make_path  E1: ? | E2: 0x42D2BC
+ * Points each ancestor's next_in_path at the child below it, so a walk from
+ * the actor ends at `part`. */
 void make_path(part_t *part) {
-    if (!part->actor_parts_list)
-        goto done;
-    {
-        part_t *p = part;
-        while (p->actor_parts_list) {
-            p->actor_parts_list->next_in_path = p;
-            p = (part_t *)p->actor_parts_list;
-        }
-    }
-done:
+    for (part_t *p = part; p->holding_actor; p = (part_t *)p->holding_actor)
+        p->holding_actor->next_in_path = p;
     part->next_in_path = NULL;
 }
 
