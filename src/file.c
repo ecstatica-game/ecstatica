@@ -1182,7 +1182,7 @@ void file_read_part(FILE *f, actor_t *actor) {
 
     /* Parent link */
     part->parent_link_index = getw_be(f);
-    part->field_12E_point_to_point = NULL;
+    part->point_to_point = NULL;
 
     /* Link into actor's part list */
     part->parent_actor = actor;
@@ -1721,8 +1721,8 @@ void save_game_thing(actor_t *actor, FILE *f) {
     /* POINT_TO_POINT links for parts in display list */
     for (part_t *pt = (part_t *)actor->actor_parts_list; pt;
          pt = pt->next_in_display_list) {
-        if (pt->field_12E_point_to_point) {
-            put_event(f, pt->name_index, POINT_TO_POINT, pt->field_12E_point_to_point->point_index, 0, 0);
+        if (pt->point_to_point) {
+            put_event(f, pt->name_index, POINT_TO_POINT, pt->point_to_point->point_index, 0, 0);
         }
     }
 

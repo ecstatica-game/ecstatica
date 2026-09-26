@@ -55,7 +55,7 @@ struct actor_s {
     int32_t field_60;                          /* 0x60 */
     vector_t previous_position;                /* 0x64 */
     int32_t field_6A;                          /* 0x6A */
-    vector_t field_6E_vect;                    /* 0x6E */
+    vector_t root_offset;                      /* 0x6E */
     int32_t field_74;                          /* 0x74 */
     int32_t field_78;                          /* 0x78 */
     int32_t field_7C;                          /* 0x7C */
@@ -70,8 +70,8 @@ struct actor_s {
     vector_t start_position;                   /* 0x9C */
     act_t *actor_act_list;                /* 0xA2 */
     act_t actor_act;                      /* 0xA6 */
-    part_t *field_BC;                          /* 0xBC */
-    vector_t field_C0;                         /* 0xC0 */
+    part_t *anchored_part;                     /* 0xBC */
+    vector_t anchor_position;                  /* 0xC0 */
     matrix3x3_t matrix33_2;                    /* 0xC6 */
     tri_t *polygone_tri_list;             /* 0xD8 */
     triangle_tab_t *_TriangleTab;              /* 0xDC */
@@ -87,8 +87,7 @@ struct actor_s {
     vector_t held_rotate;                      /* 0xFC */
     vector_t held_off_left;                    /* 0x102 */
     vector_t held_rot_left;                    /* 0x108 */
-    int16_t field_10E;                         /* 0x10E */
-    int16_t field_110;                         /* 0x110 */
+    struct actor_s *next_stuck;                /* 0x10E */
     subarea_t bounding_box;                    /* 0x112 */
     int32_t time_actor;                        /* 0x11A */
     rephead_t *actor_reperture;                /* 0x11E */

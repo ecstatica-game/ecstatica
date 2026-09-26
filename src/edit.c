@@ -41,7 +41,7 @@ void copy_defaults_to_actual(actor_t *actor) {
         copy_vector(&part->displacement_point, &part->def_displacement);
         copy_vector(&part->VECTOR_Squash, &part->def_Squash);
         copy_vector(&part->VECTOR_RelCentre, &part->def_RelCentre);
-        copy_vector(&part->field_74, &part->def_vector3);
+        copy_vector(&part->vector3, &part->def_vector3);
         part->type = part->def_type;
         part->flags = part->default_flags;
         part->color = part->default_color;
@@ -74,7 +74,7 @@ void copy_defaults_to_actual_not_flags(actor_t *actor) {
         copy_vector(&part->displacement_point, &part->def_displacement);
         copy_vector(&part->VECTOR_Squash, &part->def_Squash);
         copy_vector(&part->VECTOR_RelCentre, &part->def_RelCentre);
-        copy_vector(&part->field_74, &part->def_vector3);
+        copy_vector(&part->vector3, &part->def_vector3);
         part->type = part->def_type;
 
         calculate_squash(part);
@@ -105,7 +105,7 @@ void copy_actual_to_defaults(actor_t *actor) {
         copy_vector(&part->def_displacement, &part->displacement_point);
         copy_vector(&part->def_Squash, &part->VECTOR_Squash);
         copy_vector(&part->def_RelCentre, &part->VECTOR_RelCentre);
-        copy_vector(&part->def_vector3, &part->field_74);
+        copy_vector(&part->def_vector3, &part->vector3);
         part->default_flags = part->flags;
         part->def_type = part->type;
         part->default_color = part->color;
@@ -266,7 +266,7 @@ part_t *add_part(actor_t *parent_core) {
     part->VECTOR_Squash.Y = 0;
     part->VECTOR_Squash.Z = 0;
 
-    part->field_12E_point_to_point = NULL;
+    part->point_to_point = NULL;
     part->def_pos_flags = 0;
     part->position_flags = 0;
 
@@ -287,7 +287,7 @@ part_t *add_part(actor_t *parent_core) {
     if (parent_core->type == 7) {
         /* Parent is an actor — 0x4229FB writes field_BC (0xBC), not
          * next_in_path (0x48). The port was clobbering the path head. */
-        parent_core->field_BC = part;
+        parent_core->anchored_part = part;
         part->next_in_display_list = part->next;
     } else {
         /* Parent is a part — link into display list */
@@ -305,7 +305,7 @@ part_t *add_part(actor_t *parent_core) {
     copy_vector(&part->def_position, &part->AbsPosition);
     copy_vector(&part->def_Squash, &part->VECTOR_Squash);
     copy_vector(&part->def_RelCentre, &part->VECTOR_RelCentre);
-    copy_vector(&part->def_vector3, &part->field_74);
+    copy_vector(&part->def_vector3, &part->vector3);
     part->default_flags = part->flags;
     part->def_type = part->type;
     part->default_color = part->color;

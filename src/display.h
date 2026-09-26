@@ -73,7 +73,7 @@ struct part_s {
     struct part_s *next_in_display_list;
 
     /* Part-specific fields */
-    vector_t field_50;
+    vector_t world_offset;      /* joint offset rotated into the parent frame */
     vector_t displacement_point;
     int32_t field_5C;
     int32_t field_60;
@@ -81,13 +81,14 @@ struct part_s {
     int16_t mask_distanse_;
     vector_t VECTOR_Squash;
     vector_t VECTOR_RelCentre;
-    vector_t field_74;
+    vector_t vector3;           /* VECTOR3 slot; mirrored by def_vector3, never set */
     int16_t field_7A;
     int32_t field_7C;
     vector_t ellipse_center;
     int16_t field_86;
     int32_t field_88;
-    int32_t field_8C;
+    int16_t line_x;             /* put_a_line start point */
+    int16_t line_y;
     int16_t field_90;
     vector_t vector_persp;
     int32_t field_98;
@@ -111,14 +112,14 @@ struct part_s {
     vector_t offset_squash_ratio;
     vector_t rel_offset;
     matrix3x3_t matr_d;
-    matrix3x3_t field_FE;
+    matrix3x3_t inverse_attitude;
     vector_t AbsPosition;
     vector_t def_position;
     int16_t parent_link_index;
     point_t *points_list;
     vector_t depth_offset;
     vector_t persp_origin;
-    point_t *field_12E_point_to_point;
+    point_t *point_to_point;
     struct part_s *blocked_part;
     int16_t position_flags;
     int16_t def_pos_flags;
