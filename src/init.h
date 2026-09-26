@@ -17,15 +17,7 @@ typedef struct config_s {
     char SoundCardIRQ;
     char language;
     char views;
-    char field_17;
-    char field_18;
-    char field_19;
-    char field_1A;
-    char field_1B;
-    char field_1C;
-    char field_1D;
-    char field_1E;
-    char field_1F;
+    char reserved[9];   /* zero-filled by the installer, never read */
 } config_t;  /* 32 bytes */
 #pragma pack(pop)
 

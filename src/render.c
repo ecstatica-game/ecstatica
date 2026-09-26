@@ -282,9 +282,9 @@ void render_triangle(tri_t *tri, int plane, tri_t *shade) {
     if (!tri) return;
 
     int uv[6];
-    uv[0] = tri->tex1_u1; uv[1] = tri->tex1_v1;
-    uv[2] = tri->tex1_u2; uv[3] = tri->tex2_u1;
-    uv[4] = tri->tex2_v1; uv[5] = tri->tex2_u2;
+    uv[0] = tri->u1; uv[1] = tri->v1;
+    uv[2] = tri->u2; uv[3] = tri->v2;
+    uv[4] = tri->u3; uv[5] = tri->v3;
 
     if (!tri->quad_point4) {
         emit_triangle(tri, shade, uv);
@@ -302,9 +302,9 @@ void render_triangle(tri_t *tri, int plane, tri_t *shade) {
     if (tri->tri_use_flag & 0x0200) second.tri_use_flag |= 0x0100;
 
     int uv2[6];
-    uv2[0] = tri->tex2_v1; uv2[1] = tri->tex2_u2;   /* old p3 becomes p1 */
-    uv2[2] = tri->tex1_u2; uv2[3] = tri->tex2_u1;   /* p2 unchanged      */
-    uv2[4] = tri->tex3_u1; uv2[5] = tri->tex3_v1;   /* p4                */
+    uv2[0] = tri->u3; uv2[1] = tri->v3;   /* old p3 becomes p1 */
+    uv2[2] = tri->u2; uv2[3] = tri->v2;   /* p2 unchanged      */
+    uv2[4] = tri->u4; uv2[5] = tri->v4;   /* p4                */
     emit_triangle(&second, shade, uv2);
 }
 

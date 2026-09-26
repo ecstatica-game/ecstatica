@@ -226,8 +226,8 @@ void check_camera(void) {
 /* map_init_map  E1: 0x4419A8 | E2: 0x44C66C */
 void init_map(void) {
     for (int i = 0; i < 1200; ++i) {
-        camera[i].field_12 = -1;
-        camera[i].field_14 = -1;
+        camera[i].unused_12 = -1;
+        camera[i].unused_14 = -1;
     }
 
     for (int i = 0; i < 128; ++i)

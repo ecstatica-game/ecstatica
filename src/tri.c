@@ -128,10 +128,9 @@ static void draw_clipped_subtri(tri_t *tmpl, int plane, tri_t *shade,
     sub.point3 = &vtx[2];
     sub.quad_point4 = NULL;
 
-    /* UV layout: p1=(tex1_u1,tex1_v1) p2=(tex1_u2,tex2_u1) p3=(tex2_v1,tex2_u2) */
-    sub.tex1_u1 = (int16_t)a->u; sub.tex1_v1 = (int16_t)a->v;
-    sub.tex1_u2 = (int16_t)b->u; sub.tex2_u1 = (int16_t)b->v;
-    sub.tex2_v1 = (int16_t)c->u; sub.tex2_u2 = (int16_t)c->v;
+    sub.u1 = (int16_t)a->u; sub.v1 = (int16_t)a->v;
+    sub.u2 = (int16_t)b->u; sub.v2 = (int16_t)b->v;
+    sub.u3 = (int16_t)c->u; sub.v3 = (int16_t)c->v;
 
     raster_triangle(&sub, plane, shade);
 }
@@ -154,8 +153,8 @@ static void clip_and_raster(tri_t *tri, int plane, tri_t *shade) {
     point_t *pts[3];
     int uu[3], vv[3];
     pts[0] = p1; pts[1] = p2; pts[2] = p3;
-    uu[0] = tri->tex1_u1; uu[1] = tri->tex1_u2; uu[2] = tri->tex2_v1;
-    vv[0] = tri->tex1_v1; vv[1] = tri->tex2_u1; vv[2] = tri->tex2_u2;
+    uu[0] = tri->u1; uu[1] = tri->u2; uu[2] = tri->u3;
+    vv[0] = tri->v1; vv[1] = tri->v2; vv[2] = tri->v3;
 
     int inside_count = 0;
     for (int i = 0; i < 3; i++) {
@@ -208,10 +207,10 @@ void draw_polygon(tri_t *triangle, int plane, tri_t *shade) {
         memcpy(&saved_tri, triangle, sizeof(tri_t));
 
         /* Set up second triangle: p3-p4 with shifted texture coords */
-        triangle->tex1_u1 = triangle->tex2_v1;
-        triangle->tex1_v1 = triangle->tex2_u2;
-        triangle->tex2_v1 = triangle->tex3_u1;
-        triangle->tex2_u2 = triangle->tex3_v1;
+        triangle->u1 = triangle->u3;
+        triangle->v1 = triangle->v3;
+        triangle->u3 = triangle->u4;
+        triangle->v3 = triangle->v4;
         triangle->point1 = triangle->point3;
         triangle->point3  = triangle->quad_point4;
         triangle->tri_use_flag &= 0xFEBF;
@@ -240,11 +239,6 @@ void draw_polygon(tri_t *triangle, int plane, tri_t *shade) {
  *  Column-by-column textured triangle renderer. Same structure as
  *  draw_triangle_ell (flat shaded) but interpolates texture UV
  *  coordinates across edges and calls tex_tri_line_win95 per column.
- *
- *  Texture UV layout in tri_t (sequential int16_t fields):
- *    Point 1: U = tex1_u1, V = tex1_v1
- *    Point 2: U = tex1_u2, V = tex2_u1
- *    Point 3: U = tex2_v1, V = tex2_u2
  * ══════════════════════════════════════════════════════════════ */
 
 void draw_new_tex_tri(tri_t *tri, int plane, tri_t *shade) {
@@ -363,17 +357,12 @@ void draw_new_tex_tri(tri_t *tri, int plane, tri_t *shade) {
     else
         pixel_color = (unsigned char)shade_tab[tri_color][shade_band][shade_idx];
 
-    /* Read texture UV coords from tri_t:
-     *   Point 1: U = tex1_u1, V = tex1_v1
-     *   Point 2: U = tex1_u2, V = tex2_u1
-     *   Point 3: U = tex2_v1, V = tex2_u2
-     */
-    int tu1 = tri->tex1_u1;
-    int tv1 = tri->tex1_v1;
-    int tu2 = tri->tex1_u2;
-    int tv2 = tri->tex2_u1;
-    int tu3 = tri->tex2_v1;
-    int tv3 = tri->tex2_u2;
+    int tu1 = tri->u1;
+    int tv1 = tri->v1;
+    int tu2 = tri->u2;
+    int tv2 = tri->v2;
+    int tu3 = tri->u3;
+    int tv3 = tri->v3;
 
     /* Load texture data */
     int tex_name_idx = tri->texture_name_index;

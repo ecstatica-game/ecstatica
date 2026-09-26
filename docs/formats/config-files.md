@@ -6,9 +6,25 @@ Assorted text and small binary configs shipped with the game. None are performan
 
 Small binary game config read at startup — sound driver selection, screen mode, language, etc.
 
-Reader: `init.c:80` — `fopen("e_config", "rb")`.
+Reader: `setup()` in `src/init.c` — `fopen_ci("e_config", "rb")`, struct `config_t` (`src/init.h`).
+Original: read by `init_setup_41007C`, written by `req_handle_ok2_43C5EC` and `req_install_to_disk_43DA80`. Always 32 bytes; a short read is fatal ("Error in configuration file").
 
-Layout not yet fully reversed. First bytes on E1 shipped media: `Ecstatica001\0` (13-byte magic), followed by driver / mode / language u8 fields.
+```
+offset  type    name              notes
+  0x00  u8[12]  name              "Ecstatica001", no NUL
+  0x0C  u8      Cdrom_path        CD drive letter; '?' when not installed from CD
+  0x0D  u8      femaleF           female hero
+  0x0E  u8      InstallType
+  0x0F  u8      sound_driver
+  0x10  u8      SoundCard
+  0x11  u8      SoundCardIOAddrl  I/O port, low byte
+  0x12  u8      SoundCardIOAddr   I/O port, high byte
+  0x13  u8      SoundCardDMA
+  0x14  u8      SoundCardIRQ
+  0x15  u8      language
+  0x16  u8      views
+  0x17  u8[9]   reserved          zero-filled by the writer, never read
+```
 
 ## `CDPATH`
 
