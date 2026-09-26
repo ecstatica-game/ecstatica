@@ -107,30 +107,30 @@ void show_gadget(gadget_t *gadget) {
         rect_fill(db, gadget->field_16, gadget->field_1A,
                   gadget->field_18 - 1, gadget->field_1C - 1);
 
-        a_pen_colour = (gadget->flags & 1) ? 14 : 8;
-        move_pen(db, gadget->field_16, gadget->field_1A - 1);
-        draw(db, gadget->field_18 - 1, gadget->field_1A - 1);
-        if (!(gadget->flags & 4))
-            draw(db, gadget->field_18 - 1, gadget->field_16 + 1);
+        a_pen_colour = (gadget->flags & 0x100) ? 14 : 8;
+        move_pen(db, gadget->field_16 - 1, gadget->field_1C);
+        draw(db, gadget->field_16 - 1, gadget->field_1A - 1);
+        if (!(gadget->flags & 0x400))
+            draw(db, gadget->field_18 + 1, gadget->field_1A - 1);
 
-        a_pen_colour = (gadget->flags & 1) ? 8 : 14;
-        move_pen(db, gadget->field_16, gadget->field_16);
-        draw(db, gadget->field_16, gadget->field_1A);
-        if (!(gadget->flags & 2))
-            draw(db, gadget->field_1A, gadget->field_16 - 1);
+        a_pen_colour = (gadget->flags & 0x100) ? 8 : 14;
+        move_pen(db, gadget->field_18, gadget->field_1A);
+        draw(db, gadget->field_18, gadget->field_1C);
+        if (!(gadget->flags & 0x200))
+            draw(db, gadget->field_16 - 1, gadget->field_1C);
 
         a_pen_colour = 10;
         b_pen_colour = 15;
     }
 
-    if (gadget->flags & 8)
+    if (gadget->flags & 0x800)
         a_pen_colour = 8;
     if (gadget->flags & 0x80)
         a_pen_colour = 14;
 
     if (gadget->gadget_text) {
         int text_x;
-        if (gadget->flags & 0x40)
+        if (gadget->flags & 0x4000)
             text_x = gadget->field_16 + 4;
         else
             text_x = gadget->field_16 + (gadget->width - text_w) / 2;
@@ -224,14 +224,21 @@ void check_gadget(request_t *req, gadget_t *gadget) {
     }
 
     if (gadget->handle_click) {
-        void (*handler)(void) = (void (*)(void))(intptr_t)gadget->handle_click;
-        handler();
+        gadget->handle_click();
     }
     show_gadget(gadget);
 }
 
 /* req_request  E2: 0x43B304 */
 void request(request_t *req) {
+    /* init_gadgets() is not ported, so no requester has a button that could
+     * set req_finished; waiting would hang. Report the message instead. */
+    if (!req->gadget_list) {
+        DBG_LOG(1, "[REQ] %s\n",
+                req->gadget_header_text ? req->gadget_header_text : "(requester)");
+        return;
+    }
+
     stop_the_clock = true;
 
     if (!program_up_and_running)
@@ -267,21 +274,21 @@ void request(request_t *req) {
     a_pen_colour = 8;
     move_pen(db, req->pixelX, (int16_t)(req->field_16 - 1));
     draw(db, req->pixelX, req->pixelY);
-    draw(db, req->field_12 - 1, req->pixelY);
+    draw(db, req->field_12, req->pixelY);
 
     a_pen_colour = 14;
     move_pen(db, (int16_t)(req->field_12 - 1), (int16_t)(req->pixelY + 1));
     draw(db, req->field_12 - 1, req->field_16 - 1);
-    draw(db, req->pixelX + 1, req->field_16 - 1);
+    draw(db, req->pixelX, req->field_16 - 1);
 
     if (req->gadget_header_text && req->gadget_header_text[0]) {
         int title_len = (int)strlen(req->gadget_header_text);
         int text_w = title_len * tx_w;
-        int x_center = req->pixelX + (req->width - text_w + 1) / 2;
+        int x_center = req->pixelX + (req->width - text_w) / 2;
         int y_pos = req->pixelY + tx_h + 2;
         a_pen_colour = 8;
         b_pen_colour = 15;
-        move_pen(db, (int16_t)y_pos, (int16_t)x_center);
+        move_pen(db, (int16_t)x_center, (int16_t)y_pos);
         text(db, req->gadget_header_text, 0);
     }
 
@@ -891,7 +898,7 @@ void init_gadget(gadget_t *gadget, int16_t x, int16_t y, int16_t w,
         gadget->height = h;
     }
     gadget->gadget_text = text_str;
-    gadget->handle_click = (int32_t)(intptr_t)handler;
+    gadget->handle_click = handler;
     gadget->flags = flags;
     gadget->next_gdg = next;
 }
@@ -1012,21 +1019,21 @@ static void refresh_request(request_t *req) {
     a_pen_colour = 15;
     rect_fill(plane, req->pixelX, req->pixelY, req->field_12 - 1, req->field_16 - 1);
     draw_mode[plane] = 1;
-    move_pen(plane, (int16_t)(req->field_16 - 1), req->pixelX);
+    move_pen(plane, req->pixelX, (int16_t)(req->field_16 - 1));
     a_pen_colour = 8;
-    draw(plane, req->pixelY, req->pixelX);
-    draw(plane, req->pixelY, req->field_12);
+    draw(plane, req->pixelX, req->pixelY);
+    draw(plane, req->field_12, req->pixelY);
     a_pen_colour = 14;
-    move_pen(plane, (int16_t)(req->pixelY + 1), (int16_t)(req->field_12 - 1));
-    draw(plane, (int16_t)(req->field_16 - 1), (int16_t)(req->field_12 - 1));
-    draw(plane, (int16_t)(req->field_16 - 1), req->pixelX);
+    move_pen(plane, (int16_t)(req->field_12 - 1), (int16_t)(req->pixelY + 1));
+    draw(plane, req->field_12 - 1, req->field_16 - 1);
+    draw(plane, req->pixelX, req->field_16 - 1);
 
     if (req->gadget_header_text) {
         int text_len = (int)strlen(req->gadget_header_text);
         int text_w = text_len * tx_w;
         int y_pos = req->pixelY + tx_h + 2;
-        int x_center = req->pixelX + (req->width - text_w + 1) / 2;
-        move_pen(plane, (int16_t)y_pos, (int16_t)x_center);
+        int x_center = req->pixelX + (req->width - text_w) / 2;
+        move_pen(plane, (int16_t)x_center, (int16_t)y_pos);
         a_pen_colour = 8;
         b_pen_colour = 15;
         text(plane, req->gadget_header_text, 0);

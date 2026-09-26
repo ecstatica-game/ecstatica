@@ -4107,12 +4107,8 @@ void check_sound_loaded(int16_t sound_index) {
     if (sound_index < 0 || sound_index >= SOUND_TAB_SIZE) return;
     if (sound_tab[sound_index]) return;
 
-    static int depth = 0;
-    if (depth > 0) return;
-
     actor_t *save = selected_thing;
     stop_the_clock = true;
-    depth++;
 
     if (load_by_offset) {
         int32_t offset = sound_offset[sound_index];
@@ -4129,7 +4125,6 @@ void check_sound_loaded(int16_t sound_index) {
         merge_a_file(path, 1);
     }
 
-    depth--;
     selected_thing = save;
 }
 
