@@ -45,20 +45,38 @@
 | menu.c   | Main menu, pause menu, settings, navigation, dialogs          |
 | req.c    | Requester dialogs, file picker, input, game-over screens      |
 
+### Hardware Renderer (optional, desktop only)
+
+| Module              | Description                                                  |
+|---------------------|--------------------------------------------------------------|
+| render.h            | Seam between display traversal and a hardware backend        |
+| render.c            | Backend-independent draw lists, shading, view/projection     |
+| render_priv.h       | Draw-list types shared by render.c and backends              |
+| render_gl.c         | OpenGL 3.3 backend (`ECS_ENABLE_GL`)                         |
+| render_gl_shaders.h | GLSL sources for render_gl.c                                 |
+| gl_loader.c/.h      | Runtime resolve of GL entry points                           |
+
 ### Platform
 
-| Module           | Description                                          |
-|------------------|------------------------------------------------------|
-| win.c            | Window/platform stubs, page flip, DirectDraw layer   |
-| platform_macos.m | macOS Cocoa window, NSView framebuffer, input/timing |
-| platform.h       | Platform abstraction interface                       |
+| Module                     | Description                                             |
+|----------------------------|---------------------------------------------------------|
+| platform.h                 | Platform abstraction interface                          |
+| win.c                      | Window/platform glue, page flip, `window_proc` input map |
+| platforms/desktop_common.c | Data dir, save paths, display caps shared by desktops   |
+| platforms/macos.m          | macOS: Cocoa NSView, CoreAudio, AVMIDIPlayer, GameController |
+| platforms/linux.c          | Linux: X11/GLX, ALSA, FluidSynth (dlopen'd) music       |
+| platforms/windows.c        | Windows / Win9x: GDI, winmm, MCI MIDI, XInput           |
+| platforms/dos.c            | DOS/4GW: VGA/VESA, SB16, PIT timer, keyboard ISR        |
+| platforms/openfpga.c       | openfpgaOS (Analogue Pocket / MiSTer)                   |
+| platforms/psp.c            | PlayStation Portable: sceGu, sceAudio, sceCtrl          |
 
 ### Debug / Utility
 
-| Module           | Description                                          |
-|------------------|------------------------------------------------------|
-| debug_overlay.c  | Runtime debug overlay rendering                      |
-| compat.h         | Compiler/platform compatibility macros               |
+| Module           | Description                                                |
+|------------------|------------------------------------------------------------|
+| debug_overlay.c  | Runtime debug overlay (actor labels, flags, trigger zones) |
+| compat.h         | Compiler/platform compatibility macros                     |
+| tools/viewer.c   | Model/animation (`--viewer`) and scene (`--scenes`) browser |
 
 ## Other Directories
 

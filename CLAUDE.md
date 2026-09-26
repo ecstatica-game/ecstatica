@@ -15,6 +15,7 @@ make clean    # remove build/
 ```
 
 CMake project in `src/CMakeLists.txt`. C99 + ObjC (macOS platform layer).
+DOS and Win9x: Open Watcom `wmake` builds in `dos/` and `win9x/` (`make dos`, `make win9x`).
 Binary output: `build/bin/ecstatica`.
 
 **Analogue Pocket / MiSTer:** a separate build under `pocket/` targets
@@ -42,7 +43,7 @@ On Arch/SteamOS: `pacman -S fluidsynth soundfont-fluid`.
 - No comments unless explaining a non-obvious "why"
 - `#pragma pack(push, 1)` for structs matching original binary layout
 - Fixed-point math: 14-bit fraction (`FIXED_POINT_SHIFT`)
-- All structs/types in `types.h`, forward-declared with typedefs
+- Shared types, pool sizes and forward typedefs in `types.h`; full struct definitions live in the owning module header (`actor_s` in `game.h`, `part_s` in `display.h`, etc.)
 - Module naming mirrors original Watcom source files (init, display, edit, game, etc.)
 
 ## Architecture
@@ -67,13 +68,22 @@ src/
   req.c         — dialogs, file picker, game-over
   icon.c        — resolution constants, VGA/SVGA config
   chars.c       — font bitmap glyphs
-  win.c         — window/platform stubs
+  win.c         — window/platform glue, page flip, window_proc input mapping
+  render.c      — backend-independent hardware-renderer draw lists (render.h seam)
+  render_gl.c   — optional OpenGL 3.3 backend (ECS_ENABLE_GL, desktop only)
+  gl_loader.c   — GL entry-point resolver
+  debug_overlay.c — runtime debug overlay
+  compat.h      — compiler/platform compatibility macros
   tools/viewer.c     — model/animation/scene browser (--viewer, --scenes); not in the original
+  platforms/desktop_common.c — data dir / save paths shared by macOS, Linux, Windows
   platforms/macos.m  — Cocoa NSView framebuffer, input, timing
+  platforms/linux.c  — X11/GLX, ALSA, FluidSynth music
+  platforms/windows.c — Win32 (also Win9x via Open Watcom build in win9x/)
+  platforms/dos.c    — DOS/4GW (Open Watcom build in dos/)
   platforms/openfpga.c — openfpgaOS (Analogue Pocket / MiSTer) backend
   platforms/psp.c    — PlayStation Portable backend (sceGu / sceCtrl / sceAudio)
   platform.h    — platform abstraction interface
-  types.h       — all structs, enums, constants, forward decls
+  types.h       — shared enums, constants, pool sizes, forward typedefs
 ```
 
 Framebuffer: 8-bit indexed palette. `platform_blit` does palette expansion + scale.
@@ -140,7 +150,7 @@ Game data lives in `data/` (not committed):
 
 ## Key Types
 
-See `types.h` for complete definitions. Important ones:
+Forward typedefs in `types.h`; definitions in module headers (`game.h`, `display.h`, ...). Important ones:
 - `actor_t` — game entity (pool: 200)
 - `part_t` — body part of actor (pool: 4000)
 - `ellipse_t` — rendered ellipsoid shape
