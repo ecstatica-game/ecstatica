@@ -670,17 +670,21 @@ void platform_set_music_volume(int vol) {
 
 static char s_data_root[256];
 
+/* Each VPK is built for one game (vita/CMakeLists.txt), so both can be
+ * installed as their own LiveArea bubbles and each opens its own folder. */
+#ifndef VITA_GAME_DIR
+#define VITA_GAME_DIR "e2"
+#endif
+
 void platform_early_init(void) {
-    /* app0: is the read-only VPK mount, so the data goes on a memory card.
-     * ux0:data/ecstatica is the conventional place; the e1/e2 subfolders let
-     * both games sit side by side, E2 preferred when both are there. */
+    /* app0: is the read-only VPK mount, so the data goes on a memory card:
+     * ux0:data/ecstatica/e1 or /e2 for this bubble's game. The bare folder is
+     * the fallback for a card that carries just one game. */
     static const char *const candidates[] = {
+        "ux0:data/ecstatica/" VITA_GAME_DIR,
+        "uma0:data/ecstatica/" VITA_GAME_DIR,
         "ux0:data/ecstatica",
-        "ux0:data/ecstatica/e2",
-        "ux0:data/ecstatica/e1",
         "uma0:data/ecstatica",
-        "uma0:data/ecstatica/e2",
-        "uma0:data/ecstatica/e1",
         "app0:data",
     };
 

@@ -35,7 +35,7 @@
 #   make psp-clean
 #
 # PS Vita target (VitaSDK, runs on hardware or Vita3K):
-#   make vita         — build vita/build/ecstatica.vpk
+#   make vita         — build vita/build/ecstatica-e1.vpk and ecstatica-e2.vpk
 #   make vita-clean
 #
 # Set WATCOM if Open Watcom is not in ~/watcom. Both cross builds live in their

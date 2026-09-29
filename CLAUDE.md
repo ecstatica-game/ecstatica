@@ -31,9 +31,10 @@ sceGu as a T8 texture + CLUT; music is silent (no OS synth).
 
 **PlayStation Vita:** a separate build under `vita/` targets VitaSDK; see
 `vita/README.md`. CMake on VitaSDK's toolchain file (`make vita`, needs
-`$VITASDK`) → `vita/build/ecstatica.vpk`. SceDisplay framebuffer with a CPU
-palette-expand + 4:3 scale; game data lives in `ux0:data/ecstatica`, not the
-VPK. Tested in Vita3K. Both handheld builds take `PROFILE=1` / `-DPROFILE=ON`
+`$VITASDK`) → `vita/build/ecstatica-e1.vpk` and `-e2.vpk`, one LiveArea
+bubble per game (`VITA_GAME_DIR`). SceDisplay framebuffer with a CPU
+palette-expand + 4:3 scale; game data lives in `ux0:data/ecstatica/e1|e2`,
+not the VPK. Tested in Vita3K. Both handheld builds take `PROFILE=1` / `-DPROFILE=ON`
 for `prof.log` (frame phases, see `src/prof.h`).
 
 **Linux music (optional):** macOS and Windows get a General MIDI synth from the
