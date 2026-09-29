@@ -752,7 +752,7 @@ void platform_save_path(char *buf, int bufsz, int slot, int game_version) {
 }
 
 void platform_save_prepare(void) {
-    char dir[256];
+    char dir[sizeof(s_data_root) + 8];
     if (s_data_root[0])
         snprintf(dir, sizeof(dir), "%s/saved", s_data_root);
     else

@@ -34,6 +34,10 @@
 #   make psp-install  — copy that onto a Memory Stick
 #   make psp-clean
 #
+# PS Vita target (VitaSDK, runs on hardware or Vita3K):
+#   make vita         — build vita/build/ecstatica.vpk
+#   make vita-clean
+#
 # Set WATCOM if Open Watcom is not in ~/watcom. Both cross builds live in their
 # own directories and are driven by Watcom's wmake, not by this file. The PSP
 # build lives in psp/ and is GNU make, driven by the PSP SDK's build.mak.
@@ -67,7 +71,7 @@ WINE       ?= wine
 
 .PHONY: all run e1 e2 e1-viewer e2-viewer e1-scenes e2-scenes e1-pointcloud e2-pointcloud build clean dump \
         dos dos-e1 dos-e2 dos-clean win9x win9x-e1 win9x-e2 win9x-clean \
-        psp psp-release psp-install psp-clean
+        psp psp-release psp-install psp-clean vita vita-clean
 
 all: build
 
@@ -233,3 +237,14 @@ psp-install: psp
 
 psp-clean:
 	$(MAKE) -C psp clean
+
+# vita/ is a CMake project on VitaSDK's toolchain file; the game data is not
+# packed into the VPK but copied to ux0:data/ecstatica, see vita/README.md.
+vita:
+	@test -n "$$VITASDK" || { \
+	  echo "VITASDK not set. Install VitaSDK and export VITASDK."; exit 1; }
+	cmake -S vita -B vita/build -DCMAKE_BUILD_TYPE=Release
+	cmake --build vita/build
+
+vita-clean:
+	rm -rf vita/build

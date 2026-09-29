@@ -107,6 +107,7 @@ psp/build/
 psp/*.elf
 psp/*.PBP
 psp/PARAM.SFO
+vita/build/
 
 # Release packaging output
 dist/

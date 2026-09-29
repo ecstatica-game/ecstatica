@@ -29,6 +29,13 @@ toolchain; see `psp/README.md`. GNU make on top of the SDK's `build.mak`, and
 it compiles `src/` in place — objects go to `psp/obj/`. Video goes through
 sceGu as a T8 texture + CLUT; music is silent (no OS synth).
 
+**PlayStation Vita:** a separate build under `vita/` targets VitaSDK; see
+`vita/README.md`. CMake on VitaSDK's toolchain file (`make vita`, needs
+`$VITASDK`) → `vita/build/ecstatica.vpk`. SceDisplay framebuffer with a CPU
+palette-expand + 4:3 scale; game data lives in `ux0:data/ecstatica`, not the
+VPK. Tested in Vita3K. Both handheld builds take `PROFILE=1` / `-DPROFILE=ON`
+for `prof.log` (frame phases, see `src/prof.h`).
+
 **Linux music (optional):** macOS and Windows get a General MIDI synth from the
 OS (`AVMIDIPlayer` / MCI `sequencer`); Linux has no equivalent, so tunes are
 rendered by FluidSynth. `libfluidsynth` is `dlopen`'d at runtime, not linked —
@@ -84,6 +91,8 @@ src/
   platforms/dos.c    — DOS/4GW (Open Watcom build in dos/)
   platforms/openfpga.c — openfpgaOS (Analogue Pocket / MiSTer) backend
   platforms/psp.c    — PlayStation Portable backend (sceGu / sceCtrl / sceAudio)
+  platforms/vita.c   — PlayStation Vita backend (SceDisplay / SceCtrl / SceTouch / SceAudio)
+  prof.c        — frame-phase profiler, compiled only with ECS_PROFILE
   platform.h    — platform abstraction interface
   types.h       — shared enums, constants, pool sizes, forward typedefs
 ```
