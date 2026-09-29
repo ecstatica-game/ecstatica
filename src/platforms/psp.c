@@ -394,8 +394,10 @@ void prof_frame(void) {
  * gamepad interface uses, and invert Y — win.c reads left_y as positive-up. */
 static int16_t stick_axis(unsigned char raw) {
     int v = ((int)raw - 128) * 258;
+    /* Symmetric on purpose: the Y axis is negated by the caller, and -(-32768)
+     * does not fit an int16 — full forward wrapped round to full back. */
     if (v >  32767) v =  32767;
-    if (v < -32768) v = -32768;
+    if (v < -32767) v = -32767;
     return (int16_t)v;
 }
 
