@@ -239,23 +239,31 @@ void platform_blit(platform_t *p, const uint8_t *framebuffer, const uint8_t *pal
      * 640. Walk the frame in 64-pixel columns, moving the texture base along
      * the row instead of the u coordinate — the standard PSP framebuffer blit.
      * A 64-pixel step keeps the base 16-byte aligned. */
+    /* Bilinear filtering reads half a texel past each slice edge. Starting
+     * every slice but the first 16 texels early keeps its left neighbour real
+     * frame data; with the base at sx itself, u = -0.5 wrapped to column 511
+     * and drew a seam line down the screen at every slice boundary. The right
+     * edge already reads the next slice's first column from the same row. */
+    sceGuTexWrap(GU_CLAMP, GU_CLAMP);
     const int slice = 64;
+    const int lead = 16;
     for (int sx = 0; sx < sw; sx += slice) {
         int sw_slice = (sw - sx) < slice ? (sw - sx) : slice;
+        int u0 = sx > 0 ? lead : 0;
 
         blit_vertex_t *v = (blit_vertex_t *)sceGuGetMemory(2 * sizeof(blit_vertex_t));
-        v[0].u = 0;
+        v[0].u = (unsigned short)u0;
         v[0].v = 0;
         v[0].x = (short)(sx * SCREEN_W / sw);
         v[0].y = 0;
         v[0].z = 0;
-        v[1].u = (unsigned short)sw_slice;
+        v[1].u = (unsigned short)(u0 + sw_slice);
         v[1].v = (unsigned short)sh;
         v[1].x = (short)((sx + sw_slice) * SCREEN_W / sw);
         v[1].y = SCREEN_H;
         v[1].z = 0;
 
-        sceGuTexImage(0, 512, 512, sw, src + sx);
+        sceGuTexImage(0, 512, 512, sw, src + sx - u0);
         sceGuDrawArray(GU_SPRITES,
                        GU_TEXTURE_16BIT | GU_VERTEX_16BIT | GU_TRANSFORM_2D,
                        2, 0, v);
