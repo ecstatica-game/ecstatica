@@ -132,6 +132,30 @@ void platform_set_render_size(platform_t *p, int w, int h);
 bool platform_hires_supported(platform_t *p);
 
 /**
+ * How the render image is fit into a fixed hardware panel whose aspect ratio
+ * doesn't match the game's own. Backends that own their window shape
+ * (desktop, DOS) have nothing to choose here; only PSP and Vita, whose panel
+ * is wider than the game's 4:3 picture, act on it.
+ */
+enum {
+    SCALE_PILLARBOX = 0,   /* full height, 4:3-correct width, bars either side */
+    SCALE_CROP      = 1,   /* fills the panel; source cropped top/bottom */
+    SCALE_STRETCH   = 2    /* fills the panel; aspect ratio not preserved */
+};
+
+/**
+ * False when the backend has no choice about how the image fills its panel,
+ * so the settings menu can hide the option.
+ */
+bool platform_scale_mode_supported(platform_t *p);
+
+/**
+ * Select one of the SCALE_* fit modes above. Ignored by backends that report
+ * platform_scale_mode_supported() == false.
+ */
+void platform_set_scale_mode(platform_t *p, int mode);
+
+/**
  * Blit a 32-bit RGBA framebuffer to the window.
  *
  * @param p           Platform handle

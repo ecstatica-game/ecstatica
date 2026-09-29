@@ -278,6 +278,19 @@ bool platform_hires_supported(platform_t *p) {
     return true;
 }
 
+/* The window owns its own aspect ratio, so there is no fit mode to choose —
+ * only PSP and Vita, with a fixed panel wider than the game's picture, offer
+ * this. */
+bool platform_scale_mode_supported(platform_t *p) {
+    (void)p;
+    return false;
+}
+
+void platform_set_scale_mode(platform_t *p, int mode) {
+    (void)p;
+    (void)mode;
+}
+
 void platform_set_render_size(platform_t *p, int w, int h) {
     if (!p) return;
     p->render_width  = w;

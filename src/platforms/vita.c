@@ -87,23 +87,53 @@ static uint32_t s_lut[256];
 static uint8_t  s_last_pal[768];
 static bool     s_pal_valid;
 
-/* The 4:3 picture area inside the 960x544 panel, and for each of its columns
- * and rows the source pixel it samples. Rebuilt when the render size
- * changes — the graphics toggle switches between 320x200 and 640x480. */
+/* The picture area inside the 960x544 panel, and for each of its columns and
+ * rows the source pixel it samples. Rebuilt when the render size or the
+ * scale mode changes — the graphics toggle switches between 320x200 and
+ * 640x480, and the settings menu switches SCALE_PILLARBOX/CROP/STRETCH. */
 static int      s_dst_x, s_dst_w;
 static uint16_t s_col_src[SCREEN_W];
 static uint32_t s_row_off[SCREEN_H];
-static int      s_map_w, s_map_h;
+static int      s_map_w, s_map_h, s_map_mode = -1;
+static int      s_scale_mode = SCALE_PILLARBOX;
 
 static void build_scale_maps(int sw, int sh) {
-    s_dst_w = SCREEN_H * 4 / 3;                 /* 725 */
-    s_dst_x = (SCREEN_W - s_dst_w) / 2;
+    int v0, v1;
+
+    /* The horizontal source range is always the full [0, sw) — on this panel
+     * (wider than 4:3) the picture only ever needs cropping vertically to
+     * fill the screen, never horizontally. */
+    switch (s_scale_mode) {
+    case SCALE_CROP: {
+        int full_h = SCREEN_W * 3 / 4;
+        int off = (full_h - SCREEN_H) / 2;
+        s_dst_w = SCREEN_W;
+        s_dst_x = 0;
+        v0 = off * sh / full_h;
+        v1 = (off + SCREEN_H) * sh / full_h;
+        break;
+    }
+    case SCALE_STRETCH:
+        s_dst_w = SCREEN_W;
+        s_dst_x = 0;
+        v0 = 0;
+        v1 = sh;
+        break;
+    default: /* SCALE_PILLARBOX */
+        s_dst_w = SCREEN_H * 4 / 3;              /* 725 */
+        s_dst_x = (SCREEN_W - s_dst_w) / 2;
+        v0 = 0;
+        v1 = sh;
+        break;
+    }
+
     for (int x = 0; x < s_dst_w; x++)
         s_col_src[x] = (uint16_t)(x * sw / s_dst_w);
     for (int y = 0; y < SCREEN_H; y++)
-        s_row_off[y] = (uint32_t)(y * sh / SCREEN_H) * (uint32_t)sw;
+        s_row_off[y] = (uint32_t)(v0 + y * (v1 - v0) / SCREEN_H) * (uint32_t)sw;
     s_map_w = sw;
     s_map_h = sh;
+    s_map_mode = s_scale_mode;
 }
 
 static void upload_lut(const uint8_t *palette) {
@@ -175,6 +205,18 @@ bool platform_hires_supported(platform_t *p) {
     return true;
 }
 
+bool platform_scale_mode_supported(platform_t *p) {
+    (void)p;
+    return true;
+}
+
+void platform_set_scale_mode(platform_t *p, int mode) {
+    (void)p;
+    if (mode < SCALE_PILLARBOX || mode > SCALE_STRETCH)
+        return;
+    s_scale_mode = mode;
+}
+
 void platform_set_render_size(platform_t *p, int w, int h) {
     if (!p || w <= 0 || h <= 0)
         return;
@@ -193,7 +235,7 @@ void platform_blit(platform_t *p, const uint8_t *framebuffer, const uint8_t *pal
     int sw = p->render_w, sh = p->render_h;
     if (sw <= 0 || sh <= 0 || sw > MAX_RENDER_W || sh > MAX_RENDER_H)
         return;
-    if (sw != s_map_w || sh != s_map_h)
+    if (sw != s_map_w || sh != s_map_h || s_scale_mode != s_map_mode)
         build_scale_maps(sw, sh);
 
     if (palette && (!s_pal_valid || memcmp(s_last_pal, palette, 768) != 0)) {
@@ -210,8 +252,16 @@ void platform_blit(platform_t *p, const uint8_t *framebuffer, const uint8_t *pal
     const int dw = s_dst_w;
 
     for (int y = 0; y < SCREEN_H; y++) {
+        uint32_t *row = fb + y * SCREEN_W;
+        /* Pillarboxed frames leave bars this loop never writes; a frame drawn
+         * in crop/stretch mode earlier may have painted over them in this
+         * buffer, so they need reblacking whenever a bar is in play. */
+        if (s_dst_x > 0) {
+            memset(row, 0, (size_t)s_dst_x * sizeof(uint32_t));
+            memset(row + s_dst_x + dw, 0, (size_t)(SCREEN_W - s_dst_x - dw) * sizeof(uint32_t));
+        }
         const uint8_t *src = framebuffer + s_row_off[y];
-        uint32_t *dst = fb + y * SCREEN_W + s_dst_x;
+        uint32_t *dst = row + s_dst_x;
         for (int x = 0; x < dw; x++)
             dst[x] = s_lut[src[cols[x]]];
     }

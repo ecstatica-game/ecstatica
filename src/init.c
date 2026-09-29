@@ -107,6 +107,11 @@ void setup(void) {
 
     load_port_settings();
 
+    /* Same reasoning as render_init() below: do_init() ran before the stored
+     * preference was loaded, so the backend got the SCALE_PILLARBOX default
+     * and needs telling now. No-op on backends that ignore scale mode. */
+    platform_set_scale_mode(win_platform(), display_scale_mode);
+
     /* Here, not in do_init(), because the stored renderer preference is only
      * known once load_port_settings() above has run — and do_init() runs
      * before this. The window already exists by now, which is all a backend

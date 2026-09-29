@@ -25,11 +25,18 @@
 
 void *hwnd = NULL;
 bool app_active = true;
+int16_t display_scale_mode = SCALE_PILLARBOX;
 
 static platform_t *g_platform = NULL;
 
 platform_t *win_platform(void) {
     return g_platform;
+}
+
+void win_set_scale_mode(int mode) {
+    display_scale_mode = (int16_t)mode;
+    if (g_platform)
+        platform_set_scale_mode(g_platform, mode);
 }
 
 /* win_flip_win95_458094
