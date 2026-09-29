@@ -259,8 +259,62 @@ jobs:
           name: win9x-build
           path: ecstatica-win9x.zip
 
+  # The SDK images are the upstream toolchains. The jobs run them with
+  # `docker run` rather than as job containers: pspdev/pspdev is Alpine, and
+  # JavaScript actions such as checkout do not run inside musl containers.
+  build-psp:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: |
+          docker run --rm -v "$PWD:/src" -w /src pspdev/pspdev:latest \
+            sh -c 'command -v make >/dev/null || apk add --no-cache make; make -C psp'
+
+      - name: Package
+        run: |
+          mkdir -p dist/PSP/GAME/ECSTATICA
+          cp psp/EBOOT.PBP dist/PSP/GAME/ECSTATICA/
+          cat > dist/README.TXT << 'EOF'
+          Ecstatica — PSP build (Ecstatica 1 and 2)
+
+          Copy the PSP folder to the root of the Memory Stick, then copy the game
+          data into PSP/GAME/ECSTATICA beside EBOOT.PBP, so that
+          PSP/GAME/ECSTATICA/CODE/ECSTATIC.FAN exists. The same EBOOT runs either
+          game; it detects which one from the data.
+
+          For Ecstatica 1 copy the DOS release root with its W folder inside it,
+          so the enhanced 640x480 graphics are available.
+
+          Needs custom firmware or a homebrew launcher, or runs in PPSSPP. Sound
+          effects and speech play; music is silent.
+          EOF
+          cd dist && zip -r ../ecstatica-psp.zip PSP README.TXT
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: psp-build
+          path: ecstatica-psp.zip
+
+  build-vita:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: |
+          docker run --rm -v "$PWD:/src" -w /src vitasdk/vitasdk:latest \
+            sh -c 'make vita'
+          cp vita/build/ecstatica.vpk ecstatica-vita.vpk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vita-build
+          path: ecstatica-vita.vpk
+
   release:
-    needs: [build-macos, build-linux-x86_64, build-linux-arm64, build-windows-x86_64, build-windows-arm64, build-dos, build-win9x]
+    needs: [build-macos, build-linux-x86_64, build-linux-arm64, build-windows-x86_64, build-windows-arm64, build-dos, build-win9x, build-psp, build-vita]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -279,4 +333,6 @@ jobs:
             artifacts/windows-arm64-build/ecstatica-windows-arm64.zip
             artifacts/dos-build/ecstatica-dos.zip
             artifacts/win9x-build/ecstatica-win9x.zip
+            artifacts/psp-build/ecstatica-psp.zip
+            artifacts/vita-build/ecstatica-vita.vpk
           generate_release_notes: true
