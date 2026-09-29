@@ -360,6 +360,7 @@ void try_to_remove_sound(void);
 void try_to_remove_texture(void);
 
 /* Heap allocators */
+void reset_pool_hints(void);
 void free_event(event_t *event);
 event_t *find_free_event(void);
 event_t *look_for_free_event(void);

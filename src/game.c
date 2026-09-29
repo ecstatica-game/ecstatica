@@ -3510,9 +3510,44 @@ void remove_actor(actor_t *actor) {
     do_delete_thing(actor);
 }
 
+/* Allocation hints for the big pools. Allocators are first-fit, and scanning
+ * from slot 0 every time made loading an action or actor quadratic in its
+ * event, key and part count — the load spikes on a PSP. Every slot below a
+ * hint is in use unless it was freed since, and the free_* functions pull the
+ * hint back, so the search picks the same slot a scan from zero would. The
+ * second pass is a guard for any slot freed behind the allocator's back. */
+static int event_hint, key_hint, part_hint, point_hint;
+
+#define POOL_SEARCH(arr, size, hint, IS_FREE, out) do { \
+    (out) = -1; \
+    for (int pass_ = 0; pass_ < 2 && (out) < 0; pass_++) \
+        for (int i_ = pass_ ? 0 : (hint); i_ < (size); i_++) \
+            if (IS_FREE(arr[i_])) { (out) = i_; break; } \
+    if ((out) >= 0) (hint) = (out) + 1; \
+} while (0)
+
+/* Bounds-checked: the editor's delete_triangle hands free_event a tri_t. */
+#define POOL_RELEASE(arr, hint, ptr) do { \
+    if ((ptr) >= (arr) && (ptr) < (arr) + sizeof(arr) / sizeof((arr)[0])) { \
+        int i_ = (int)((ptr) - (arr)); \
+        if (i_ < (hint)) (hint) = i_; \
+    } \
+} while (0)
+
+#define EVENT_IS_FREE(e) ((e).event_type & (int16_t)0x8000)
+#define KEY_IS_FREE(k)   ((k).field_E & 0x80)
+#define PART_IS_FREE(p)  ((p).type & 0x8000)
+#define POINT_IS_FREE(p) ((p).point_use_flag & 1)
+
+void reset_pool_hints(void) {
+    event_hint = key_hint = part_hint = point_hint = 0;
+}
+
 /* Free functions */
 void free_event(event_t *event) {
-    if (event) event->event_type = (int16_t)0x8000;
+    if (!event) return;
+    event->event_type = (int16_t)0x8000;
+    POOL_RELEASE(event_heap_arr, event_hint, event);
 }
 
 void free_action(action_t *action) {
@@ -3524,7 +3559,9 @@ void free_script(script_t *script) {
 }
 
 void free_part(part_t *part) {
-    if (part) part->type = 0x8000u;
+    if (!part) return;
+    part->type = 0x8000u;
+    POOL_RELEASE(part_heap_arr, part_hint, part);
 }
 
 void free_scene(scene_t *scene) {
@@ -3536,11 +3573,15 @@ void free_rep(rephead_t *rep) {
 }
 
 void free_point(point_t *point) {
-    if (point) point->point_use_flag = 1;
+    if (!point) return;
+    point->point_use_flag = 1;
+    POOL_RELEASE(point_heap_arr, point_hint, point);
 }
 
 void free_key(key_state_t *key) {
-    if (key) key->field_E = 0x80u;
+    if (!key) return;
+    key->field_E = 0x80u;
+    POOL_RELEASE(key_heap_arr, key_hint, key);
 }
 
 void free_sound(sound_t *sound) {
@@ -3553,24 +3594,17 @@ void free_t_action(taction_t *ta) {
 
 /* Find-free functions — scan heap for unused slot, try to evict if full */
 event_t *find_free_event(void) {
-    for (int i = 0; i < EVENT_POOL_SIZE; i++) {
-        if (event_heap_arr[i].event_type & (int16_t)0x8000) {
-            memset(&event_heap_arr[i], 0, sizeof(event_t));
-            return &event_heap_arr[i];
-        }
-    }
-    quit("Event heap overflow");
-    return NULL;
+    event_t *event = look_for_free_event();
+    if (!event) quit("Event heap overflow");
+    return event;
 }
 
 event_t *look_for_free_event(void) {
-    for (int i = 0; i < EVENT_POOL_SIZE; i++) {
-        if (event_heap_arr[i].event_type & (int16_t)0x8000) {
-            memset(&event_heap_arr[i], 0, sizeof(event_t));
-            return &event_heap_arr[i];
-        }
-    }
-    return NULL;
+    int i;
+    POOL_SEARCH(event_heap_arr, EVENT_POOL_SIZE, event_hint, EVENT_IS_FREE, i);
+    if (i < 0) return NULL;
+    memset(&event_heap_arr[i], 0, sizeof(event_t));
+    return &event_heap_arr[i];
 }
 
 action_t *find_free_action(void) {
@@ -3633,12 +3667,11 @@ actor_t *find_free_actor(void) {
 part_t *find_free_part(void) {
     part_t *free_slot = NULL;
     do {
-        for (int i = 0; i < PART_POOL_SIZE; i++) {
-            if (part_heap_arr[i].type & 0x8000) {
-                memset(&part_heap_arr[i], 0, sizeof(part_t));
-                free_slot = &part_heap_arr[i];
-                break;
-            }
+        int i;
+        POOL_SEARCH(part_heap_arr, PART_POOL_SIZE, part_hint, PART_IS_FREE, i);
+        if (i >= 0) {
+            memset(&part_heap_arr[i], 0, sizeof(part_t));
+            free_slot = &part_heap_arr[i];
         }
         if (!free_slot) { try_to_remove_actor(); }
     } while (!free_slot);
@@ -3678,12 +3711,11 @@ rephead_t *find_free_rep(void) {
 point_t *find_free_point(void) {
     point_t *free_slot = NULL;
     do {
-        for (int i = 0; i < POINT_POOL_SIZE; i++) {
-            if (point_heap_arr[i].point_use_flag & 1) {
-                memset(&point_heap_arr[i], 0, sizeof(point_t));
-                free_slot = &point_heap_arr[i];
-                break;
-            }
+        int i;
+        POOL_SEARCH(point_heap_arr, POINT_POOL_SIZE, point_hint, POINT_IS_FREE, i);
+        if (i >= 0) {
+            memset(&point_heap_arr[i], 0, sizeof(point_t));
+            free_slot = &point_heap_arr[i];
         }
         if (!free_slot) { try_to_remove_actor(); }
     } while (!free_slot);
@@ -3708,12 +3740,11 @@ tri_t *find_free_tri(void) {
 key_state_t *find_free_key(void) {
     key_state_t *free_slot = NULL;
     do {
-        for (int i = 0; i < KEY_POOL_SIZE; i++) {
-            if (key_heap_arr[i].field_E & 0x80) {
-                memset(&key_heap_arr[i], 0, sizeof(key_state_t));
-                free_slot = &key_heap_arr[i];
-                break;
-            }
+        int i;
+        POOL_SEARCH(key_heap_arr, KEY_POOL_SIZE, key_hint, KEY_IS_FREE, i);
+        if (i >= 0) {
+            memset(&key_heap_arr[i], 0, sizeof(key_state_t));
+            free_slot = &key_heap_arr[i];
         }
         if (!free_slot) { try_to_remove_scene_or_action(); }
     } while (!free_slot);
