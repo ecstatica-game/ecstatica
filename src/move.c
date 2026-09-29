@@ -420,8 +420,8 @@ int16_t do_wander(actor_t *actor) {
 
 /* move_do_new_wander  E1: 0x423B3C | E2: 0x42A364 */
 int16_t do_new_wander(actor_t *actor) {
-    int dir_z = (actor->actor_box_size * cosn_table[(uint16_t)actor->Rotate.Y]) >> 15;
-    int dir_x = (actor->actor_box_size * sine_table[(uint16_t)actor->Rotate.Y]) >> 15;
+    int dir_z = (actor->actor_box_size * cosn_table[(uint16_t)actor->rotate_vector.Y]) >> 15;
+    int dir_x = (actor->actor_box_size * sine_table[(uint16_t)actor->rotate_vector.Y]) >> 15;
 
     vector_t vv21, vv22, v22_probe;
     vv22.Y = vv21.Y = actor->position_vector.Y;
@@ -699,6 +699,12 @@ void behaviour(actor_t *actor, int game_time_arg) {
             goto have_target;
         }
 
+        /* asm behaviour_427554+8FD: rel_angle is the actor's own facing, not
+         * a body part's. The part heading below only feeds the "target is
+         * behind me" test; using it for rel_angle left an actor whose torso
+         * is twisted in its idle/walk pose never inside the 2048 attack cone,
+         * so it walked and turned next to the target instead of striking. */
+        rel_angle = actor->rotate_vector.Y - (int16_t)target_direction;
         if (abs(dy) <= 768 || abs(dy) <= target_distance) {
             if (target_distance / 3 >= abs(dy))
                 vertical_direction = 0;
@@ -708,14 +714,16 @@ void behaviour(actor_t *actor, int game_time_arg) {
                 vertical_direction = 1;
         } else {
             target_distance = 0x7FFF;
+            rel_angle = 0;
         }
 
-        rel_angle = (int16_t)arctan(part->matrix_1._13, part->matrix_1._33)
-                  - (int16_t)target_direction;
-
-        if (actor->interact_state & 2) {
+        int16_t part_angle = (int16_t)(arctan(part->matrix_1._13, part->matrix_1._33)
+                                       - (int16_t)target_direction);
+        if ((actor->interact_state & 2)
+            && (part_angle > 0x3000 || part_angle < -0x3000)
+            && !interact_actor->hold_timer
+            && target_distance > (interact_actor->actor_rep_index == 3 ? 0x100 : 0x800))
             los_blocked = 1;
-        }
         if (!los_blocked) {
             vector_t step;
             set_vector(&step, dx, dy, dz);
@@ -750,7 +758,7 @@ void behaviour(actor_t *actor, int game_time_arg) {
                     ? abs(dx) / 2 + abs(dz)
                     : abs(dz) / 2 + abs(dx));
                 if (abs(dy) <= 768 || abs(dy) <= target_distance)
-                    rel_angle = actor->Rotate.Y - (int16_t)target_direction;
+                    rel_angle = actor->rotate_vector.Y - (int16_t)target_direction;
                 else {
                     interact_actor = NULL;
                     target_distance = 0x7FFF;
