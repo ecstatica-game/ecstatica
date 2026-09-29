@@ -11,6 +11,7 @@ make e2       # build + run E2 (copies binary to data/e2/)
 make e1       # build + run E1 (copies binary to data/e1/W/)
 make e2-viewer / make e1-viewer   # model & animation browser (--viewer)
 make e2-scenes / make e1-scenes   # scripted-scene browser (--scenes)
+make e2-pointcloud / make e1-pointcloud   # views + depth → pointcloud.ply (--pointcloud)
 make clean    # remove build/
 ```
 
@@ -75,6 +76,7 @@ src/
   debug_overlay.c — runtime debug overlay
   compat.h      — compiler/platform compatibility macros
   tools/viewer.c     — model/animation/scene browser (--viewer, --scenes); not in the original
+  tools/pointcloud.c — unprojects every view's depth into a PLY point cloud (--pointcloud); not in the original
   platforms/desktop_common.c — data dir / save paths shared by macOS, Linux, Windows
   platforms/macos.m  — Cocoa NSView framebuffer, input, timing
   platforms/linux.c  — X11/GLX, ALSA, FluidSynth music
