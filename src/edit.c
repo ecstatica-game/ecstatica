@@ -556,6 +556,7 @@ void free_all_heaps(void) {
     /* Mark all point entries as free (point_use_flag = 1) */
     for (int i = 0; i < POINT_POOL_SIZE; i++)
         point_heap_arr[i].point_use_flag = 1;
+    reset_pool_hints();
 
     /* Free all sounds */
     for (int i = 0; i < SOUND_POOL_SIZE; i++)
