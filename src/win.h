@@ -6,6 +6,11 @@
 extern void *hwnd;
 extern bool app_active;
 
+/* SCALE_PILLARBOX / SCALE_CROP / SCALE_STRETCH (platform.h). Loaded from
+ * ecstatica.cfg before do_init() creates the platform, so the saved
+ * preference reaches platform_set_scale_mode() on first apply — see init.c. */
+extern int16_t display_scale_mode;
+
 struct platform_t;
 
 /* The platform handle do_init() created. NULL before do_init(). The viewer
@@ -20,6 +25,7 @@ void window_proc(void);
 void doInit(void);
 void change_screen_mode_win95(void);
 void win_set_render_size(int w, int h);
+void win_set_scale_mode(int mode);
 void win_main_game(void);
 void get_windows_directory_win95(void);
 

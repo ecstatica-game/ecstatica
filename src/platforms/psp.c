@@ -71,6 +71,7 @@ struct platform_t {
 
 static platform_t g_plat;
 static volatile bool s_running = true;
+static int s_scale_mode = SCALE_PILLARBOX;
 
 /* ── Video ──────────────────────────────────────────────────── */
 
@@ -170,6 +171,51 @@ bool platform_hires_supported(platform_t *p) {
     return true;
 }
 
+bool platform_scale_mode_supported(platform_t *p) {
+    (void)p;
+    return true;
+}
+
+void platform_set_scale_mode(platform_t *p, int mode) {
+    (void)p;
+    if (mode < SCALE_PILLARBOX || mode > SCALE_STRETCH)
+        return;
+    s_scale_mode = mode;
+}
+
+/* Screen x-range and source v (texel-row) range for the current scale mode.
+ * The horizontal source range is always the full [0, sw) — on both PSP and
+ * Vita panels the picture only ever needs to be cropped vertically to fill
+ * the screen, never horizontally, because the panel is wider than 4:3. */
+static void compute_dst_rect(int sw, int sh, int *dst_x0, int *dst_x1, int *v0, int *v1) {
+    (void)sw;
+    switch (s_scale_mode) {
+    case SCALE_CROP: {
+        int full_h = SCREEN_W * 3 / 4;
+        int off = (full_h - SCREEN_H) / 2;
+        *dst_x0 = 0;
+        *dst_x1 = SCREEN_W;
+        *v0 = off * sh / full_h;
+        *v1 = (off + SCREEN_H) * sh / full_h;
+        break;
+    }
+    case SCALE_STRETCH:
+        *dst_x0 = 0;
+        *dst_x1 = SCREEN_W;
+        *v0 = 0;
+        *v1 = sh;
+        break;
+    default: /* SCALE_PILLARBOX */ {
+        int dst_w = SCREEN_H * 4 / 3;
+        *dst_x0 = (SCREEN_W - dst_w) / 2;
+        *dst_x1 = *dst_x0 + dst_w;
+        *v0 = 0;
+        *v1 = sh;
+        break;
+    }
+    }
+}
+
 void platform_set_render_size(platform_t *p, int w, int h) {
     if (!p || w <= 0 || h <= 0)
         return;
@@ -221,7 +267,19 @@ void platform_blit(platform_t *p, const uint8_t *framebuffer, const uint8_t *pal
      * just rasterised is still sitting in it. */
     sceKernelDcacheWritebackRange(src, frame_bytes);
 
+    int dst_x0, dst_x1, v0, v1;
+    compute_dst_rect(sw, sh, &dst_x0, &dst_x1, &v0, &v1);
+    int dst_w = dst_x1 - dst_x0;
+
     sceGuStart(GU_DIRECT, s_gu_list);
+
+    /* Pillarboxed frames leave bars the sprite loop below never touches;
+     * both GE display buffers need reblacking whenever that's the case,
+     * since a stretch/crop frame drawn earlier may have painted over them. */
+    if (dst_x0 > 0) {
+        sceGuClearColor(0);
+        sceGuClear(GU_COLOR_BUFFER_BIT);
+    }
 
     sceGuClutMode(GU_PSM_8888, 0, 0xFF, 0);
     sceGuClutLoad(32, s_clut);          /* 32 blocks of 8 entries = 256 */
@@ -253,13 +311,13 @@ void platform_blit(platform_t *p, const uint8_t *framebuffer, const uint8_t *pal
 
         blit_vertex_t *v = (blit_vertex_t *)sceGuGetMemory(2 * sizeof(blit_vertex_t));
         v[0].u = (unsigned short)u0;
-        v[0].v = 0;
-        v[0].x = (short)(sx * SCREEN_W / sw);
+        v[0].v = (unsigned short)v0;
+        v[0].x = (short)(dst_x0 + sx * dst_w / sw);
         v[0].y = 0;
         v[0].z = 0;
         v[1].u = (unsigned short)(u0 + sw_slice);
-        v[1].v = (unsigned short)sh;
-        v[1].x = (short)((sx + sw_slice) * SCREEN_W / sw);
+        v[1].v = (unsigned short)v1;
+        v[1].x = (short)(dst_x0 + (sx + sw_slice) * dst_w / sw);
         v[1].y = SCREEN_H;
         v[1].z = 0;
 

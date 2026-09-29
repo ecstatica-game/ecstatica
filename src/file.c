@@ -22,6 +22,7 @@
 #include "req.h"
 #include "topo.h"
 #include "platform.h"
+#include "win.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -1632,6 +1633,10 @@ void load_port_settings(void) {
             render_enhanced_light = (value != 0);
         } else if (sscanf(line, "map3d = %d", &value) == 1) {
             render_map3d = (value != 0);
+        } else if (sscanf(line, "scale_mode = %d", &value) == 1) {
+            if (value < SCALE_PILLARBOX) value = SCALE_PILLARBOX;
+            if (value > SCALE_STRETCH) value = SCALE_STRETCH;
+            display_scale_mode = (int16_t)value;
         }
     }
     fclose(f);
@@ -1646,6 +1651,7 @@ void save_port_settings(void) {
     fprintf(f, "supersample = %d\n", (int)render_supersample);
     fprintf(f, "enhanced_light = %d\n", (int)render_enhanced_light);
     fprintf(f, "map3d = %d\n", (int)render_map3d);
+    fprintf(f, "scale_mode = %d\n", (int)display_scale_mode);
     fclose(f);
 }
 

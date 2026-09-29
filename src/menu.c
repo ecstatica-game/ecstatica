@@ -532,6 +532,7 @@ enum {
     SETT_SUPERSAMPLE,
     SETT_LIGHTING,
     SETT_MAP3D,
+    SETT_SCALEMODE,
     SETT_MAX
 };
 
@@ -624,6 +625,7 @@ static bool setting_is_locked(int id) {
 }
 
 static const char *subtitle_hold_names[] = { "Original", "Long", "Match voice" };
+static const char *scale_mode_names[] = { "Pillarbox", "Crop", "Stretch" };
 
 static void settings_get_value(int id, char *buf, int bufsz) {
     if (setting_is_locked(id)) {
@@ -669,6 +671,9 @@ static void settings_get_value(int id, char *buf, int bufsz) {
         break;
     case SETT_MAP3D:
         snprintf(buf, bufsz, "%s", render_map3d ? "3D Map" : "Pre-rendered");
+        break;
+    case SETT_SCALEMODE:
+        snprintf(buf, bufsz, "%s", scale_mode_names[display_scale_mode]);
         break;
     }
 }
@@ -736,13 +741,17 @@ static void settings_adjust(int id, int dir) {
         render_map3d = !render_map3d;
         save_port_settings();
         break;
+    case SETT_SCALEMODE:
+        win_set_scale_mode(((display_scale_mode + dir) % 3 + 3) % 3);
+        save_port_settings();
+        break;
     }
 }
 
 static const char *settings_labels[] = {
     "Difficulty", "Language", "Music", "Sound FX", "Subtitles",
     "Subtitle Size", "Subtitle Hold", "Graphics",
-    "Supersampling", "3D Lighting", "Background"
+    "Supersampling", "3D Lighting", "Background", "Scale Mode"
 };
 
 /* Shared driver for Settings and its Enhanced sub-panel: same rows, same
@@ -833,6 +842,10 @@ void do_enhanced_menu(void) {
         items[num_items++] = SETT_LIGHTING;
         items[num_items++] = SETT_MAP3D;
     }
+    /* PSP and Vita panels are wider than the game's 4:3 picture; desktop and
+     * DOS own their window shape and have nothing to offer here. */
+    if (platform_scale_mode_supported(win_platform()))
+        items[num_items++] = SETT_SCALEMODE;
 
     run_settings_panel("Enhanced", items, num_items);
 }
