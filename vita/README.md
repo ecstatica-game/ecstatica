@@ -2,8 +2,15 @@
 
 This is a PS Vita build of the C99 port. It uses the same engine as every
 other target. All the Vita-specific code is in `../src/platforms/vita.c`, which
-the engine reaches through `platform.h`. One VPK runs both Ecstatica 1 and
-Ecstatica 2: the engine detects which game from the data it finds.
+the engine reaches through `platform.h`.
+
+The build makes two VPKs from the same code, one for each game. Each one is a
+separate LiveArea bubble and reads its own data folder:
+
+| VPK                | Bubble       | Title ID  | Data folder              |
+| ------------------ | ------------ | --------- | ------------------------ |
+| `ecstatica-e1.vpk` | Ecstatica    | ECST00001 | `ux0:data/ecstatica/e1/` |
+| `ecstatica-e2.vpk` | Ecstatica II | ECST00002 | `ux0:data/ecstatica/e2/` |
 
 ## Building
 
@@ -13,9 +20,9 @@ You need [VitaSDK](https://vitasdk.org) with `VITASDK` set:
 export VITASDK=/usr/local/vitasdk
 export PATH=$VITASDK/bin:$PATH
 
-make vita                              # → vita/build/ecstatica.vpk
+make vita                              # → vita/build/ecstatica-e1.vpk, -e2.vpk
 cmake -S vita -B vita/build -DPROFILE=ON && cmake --build vita/build
-                                       # the same, and it writes prof.log
+                                       # the same, and they write prof.log
 ```
 
 The build uses only the system libraries (`SceDisplay`, `SceCtrl`, `SceTouch`,
@@ -23,29 +30,37 @@ The build uses only the system libraries (`SceDisplay`, `SceCtrl`, `SceTouch`,
 
 ## Installing
 
-1. Install `ecstatica.vpk` with VitaShell.
-2. Copy the game data to `ux0:data/ecstatica/`, exactly as the desktop build
-   reads it:
+1. Install one or both VPKs with VitaShell.
+2. Copy each game's data into its folder, exactly as the desktop build reads
+   it:
 
 ```
 ux0:data/ecstatica/
-    CODE/           ← CODE/ECSTATIC.FAN marks the folder as the game
-    FILES/
-    VIEWS/
-    ...
+    e1/             ← Ecstatica 1: the DOS release root, with W/ inside it
+        CODE/       ← CODE/ECSTATIC.FAN marks the folder as the game
+        FILES/
+        VIEWS/
+        W/
+        ...
+    e2/             ← Ecstatica 2
+        CODE/
+        FILES/
+        HIRES/
+        ...
 ```
 
-To keep both games on the card, put them in `ux0:data/ecstatica/e2/` and
-`ux0:data/ecstatica/e1/` instead. If both folders are there, E2 starts. The
-game also looks in `uma0:data/ecstatica`.
+You do not need the installers, `DIRECTX/`, `ISHIELD/` or the `.EXE` and `.DLL`
+files. If you have only one game, you can put its data straight into
+`ux0:data/ecstatica/`, and either bubble opens it. The game also looks in
+`uma0:data/ecstatica`.
 
-For Ecstatica 1, copy the DOS release root with its `W/` folder inside it.
-The game starts in the enhanced 640x480 graphics and switches to the original
-320x200 set from the settings menu.
+Ecstatica 1 needs its `W/` folder for the enhanced 640x480 graphics. It starts
+in enhanced graphics, and you can switch to the original 320x200 set from the
+settings menu.
 
-The game writes saves to `saved/` beside the data, with eleven slots. The save
-format is the same on every platform, so a save copied from a desktop install
-works here, and a save from the Vita works on the desktop.
+The game writes saves to `saved/` in each game's folder, with eleven slots. The
+save format is the same on every platform, so a save copied from a desktop
+install works here, and a save from the Vita works on the desktop.
 
 ## Controls
 

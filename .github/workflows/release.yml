@@ -306,12 +306,16 @@ jobs:
         run: |
           docker run --rm -v "$PWD:/src" -w /src vitasdk/vitasdk:latest \
             sh -c 'make vita'
-          cp vita/build/ecstatica.vpk ecstatica-vita.vpk
+          # One VPK per game; each is its own LiveArea bubble.
+          cp vita/build/ecstatica-e1.vpk ecstatica-vita-e1.vpk
+          cp vita/build/ecstatica-e2.vpk ecstatica-vita-e2.vpk
 
       - uses: actions/upload-artifact@v4
         with:
           name: vita-build
-          path: ecstatica-vita.vpk
+          path: |
+            ecstatica-vita-e1.vpk
+            ecstatica-vita-e2.vpk
 
   release:
     needs: [build-macos, build-linux-x86_64, build-linux-arm64, build-windows-x86_64, build-windows-arm64, build-dos, build-win9x, build-psp, build-vita]
@@ -334,5 +338,6 @@ jobs:
             artifacts/dos-build/ecstatica-dos.zip
             artifacts/win9x-build/ecstatica-win9x.zip
             artifacts/psp-build/ecstatica-psp.zip
-            artifacts/vita-build/ecstatica-vita.vpk
+            artifacts/vita-build/ecstatica-vita-e1.vpk
+            artifacts/vita-build/ecstatica-vita-e2.vpk
           generate_release_notes: true
