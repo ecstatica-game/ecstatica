@@ -221,8 +221,11 @@ modifiers instead.
 
 R3 needs a `HIRES` set beside the game data to have anything to switch to —
 E2's data ships one, E1 needs the Win95 release. Without it the button is a
-no-op. **Left stick click (L3) does something different in each game** and is
-listed in the per-game tables below.
+no-op. On a pad with no clickable stick — see [Handhelds](#handhelds-vita-psp-analogue-pocket-mister)
+below — the same switch is always reachable from Settings → Enhanced →
+Graphics instead. **Left stick click (L3) does something different in each
+game** and is listed in the per-game tables below; where it exists (E1's speed
+mode) that row has the same Settings → Enhanced menu fallback.
 
 The left stick is read radially: distance from centre decides whether it counts
 as pushed at all, then the angle picks one of eight 45-degree sectors.
@@ -244,6 +247,11 @@ the free hand, and either can be holding something. Each trigger is that hand.
 | RB / R1 + left stick | Ctrl + direction | Directional attack — see below |
 | **Left stick click (L3)** | F1 / F5 / F9 | Cycle speed mode: walk → run → sneak → walk |
 | A / Cross | Space | Pick up without choosing a hand |
+
+L3 needs a clickable stick, which not every pad this engine targets has —
+Settings → Enhanced → Speed Mode reaches the same three steps from any menu,
+gamepad or keyboard, and is the only way to change speed at all on a
+platform with no L3 (see [Handhelds](#handhelds-vita-psp-analogue-pocket-mister)).
 
 RB is the attack modifier, and the direction you hold picks the strike:
 
@@ -361,3 +369,79 @@ shows this as `conn=1` with values that never move.
 Either add the binary to Steam as a non-Steam game and launch it from there, or
 switch the controller's desktop layout to a gamepad template. A pad on its own
 driver — Xbox, DualSense, a generic USB pad — is unaffected either way.
+
+---
+
+## Handhelds (Vita, PSP, Analogue Pocket, MiSTer)
+
+All four run their own `platform_gamepad_poll()` (there is no desktop gamepad
+API to go through), but they fill the same `platform_gamepad_state_t` that
+`window_proc()` reads, so the mapping in the tables above still holds. What
+differs is which physical inputs exist to fill it. Vita and PSP are one fixed
+piece of hardware each. Analogue Pocket and MiSTer share the same
+`openfpga.c` backend and openfpgaOS input abstraction, but are not the same
+hardware case: **Pocket** is a closed handheld with a small, fixed button set
+and nothing analog on its own body, while **MiSTer** is a PC-like host that
+plays whatever controller is plugged into it — the input its game session
+sees depends entirely on that controller, and can range from a bare D-pad pad
+to a full modern dual-stick one. Each platform's own `README.md` carries the
+authoritative table; this is the summary and the deltas from the desktop
+mapping above.
+
+| | D-pad/stick | Face buttons | Shoulders | Second stick | Stick clicks | Pointer |
+|---|---|---|---|---|---|---|
+| Vita | ✓ | ✓ | L/R only (no LT/RT) | ✓ | none | front touch |
+| PSP | ✓ (one stick) | ✓ | one per side (no LT/RT) | none | none | analog + Cross |
+| Analogue Pocket (own body) | ✓ (D-pad only) | ✓ | L/R only (no LT/RT) | none | none | none (needs Dock + mouse) |
+
+MiSTer, and a docked Pocket, aren't a fixed row in this table — see below.
+
+- **Vita** has no L3/R3 on its own body (a PS TV pad's real DualShock does),
+  so the graphics toggle (R3 elsewhere) and, on E1, the speed-mode cycle (L3)
+  both fall back to Settings → Enhanced in the pause menu — `SETT_GRAPHICS`
+  and `SETT_SPEED_MODE` in `menu.c`, reachable from any platform's D-pad and
+  confirm button. E1's left/right-hand pick-up, which the desktop mapping
+  puts on LT/RT, moves to the rear touchpad (or Select + L/R as a chorded
+  alternative) since the Vita has no back triggers.
+- **PSP** has a single stick and one shoulder button per side, so it cannot
+  fit the desktop mapping's LT/RT at all: Select acts as a shift key for the
+  second shoulder row (`Select+L`/`Select+R`) instead. E1's right-stick quick
+  swings have no stick to sit on, but they were only ever a shortcut — both
+  land on the same move codes as RB+Up / RB+Right in `move.c`'s
+  `BH_JOYSTICK` handling (`extra_keys_pressed[71]`/`[73]` produce `next_move`
+  0/2, identically to the Ctrl+Up/Ctrl+Right branch above them), so nothing
+  is actually lost. R3's graphics toggle and, on E1, L3's speed-mode cycle
+  have no stick-click to sit on either; both reach the same Settings →
+  Enhanced menu fallback as Vita's. The stick doubles as the menu cursor
+  (analog + Cross), since PSP has no touch or mouse.
+- **Analogue Pocket**, played on its own body with nothing docked, is the
+  most limited input of any target this engine ships to: D-pad, A/B/X/Y, L/R
+  and Start/Select, and nothing else — no analog stick, no triggers, no
+  stick clicks, so `joy_lx/ly/rx/ry`, `trigger_l/r` and L2/R2/L3/R3 all read
+  permanently zero. Without a shoulder chord this would leave E1's per-hand
+  pick-up and E2's whole magic modifier unreachable (both are LT/RT), not
+  just the redundant right-stick shortcuts — `openfpga.c` didn't have one
+  until this was caught, unlike `vita.c`/`psp.c`; it now does, same as PSP's:
+  Select + L or Select + R gives LT/RT. RB+LT direction combos, aimed attacks
+  included, are reachable the same way PSP's are — four inputs at once
+  (R, Select, L, direction) is awkward but not impossible. E1's right-stick
+  quick swings are still unbound, but redundant: `move.c`'s `BH_JOYSTICK`
+  sends them to the same move codes as R+Up / R+Right. R3's graphics toggle
+  and E1's L3 speed-cycle both go through Settings → Enhanced, same as the
+  other two handhelds; E2's L3→HUD toggle was never a unique gap since
+  Select already does the same thing on its own. It also leaves the
+  mouse-driven requester dialogs in `req.c` with no cursor: `pump_pointer()`'s
+  fallback (right stick moves it, R3 clicks) assumes a stick and a click
+  button neither exist on bare Pocket. A Pocket Dock with a USB mouse — or a
+  compatible USB/Bluetooth controller through the Dock's second port — is
+  the only way to reach either.
+- **MiSTer**, and an Analogue Pocket docked with its own controller, run the
+  same code path as bare Pocket, but a real controller behind it changes what
+  that path actually sees: a modern dual-stick pad fills every field the
+  desktop mapping uses, right stick, triggers, L3/R3 included, and the full
+  mapping in the tables above applies verbatim, including the R3 graphics
+  toggle and the mouse-cursor stand-in over the right stick. A smaller pad
+  (no second stick, no clicks) reproduces the same gaps as bare Pocket for
+  whatever it's missing. There is no single "MiSTer control scheme" to
+  document beyond this — it is the controller's own capabilities, not
+  anything this engine restricts.
