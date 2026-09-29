@@ -218,7 +218,8 @@ void init(void) {
     if (!display_hires)
         DBG_LOG(1, "[INIT] display has no 640x480 8-bit mode; staying in VGA\n");
 
-    /* Follows the database, so E2 and Win95 E1 come up in SVGA.
+    /* Enhanced whenever the hi-res set is there: E2, Win95 E1, and DOS E1
+     * with a W/ folder beside it. Only bare DOS E1 data boots in VGA.
      *
      * Do not be tempted to force VGA on small-panel targets to save fill rate.
      * E2's low-resolution asset set is incomplete: LOWGRAPH/ has no twin for
@@ -226,7 +227,7 @@ void init(void) {
      * so load_raw_graphic() falls through to the 640x480 GRAPHICS/ art and
      * the whole HUD draws at the wrong size. Backgrounds would survive — E2's
      * VIEWS/ is a genuine 320x200 set — but the interface does not. */
-    int boot_vga = vga_data || !display_hires;
+    int boot_vga = !display_hires || (vga_data && !hires_available);
 
     /* Must agree with the boot resolution before the first asset load, or the
      * swappable lookups prefer the wrong root. It only mattered once the W/
