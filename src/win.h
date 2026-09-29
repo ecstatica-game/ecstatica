@@ -26,6 +26,13 @@ void doInit(void);
 void change_screen_mode_win95(void);
 void win_set_render_size(int w, int h);
 void win_set_scale_mode(int mode);
+
+/* E1 speed mode (sneak/walk/run), shared between window_proc()'s L3 handler
+ * and the Settings menu's Speed Mode row — see win.c. dir > 0 advances,
+ * dir <= 0 retreats; e1_speed_mode_step() reads the current step back for
+ * display (0 = sneak, 1 = walk, 2 = run). */
+void e1_cycle_speed_mode(int dir);
+int e1_speed_mode_step(void);
 void win_main_game(void);
 void get_windows_directory_win95(void);
 

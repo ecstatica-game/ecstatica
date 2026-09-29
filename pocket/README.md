@@ -262,25 +262,41 @@ The slots that matter:
 ## Controls
 
 `window_proc()` in `src/win.c` already maps a gamepad; this backend fills the
-same `platform_gamepad_state_t`, so the bindings match every other platform:
+same `platform_gamepad_state_t`, so the bindings match every other platform —
+but the bare Pocket's own body is a fixed, limited controller: D-pad, A/B/X/Y,
+one L and one R button, Start and Select. No analog stick, no triggers, no
+stick clicks — `joy_lx/ly/rx/ry`, `trigger_l/r` and L2/R2/L3/R3 all read zero
+until a real controller is attached through the Dock's second port.
 
-| Pocket | Action |
+| Bare Pocket | Action |
 |---|---|
-| D-pad / left stick | move (8-way) |
+| D-pad | move (8-way) |
 | A | interact / pick up |
-| B, Start | menu / back |
-| X | use item / magic |
+| B, Start | back / pause |
+| X | use held item / flip / roll |
 | Y | inventory |
 | L | jump |
-| R | run / attack |
-| Select | toggle HUD |
-| L3 | cycle speed mode |
-| Right stick | combat swings, hand pick/drop |
+| R | run, or attack with a direction |
+| Select | toggle HUD icons |
+| Select + L / R | E1: left/right hand pick up & drop. E2: magic modifier |
+
+Select is the shift for the second shoulder row, same as on PSP — held with L
+or R it reaches LT/RT instead of its own HUD toggle. E1's right-stick quick
+swings are the one thing left unbound, and they were only ever a shortcut:
+`move.c`'s `BH_JOYSTICK` sends them to the same move codes as R + Up / R +
+Right, so nothing is actually lost. The R3 graphics toggle and, on E1, the L3
+speed-mode cycle have no stick-click to sit on; both are always reachable from
+Settings → Enhanced in the pause menu instead.
 
 The requester dialogs in `req.c` are mouse-driven. A docked USB mouse drives the
-cursor directly; without one the right stick moves it and **R3** clicks. A docked
+cursor directly; without one the right stick moves it and **R3** clicks — both
+need a docked controller, since the bare Pocket has neither. A docked
 USB keyboard is mapped to the full `PKEY_*` set, so the debug and hotkey paths
 are reachable when docked.
+
+Docked with a full controller, or run on MiSTer with one plugged in, this
+backend reads the second stick, real L2/R2/triggers and L3/R3 the same way
+Vita and PSP do, and the complete mapping in `docs/controls.md` applies.
 
 ## Known limits
 

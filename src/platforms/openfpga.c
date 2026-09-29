@@ -418,16 +418,34 @@ void platform_gamepad_poll(platform_t *p, platform_gamepad_state_t *state) {
     state->btn_east   = (st.buttons & OF_BTN_B) != 0;
     state->btn_west   = (st.buttons & OF_BTN_X) != 0;
     state->btn_north  = (st.buttons & OF_BTN_Y) != 0;
-    state->btn_lb     = (st.buttons & OF_BTN_L1) != 0;
-    state->btn_rb     = (st.buttons & OF_BTN_R1) != 0;
-    state->btn_lt     = (st.buttons & OF_BTN_L2) != 0 || st.trigger_l > 16384;
-    state->btn_rt     = (st.buttons & OF_BTN_R2) != 0 || st.trigger_r > 16384;
     state->btn_start  = (st.buttons & OF_BTN_START) != 0;
-    state->btn_select = (st.buttons & OF_BTN_SELECT) != 0;
     state->btn_lstick = (st.buttons & OF_BTN_L3) != 0;
     /* R3 drives the virtual mouse click; don't also fire the graphics
      * toggle win.c binds to it. */
     state->btn_rstick = false;
+
+    /* The bare Analogue Pocket has one shoulder button per side and no
+     * L2/R2/triggers at all; L2/R2/trigger_l/trigger_r only read anything on
+     * a docked controller that actually has them. Select is the shift for
+     * the second shoulder row here too, same as vita.c/psp.c — without it,
+     * E1's per-hand pick-up and E2's magic modifier (both LT/RT) would be
+     * unreachable on a bare Pocket. */
+    bool l1 = (st.buttons & OF_BTN_L1) != 0;
+    bool r1 = (st.buttons & OF_BTN_R1) != 0;
+    bool l2 = (st.buttons & OF_BTN_L2) != 0 || st.trigger_l > 16384;
+    bool r2 = (st.buttons & OF_BTN_R2) != 0 || st.trigger_r > 16384;
+    bool select = (st.buttons & OF_BTN_SELECT) != 0;
+
+    if (select && (l1 || r1)) {
+        state->btn_lt = l1;
+        state->btn_rt = r1;
+    } else {
+        state->btn_lb     = l1;
+        state->btn_rb     = r1;
+        state->btn_select = select;
+    }
+    state->btn_lt |= l2;
+    state->btn_rt |= r2;
 
     return;
 }

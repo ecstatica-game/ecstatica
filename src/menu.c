@@ -533,6 +533,7 @@ enum {
     SETT_LIGHTING,
     SETT_MAP3D,
     SETT_SCALEMODE,
+    SETT_SPEED_MODE,
     SETT_MAX
 };
 
@@ -626,6 +627,7 @@ static bool setting_is_locked(int id) {
 
 static const char *subtitle_hold_names[] = { "Original", "Long", "Match voice" };
 static const char *scale_mode_names[] = { "Pillarbox", "Crop", "Stretch" };
+static const char *speed_mode_names[] = { "Sneak", "Walk", "Run" };
 
 static void settings_get_value(int id, char *buf, int bufsz) {
     if (setting_is_locked(id)) {
@@ -674,6 +676,9 @@ static void settings_get_value(int id, char *buf, int bufsz) {
         break;
     case SETT_SCALEMODE:
         snprintf(buf, bufsz, "%s", scale_mode_names[display_scale_mode]);
+        break;
+    case SETT_SPEED_MODE:
+        snprintf(buf, bufsz, "%s", speed_mode_names[e1_speed_mode_step()]);
         break;
     }
 }
@@ -745,13 +750,17 @@ static void settings_adjust(int id, int dir) {
         win_set_scale_mode(((display_scale_mode + dir) % 3 + 3) % 3);
         save_port_settings();
         break;
+    case SETT_SPEED_MODE:
+        e1_cycle_speed_mode(dir);
+        break;
     }
 }
 
 static const char *settings_labels[] = {
     "Difficulty", "Language", "Music", "Sound FX", "Subtitles",
     "Subtitle Size", "Subtitle Hold", "Graphics",
-    "Supersampling", "3D Lighting", "Background", "Scale Mode"
+    "Supersampling", "3D Lighting", "Background", "Scale Mode",
+    "Speed Mode"
 };
 
 /* Shared driver for Settings and its Enhanced sub-panel: same rows, same
@@ -846,6 +855,12 @@ void do_enhanced_menu(void) {
      * DOS own their window shape and have nothing to offer here. */
     if (platform_scale_mode_supported(win_platform()))
         items[num_items++] = SETT_SCALEMODE;
+    /* E1 only — E2 has no speed modes. The gamepad's own L3 click reaches
+     * this too, except L3 is real hardware only on a PS TV pad: PSP has no
+     * clickable stick at all, and a handheld Vita's sticks don't click
+     * either, so this row is the only way to reach it there. */
+    if (game_version == GAME_VERSION_E1)
+        items[num_items++] = SETT_SPEED_MODE;
 
     run_settings_panel("Enhanced", items, num_items);
 }

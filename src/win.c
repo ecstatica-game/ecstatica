@@ -39,6 +39,25 @@ void win_set_scale_mode(int mode) {
         platform_set_scale_mode(g_platform, mode);
 }
 
+/* E1's speed mode (sneak/walk/run), driven by simulating the F-key groups the
+ * game's own script reads — see the L3 handler in window_proc() for why it
+ * has to go through the keyboard rather than movement_speed_mode directly.
+ * Shared state so the Settings menu's Speed Mode row (menu.c) and a gamepad's
+ * L3 click land on the same counter: L3 does not exist on PSP or on a
+ * handheld Vita (it is real hardware only on a PS TV pad), so the menu row is
+ * the only way to reach this on those platforms. */
+static const int e1_speed_fkey[3] = { 0x70, 0x74, 0x78 };  /* F1, F5, F9 */
+static int e1_speed_step = 1;                              /* game starts in walk */
+
+void e1_cycle_speed_mode(int dir) {
+    e1_speed_step = (e1_speed_step + (dir > 0 ? 1 : 2)) % 3;
+    extra_keys_were_pressed[e1_speed_fkey[e1_speed_step]] = 1;
+}
+
+int e1_speed_mode_step(void) {
+    return e1_speed_step;
+}
+
 /* win_flip_win95_458094
  * Page flip — present the back buffer.
  * Original used DirectDraw IDirectDrawSurface::Flip().
@@ -439,14 +458,12 @@ void window_proc(void) {
          * the same F-key on every click. */
         if (gp.btn_lstick && !lstick_was_pressed) {
             if (game_version == GAME_VERSION_E1) {
-                /* F1 sneak, F5 walk, F9 run. The game starts in walk. */
-                static const int speed_fkey[3] = { 0x70, 0x74, 0x78 };
-                static int speed_step = 1;
-                speed_step = (speed_step + 1) % 3;
-                extra_keys_were_pressed[speed_fkey[speed_step]] = 1;
-                if (pad_debug >= 2)
+                e1_cycle_speed_mode(1);
+                if (pad_debug >= 2) {
+                    int step = e1_speed_mode_step();
                     fprintf(stderr, "[PAD] L3: speed step %d (F%d)\n",
-                            speed_step, speed_step == 0 ? 1 : speed_step == 1 ? 5 : 9);
+                            step, step == 0 ? 1 : step == 1 ? 5 : 9);
+                }
             } else {
                 key_i_was_pressed = true;   /* I: toggle HUD icons */
                 if (pad_debug >= 2)
