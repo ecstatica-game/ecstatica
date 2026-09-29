@@ -136,6 +136,14 @@ static void build_scale_maps(int sw, int sh) {
     s_map_mode = s_scale_mode;
 }
 
+int platform_crop_inset_y(platform_t *p, int render_h) {
+    (void)p;
+    if (s_scale_mode != SCALE_CROP) return 0;
+    int full_h = SCREEN_W * 3 / 4;
+    int off = (full_h - SCREEN_H) / 2;
+    return off * render_h / full_h;
+}
+
 static void upload_lut(const uint8_t *palette) {
     for (int i = 0; i < 256; i++) {
         uint32_t r = (uint32_t)(palette[i * 3 + 0] & 0x3F) << 2;

@@ -411,6 +411,13 @@ void platform_set_scale_mode(platform_t *p, int mode)
     (void)mode;
 }
 
+int platform_crop_inset_y(platform_t *p, int render_h)
+{
+    (void)p;
+    (void)render_h;
+    return 0;
+}
+
 /* Wait for the start of vertical retrace.
  *
  * The original did this (init_wait_vert_blank) and the port turned it into a
