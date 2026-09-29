@@ -228,8 +228,8 @@ deploy: release
 #
 #   make vendor OF_SDK=/path/to/openfpgaSDK
 #
-# vendor/ is gitignored by default. Commit it if you want clones of this repo
-# to build with no external checkout at all — it is ~7 MB.
+# vendor/ is committed (~7 MB), so clones and CI build with no external
+# checkout. It targets the SDK's older flat runtime/ layout.
 #
 # Licensing, which is why this is a copy and not a fetch: the SDK is
 # Apache-2.0 and its bundled musl is MIT, both redistributable with the
