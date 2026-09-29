@@ -310,7 +310,7 @@ static FILE *fopen_ci_root(const char *base, const char *path, const char *mode)
 /* Case-insensitive fopen: tries exact path first, then scans directory
  * for a case-insensitive filename match. Handles nested subdirectories.
  * Swappable asset directories are searched across both data roots. */
-FILE *fopen_ci(const char *path, const char *mode) {
+static FILE *fopen_ci_any(const char *path, const char *mode) {
     if (is_swappable_asset(path)) {
         /* Consult the root that holds the requested resolution first. */
         int prefer_alt = (enhanced_graphics != 0) == (alt_root_is_enhanced != 0);
@@ -323,6 +323,16 @@ FILE *fopen_ci(const char *path, const char *mode) {
     }
 
     return fopen_ci_root("", path, mode);
+}
+
+/* newlib's default stdio buffer is 1 KB, so a background or an archive merge
+ * became hundreds of sceIoRead calls — each one a Memory Stick round trip on
+ * a PSP. 32 KB turns a scene change into a couple of dozen. */
+FILE *fopen_ci(const char *path, const char *mode) {
+    FILE *f = fopen_ci_any(path, mode);
+    if (f && mode[0] == 'r')
+        setvbuf(f, NULL, _IOFBF, 32 * 1024);
+    return f;
 }
 
 /* A directory is a bundle root if it carries its own database. */
