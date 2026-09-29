@@ -138,9 +138,9 @@ static voxel_t *voxel_get(uint64_t key) {
 
 /* fp is the world size of the pixel the sample came from. */
 static void splat(const float p[3], const uint8_t rgb[3], float fp) {
-    uint64_t key = voxel_key((int)floorf(p[0] / s_voxel),
-                             (int)floorf(p[1] / s_voxel),
-                             (int)floorf(p[2] / s_voxel));
+    uint64_t key = voxel_key((int)(float)floor((double)(p[0] / s_voxel)),
+                             (int)(float)floor((double)(p[1] / s_voxel)),
+                             (int)(float)floor((double)(p[2] / s_voxel)));
     voxel_t *v = voxel_get(key);
     if (fp < v->best_fp) {
         v->best_fp = fp;
@@ -164,7 +164,8 @@ static void voxel_colour(const voxel_t *v, bool blend, uint8_t out[3]) {
 /* ── PLY output ─────────────────────────────────────────────── */
 
 static void put_vertex(FILE *f, float x, float y, float z, const uint8_t rgb[3]) {
-    float p[3] = { x, -y, -z };
+    float p[3];
+    p[0] = x; p[1] = -y; p[2] = -z;
     fwrite(p, sizeof(float), 3, f);
     fwrite(rgb, 1, 3, f);
 }
@@ -211,7 +212,7 @@ static bool view_exists(int cam) {
 
 static float dist3(const float a[3], const float b[3]) {
     float dx = a[0] - b[0], dy = a[1] - b[1], dz = a[2] - b[2];
-    return sqrtf(dx * dx + dy * dy + dz * dz);
+    return (float)sqrt((double)(dx * dx + dy * dy + dz * dz));
 }
 
 /* Two neighbouring pixels belong to the same surface unless their depths
@@ -242,11 +243,10 @@ static void unproject_view(int cam, int step, int max_z, bool fill, bool tint) {
     if (kx <= 0.0f || ky <= 0.0f) return;
 
     const float s = 1.0f / 16384.0f;
-    float m[3][3] = {
-        { view_matrix._11 * s, view_matrix._12 * s, view_matrix._13 * s },
-        { view_matrix._21 * s, view_matrix._22 * s, view_matrix._23 * s },
-        { view_matrix._31 * s, view_matrix._32 * s, view_matrix._33 * s },
-    };
+    float m[3][3];
+    m[0][0] = view_matrix._11 * s; m[0][1] = view_matrix._12 * s; m[0][2] = view_matrix._13 * s;
+    m[1][0] = view_matrix._21 * s; m[1][1] = view_matrix._22 * s; m[1][2] = view_matrix._23 * s;
+    m[2][0] = view_matrix._31 * s; m[2][1] = view_matrix._32 * s; m[2][2] = view_matrix._33 * s;
     float ox = view_pos.X, oy = view_pos.Y, oz = view_pos.Z;
 
     uint8_t pal[256][3];
@@ -318,7 +318,7 @@ static void unproject_view(int cam, int step, int max_z, bool fill, bool tint) {
             e2 = dist3(b, d);        if (e2 > edge) edge = e2;
             e2 = dist3(cc, d);       if (e2 > edge) edge = e2;
 
-            int n = (int)ceilf(edge / (s_voxel * 0.5f));
+            int n = (int)(float)ceil((double)(edge / (s_voxel * 0.5f)));
             if (n < 1) n = 1;
             if (n > 32) n = 32;
             const uint8_t *cb = TEXEL(tx + step < w ? tx + step : tx, ty);
@@ -410,7 +410,11 @@ static int element_polys(int bc, float poly[4][4][2], int nv[4]) {
     for (int q = 0; q < 4; q++) {
         if (!(bc & Q[q].bit)) continue;
         float x0 = Q[q].x0, z0 = Q[q].z0;
-        float sq[4][2] = { { x0, z0 }, { x0 + 256, z0 }, { x0 + 256, z0 + 256 }, { x0, z0 + 256 } };
+        float sq[4][2];
+        sq[0][0] = x0;       sq[0][1] = z0;
+        sq[1][0] = x0 + 256; sq[1][1] = z0;
+        sq[2][0] = x0 + 256; sq[2][1] = z0 + 256;
+        sq[3][0] = x0;       sq[3][1] = z0 + 256;
         memcpy(poly[n], sq, sizeof(sq));
         nv[n++] = 4;
     }
@@ -434,12 +438,12 @@ static bool top_colour(float cx, float cz, const float poly[][2], int nv,
                        float y_top, bool blend, uint8_t out[3]) {
     float sum[3] = { 0, 0, 0 };
     int hits = 0;
-    int vy0 = (int)floorf(y_top / s_voxel);
+    int vy0 = (int)(float)floor((double)(y_top / s_voxel));
     for (float lz = s_voxel * 0.5f; lz < 512.0f; lz += s_voxel) {
         for (float lx = s_voxel * 0.5f; lx < 512.0f; lx += s_voxel) {
             if (!point_in_poly(lx, lz, poly, nv)) continue;
-            int vx = (int)floorf((cx + lx) / s_voxel);
-            int vz = (int)floorf((cz + lz) / s_voxel);
+            int vx = (int)(float)floor((double)((cx + lx) / s_voxel));
+            int vz = (int)(float)floor((double)((cz + lz) / s_voxel));
             for (int dy = -2; dy <= 1; dy++) {
                 voxel_t *v = voxel_find(voxel_key(vx, vy0 + dy, vz));
                 if (!v) continue;
@@ -475,7 +479,8 @@ static void emit_face(mesh_out_t *m, FILE *faces, const float (*v)[3], int n,
     m->verts += (unsigned long)n;
     for (int i = 1; i + 1 < n; i++) {
         uint8_t cnt = 3;
-        int32_t idx[3] = { (int32_t)base, (int32_t)(base + i), (int32_t)(base + i + 1) };
+        int32_t idx[3];
+        idx[0] = (int32_t)base; idx[1] = (int32_t)(base + i); idx[2] = (int32_t)(base + i + 1);
         fwrite(&cnt, 1, 1, faces);
         fwrite(idx, sizeof(int32_t), 3, faces);
         m->faces++;
@@ -485,7 +490,8 @@ static void emit_face(mesh_out_t *m, FILE *faces, const float (*v)[3], int n,
 static void dump_map_blocks(bool blend) {
     FILE *vf = tmpfile(), *ff = tmpfile();
     if (!vf || !ff) { DBG_LOG(1, "[PC] map: no temp file\n"); return; }
-    mesh_out_t m = { vf, 0, 0 };
+    mesh_out_t m;
+    m.f = vf; m.verts = 0; m.faces = 0;
     unsigned long elems = 0, coloured = 0;
 
     for (int row = 0; row < 128; row++) {
@@ -548,12 +554,11 @@ static void dump_map_blocks(bool blend) {
 
                     for (int i = 0; i < nv[p]; i++) {
                         int j = (i + 1) % nv[p];
-                        float sv[4][3] = {
-                            { cx + poly[p][i][0], yt, cz + poly[p][i][1] },
-                            { cx + poly[p][i][0], yb, cz + poly[p][i][1] },
-                            { cx + poly[p][j][0], yb, cz + poly[p][j][1] },
-                            { cx + poly[p][j][0], yt, cz + poly[p][j][1] },
-                        };
+                        float sv[4][3];
+                        sv[0][0] = cx + poly[p][i][0]; sv[0][1] = yt; sv[0][2] = cz + poly[p][i][1];
+                        sv[1][0] = cx + poly[p][i][0]; sv[1][1] = yb; sv[1][2] = cz + poly[p][i][1];
+                        sv[2][0] = cx + poly[p][j][0]; sv[2][1] = yb; sv[2][2] = cz + poly[p][j][1];
+                        sv[3][0] = cx + poly[p][j][0]; sv[3][1] = yt; sv[3][2] = cz + poly[p][j][1];
                         emit_face(&m, ff, (const float (*)[3])sv, 4, sc);
                     }
                 }
