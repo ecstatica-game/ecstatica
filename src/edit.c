@@ -442,14 +442,19 @@ key_state_t *insert_key(action_t *action, uint16_t position) {
 
     key->KEY_position = position;
 
-    /* Find insertion point: sorted by position ascending */
-    key_state_t **prev_ptr = &action->key_list;
-    while (*prev_ptr && (*prev_ptr)->KEY_position <= key->KEY_position) {
-        prev_ptr = &(*prev_ptr)->next;
+    /* Find insertion point: sorted by position ascending. Walk nodes, not a
+     * pointer-to-link: `next` sits at offset 2 of a packed struct, and a plain
+     * key_state_t ** to it is misaligned, which faults on MIPS (PSP). */
+    key_state_t *prev = NULL;
+    key_state_t *cur = action->key_list;
+    while (cur && cur->KEY_position <= key->KEY_position) {
+        prev = cur;
+        cur = cur->next;
     }
 
-    key->next = *prev_ptr;
-    *prev_ptr = key;
+    key->next = cur;
+    if (prev) prev->next = key;
+    else action->key_list = key;
     return key;
 }
 
@@ -459,15 +464,18 @@ void add_event_to_key(event_t *event, key_state_t *key) {
 
     int priority = event_priority[event->event_type & 0x7F];
 
-    event_t **prev_ptr = &key->key_event_list;
-    while (*prev_ptr) {
-        int existing_priority = event_priority[(*prev_ptr)->event_type & 0x7F];
-        if (existing_priority > priority) break;
-        prev_ptr = &(*prev_ptr)->next;
+    /* Node walk for the same alignment reason as insert_key. */
+    event_t *prev = NULL;
+    event_t *cur = key->key_event_list;
+    while (cur) {
+        if (event_priority[cur->event_type & 0x7F] > priority) break;
+        prev = cur;
+        cur = cur->next;
     }
 
-    event->next = *prev_ptr;
-    *prev_ptr = event;
+    event->next = cur;
+    if (prev) prev->next = event;
+    else key->key_event_list = event;
 }
 
 /* edit_add_ellipse_to_key_41FA2C — defined in anim.c */
