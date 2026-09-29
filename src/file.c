@@ -16,6 +16,7 @@
 #include "init.h"
 #include "map.h"
 #include "menu.h"
+#include "prof.h"
 #include "move.h"
 #include "music.h"
 #include "req.h"
@@ -3182,7 +3183,15 @@ static int read_name_from_stream(FILE *f, char *buf, int max_len) {
 }
 
 /* file_merge_sought_file  E1: 0x43AFC8 | E2: 0x445324 */
+static void merge_sought_file_body(FILE *f, int quiet);
+
 void merge_sought_file(FILE *f, int quiet) {
+    PROF_BEGIN(PROF_LOAD);
+    merge_sought_file_body(f, quiet);
+    PROF_END(PROF_LOAD);
+}
+
+static void merge_sought_file_body(FILE *f, int quiet) {
     scene_t *scene = NULL;
     char name_buf[52];
     int name_count;

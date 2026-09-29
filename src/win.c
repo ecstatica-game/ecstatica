@@ -18,6 +18,7 @@
 #include "platform.h"
 #include "render.h"
 #include "compat.h"
+#include "prof.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -80,7 +81,9 @@ void flip_win95(void) {
     f12_was_pressed = f12_now;
 #endif /* ENABLE_FRAME_DUMP */
 
+    PROF_BEGIN(PROF_BLIT);
     platform_blit(g_platform, (const uint8_t *)plane_data, (const uint8_t *)view_cmap);
+    PROF_END(PROF_BLIT);
     dd_unlock(db, plane_data);
 }
 

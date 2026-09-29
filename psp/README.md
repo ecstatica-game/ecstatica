@@ -64,6 +64,15 @@ shoulder row, and E1's right-stick quick swings and the graphics toggle are
 unbound. The stick drives both the legs and the menu pointer — the cursor is
 not drawn in play, and nothing is walking while a requester is up.
 
+## Profiling
+
+`make -C psp PROFILE=1` builds an EBOOT that writes `prof.log` beside the
+game data. Every 100 frames it logs one line with the median, p90 and max
+frame time, the mean time of each phase (logic, draw, blit, archive load,
+background load), and the number of Memory Stick reads. Any frame over 66 ms
+gets its own `spike` line with the same breakdown. Build without `PROFILE`
+for play, because the counters cost a little on every frame.
+
 ## What is not there yet
 
 - **Music.** `music.c` converts the tune banks to a Standard MIDI File and
