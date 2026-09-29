@@ -289,6 +289,105 @@ void platform_set_title(platform_t *p, const char *title) {
     (void)title;
 }
 
+/* ── Profiler (ECS_PROFILE only) ────────────────────────────── */
+
+#ifdef ECS_PROFILE
+#include "../prof.h"
+
+#define PROF_WINDOW 100
+#define PROF_SPIKE_US 66000u
+
+static const char *const s_prof_names[PROF_COUNT] = {
+    "wait", "logic", "prep", "stuck", "draw", "show", "blit", "load",
+    "view", "raw"
+};
+static uint32_t s_prof_start[PROF_COUNT];
+static uint32_t s_prof_acc[PROF_COUNT];
+static uint32_t s_prof_win_acc[PROF_COUNT];
+static uint32_t s_prof_frames_us[PROF_WINDOW];
+static int s_prof_n;
+static uint32_t s_prof_last;
+static uint32_t s_io_reads, s_io_read_us, s_io_seeks, s_io_bytes;
+static uint32_t s_io_win_reads, s_io_win_us, s_io_win_seeks, s_io_win_bytes;
+static FILE *s_prof_log;
+
+int __real_sceIoRead(SceUID fd, void *data, SceSize size);
+int __wrap_sceIoRead(SceUID fd, void *data, SceSize size) {
+    uint32_t t = sceKernelGetSystemTimeLow();
+    int r = __real_sceIoRead(fd, data, size);
+    s_io_read_us += sceKernelGetSystemTimeLow() - t;
+    s_io_reads++;
+    if (r > 0) s_io_bytes += (uint32_t)r;
+    return r;
+}
+SceOff __real_sceIoLseek(SceUID fd, SceOff offset, int whence);
+SceOff __wrap_sceIoLseek(SceUID fd, SceOff offset, int whence) {
+    s_io_seeks++;
+    return __real_sceIoLseek(fd, offset, whence);
+}
+int __real_sceIoLseek32(SceUID fd, int offset, int whence);
+int __wrap_sceIoLseek32(SceUID fd, int offset, int whence) {
+    s_io_seeks++;
+    return __real_sceIoLseek32(fd, offset, whence);
+}
+
+void prof_begin(int phase) { s_prof_start[phase] = sceKernelGetSystemTimeLow(); }
+void prof_end(int phase) { s_prof_acc[phase] += sceKernelGetSystemTimeLow() - s_prof_start[phase]; }
+
+static int prof_cmp(const void *a, const void *b) {
+    uint32_t x = *(const uint32_t *)a, y = *(const uint32_t *)b;
+    return (x > y) - (x < y);
+}
+
+void prof_frame(void) {
+    uint32_t now = sceKernelGetSystemTimeLow();
+    if (!s_prof_log) {
+        s_prof_log = fopen("prof.log", "w");
+        s_prof_last = now;
+        memset(s_prof_acc, 0, sizeof(s_prof_acc));
+        return;
+    }
+    uint32_t frame = now - s_prof_last;
+    s_prof_last = now;
+
+    if (frame >= PROF_SPIKE_US) {
+        fprintf(s_prof_log, "spike %6.1f ms:", frame / 1000.0);
+        for (int i = 0; i < PROF_COUNT; i++)
+            fprintf(s_prof_log, " %s=%.1f", s_prof_names[i], s_prof_acc[i] / 1000.0);
+        fprintf(s_prof_log, " io=%lu/%.1fms\n", (unsigned long)s_io_reads, s_io_read_us / 1000.0);
+    }
+    for (int i = 0; i < PROF_COUNT; i++) {
+        s_prof_win_acc[i] += s_prof_acc[i];
+        s_prof_acc[i] = 0;
+    }
+    s_io_win_reads += s_io_reads; s_io_win_us += s_io_read_us;
+    s_io_win_seeks += s_io_seeks; s_io_win_bytes += s_io_bytes;
+    s_io_reads = s_io_read_us = s_io_seeks = s_io_bytes = 0;
+
+    s_prof_frames_us[s_prof_n++] = frame;
+    if (s_prof_n < PROF_WINDOW)
+        return;
+
+    uint32_t sum = 0;
+    for (int i = 0; i < PROF_WINDOW; i++) sum += s_prof_frames_us[i];
+    qsort(s_prof_frames_us, PROF_WINDOW, sizeof(uint32_t), prof_cmp);
+    fprintf(s_prof_log, "window t=%.1fs med=%.1f p90=%.1f max=%.1f mean=%.1f |",
+            now / 1e6, s_prof_frames_us[PROF_WINDOW / 2] / 1000.0,
+            s_prof_frames_us[PROF_WINDOW * 9 / 10] / 1000.0,
+            s_prof_frames_us[PROF_WINDOW - 1] / 1000.0, sum / 1000.0 / PROF_WINDOW);
+    for (int i = 0; i < PROF_COUNT; i++) {
+        fprintf(s_prof_log, " %s=%.2f", s_prof_names[i], s_prof_win_acc[i] / 1000.0 / PROF_WINDOW);
+        s_prof_win_acc[i] = 0;
+    }
+    fprintf(s_prof_log, " | io reads=%lu seeks=%lu kb=%lu ms=%.1f\n",
+            (unsigned long)s_io_win_reads, (unsigned long)s_io_win_seeks,
+            (unsigned long)(s_io_win_bytes / 1024), s_io_win_us / 1000.0);
+    s_io_win_reads = s_io_win_us = s_io_win_seeks = s_io_win_bytes = 0;
+    fflush(s_prof_log);
+    s_prof_n = 0;
+}
+#endif
+
 /* ── Input ──────────────────────────────────────────────────── */
 
 /* Analog stick: 0..255 per axis, centred at 128. Scale to the int16 range the

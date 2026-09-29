@@ -21,6 +21,7 @@
 #include "topo.h"
 #include <string.h>
 #include <stdio.h>
+#include "prof.h"
 
 uint16_t new_map[128][128];
 map_area_element_t map_elements[60000];
@@ -47,7 +48,15 @@ void switch_camera(camera_data_t *camera) {
 /* map_check_view_44BE20
  * Switch to a new camera, reload background, update visibility.
  */
+static void check_view_body(int camera_idx);
+
 void check_view(int camera_idx) {
+    PROF_BEGIN(PROF_VIEW);
+    check_view_body(camera_idx);
+    PROF_END(PROF_VIEW);
+}
+
+static void check_view_body(int camera_idx) {
     camera_data_t *cam = &camera[camera_idx];
     if (cam == active_camera) return;
     if (camera_idx < 0) goto update_actors;
@@ -64,7 +73,10 @@ void check_view(int camera_idx) {
         for (int i = 0; i < screen_height * screen_width; ++i)
             *mask_map_ptr++ = 0x7FFF;
     } else {
-        if (load_raw()) {
+        PROF_BEGIN(PROF_RAW);
+        int raw_failed = load_raw();
+        PROF_END(PROF_RAW);
+        if (raw_failed) {
             if (mode_svga) {
                 mode_svga = 0;
                 set_vga_constants();
@@ -178,7 +190,10 @@ void check_camera(void) {
         stop_the_clock = 1;
         switch_camera(cam);
 
-        if (load_raw()) {
+        PROF_BEGIN(PROF_RAW);
+        int raw_failed = load_raw();
+        PROF_END(PROF_RAW);
+        if (raw_failed) {
             if (mode_svga) {
                 mode_svga = 0;
                 set_vga_constants();

@@ -46,6 +46,12 @@ LIBS     = -lpspgu -lpspge -lpspdisplay -lpspctrl -lpspaudio -lpsppower -lm
 CFLAGS  = -O2 -G0 -Wall -Wextra -fwrapv -fsigned-char \
           -Wno-unused-parameter -Wno-missing-field-initializers \
           -Wno-sign-compare -Wno-unused-but-set-variable -Wno-char-subscripts
+
+# make PROFILE=1: per-frame phase timings and sceIo counters in prof.log.
+ifdef PROFILE
+CFLAGS  += -DECS_PROFILE
+LDFLAGS += -Wl,--wrap=sceIoRead -Wl,--wrap=sceIoLseek -Wl,--wrap=sceIoLseek32
+endif
 ASFLAGS = $(CFLAGS)
 
 EXTRA_TARGETS   = EBOOT.PBP

@@ -22,6 +22,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "compat.h"
+#include "prof.h"
 #ifndef _WIN32
 #endif
 
@@ -121,11 +122,16 @@ void do_movement(void) {
     break_do_movement = 0;
     num_info_lines = 0;
 
+    PROF_FRAME();
+
     /* Wait for next clock tick */
+    PROF_BEGIN(PROF_WAIT);
     int wait_time = my_time();
     while (wait_time == some_time)
         wait_time = my_time();
     x_time = wait_time;
+    PROF_END(PROF_WAIT);
+    PROF_BEGIN(PROF_LOGIC);
 
     int local_game_time = x_time - some_time;
     if (slow_motion) {
@@ -290,11 +296,20 @@ void do_movement(void) {
     }
 
     if (need_clear_graphics) clear_graphics();
+    PROF_END(PROF_LOGIC);
+    PROF_BEGIN(PROF_PREPARE);
     prepare_parts();
+    PROF_END(PROF_PREPARE);
+    PROF_BEGIN(PROF_STUCK);
     draw_stuck_parts();
+    PROF_END(PROF_STUCK);
+    PROF_BEGIN(PROF_DRAW);
     draw_parts();
     if (need_draw_graphics) draw_graphics();
+    PROF_END(PROF_DRAW);
+    PROF_BEGIN(PROF_SHOW);
     show_parts();
+    PROF_END(PROF_SHOW);
 
     if (selected_thing &&
         selected_thing->actor_behavior == BH_DEAD &&
