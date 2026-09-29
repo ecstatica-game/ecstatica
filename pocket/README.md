@@ -27,16 +27,15 @@ the smallest mode that holds it, or downscales into the largest if none does.
 ## Build
 
 ```bash
-git clone https://github.com/openfpgaOS/openfpgaSDK ../../openfpgaSDK
 brew install riscv-gnu-toolchain            # or your distro's equivalent
 cd pocket
-make vendor OF_SDK=../../openfpgaSDK        # once: copy artifacts into vendor/
 make                                        # -> pocket/build/obj/ecstatica.elf
 ```
 
-After `make vendor`, nothing needs `OF_SDK` again — building, `release` and
-`deploy` all read from `pocket/vendor/`. Without it, pass `OF_SDK=<path>` on
-every invocation; the Makefile prefers `vendor/` and falls back to a checkout.
+The SDK artifacts are committed in `pocket/vendor/`, so no SDK checkout is
+needed. Building, `release` and `deploy` all read from there. The toolchain
+needs an `rv32imafc/ilp32f` multilib; on Ubuntu, `gcc-riscv64-unknown-elf`
+has one, and CI uses it.
 
 Everything compiles in this tree. The SDK's build system is not invoked and
 nothing is copied into the SDK checkout — `pocket/Makefile` compiles
@@ -65,8 +64,11 @@ What the build consumes, none of it optional on this target:
 ### Vendoring
 
 `make vendor` copies all of the above into `pocket/vendor/` (~7 MB), after
-which no SDK checkout is required. `vendor/` is gitignored by default; commit
-it if you want clones to build with nothing external.
+which no SDK checkout is required. The copy in the repository is the runtime
+tested on hardware. It predates upstream's current layout, which splits
+`runtime/` into `pocket/` and `mister/` and ships one bitstream per variant
+(`os25.rbf_r`, ...) instead of `bitstream.rbf_r`. `make vendor` does not
+handle that layout yet, so re-vendoring from a current checkout fails.
 
 This is a copy rather than a submodule because the licences allow it: the SDK
 is Apache-2.0, its bundled musl is MIT, and `make vendor` reproduces both

@@ -1,6 +1,5 @@
 *.iso
 build/
-vendor/
 
 # Proprietary sample data — never commit a MIDI bank.
 core/bank.ofsf

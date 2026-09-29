@@ -1,0 +1,15 @@
+Third-party artifacts vendored from the openfpgaOS SDK
+https://github.com/openfpgaOS/openfpgaSDK
+
+sdk/include, sdk/app.ld, sdk/of_*.c, runtime/*
+    (c) 2026 ThinkElastic <Think@Elastic.com> — Apache-2.0
+    See LICENSES/Apache-2.0.txt
+
+sdk/musl/
+    (c) the musl contributors — MIT
+    See LICENSES/MIT.txt
+
+Deliberately NOT vendored: bank.ofsf (the MIDI soundfont). It is
+SC-55 sample data derived from Roland sound ROMs and is not ours to
+redistribute. Supply your own at core/bank.ofsf, or build one with the
+SDK's tools/sf2_to_ofsf.

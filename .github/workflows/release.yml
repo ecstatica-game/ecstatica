@@ -317,8 +317,61 @@ jobs:
             ecstatica-vita-e1.vpk
             ecstatica-vita-e2.vpk
 
+  # The openfpgaOS SDK artifacts are committed under pocket/vendor/, so this
+  # builds against exactly the runtime that was tested on hardware.
+  build-pocket:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install RISC-V toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-riscv64-unknown-elf
+          # The ELF links libgcc for rv32imafc/ilp32f; fail here, not at link.
+          test -f "$(riscv64-unknown-elf-gcc -march=rv32imafc -mabi=ilp32f -print-libgcc-file-name)"
+
+      - name: Build
+        run: make -C pocket release
+
+      - name: Package
+        run: |
+          mkdir -p dist/tools
+          cp -R pocket/build/Cores pocket/build/Platforms pocket/build/Assets dist/
+          cp pocket/mkiso.sh dist/tools/
+          cp pocket/core/instance.e1.json dist/tools/Ecstatica.json
+          cp pocket/core/instance.e2.json dist/tools/Ecstatica2.json
+          cat > dist/README.TXT << 'EOF'
+          Ecstatica — Analogue Pocket build (openfpgaOS, Ecstatica 1 and 2)
+
+          Copy Cores, Platforms and Assets to the root of the SD card.
+
+          The game data ships as an ISO image, built from your own copy of the
+          game with tools/mkiso.sh:
+
+            ./mkiso.sh <E1 data dir> ecstatica.iso
+            ./mkiso.sh <E2 data dir> ecstatica2.iso
+
+          Put the ISO in Assets/ecstatica/common/, then copy the matching
+          instance file (tools/Ecstatica.json for E1, tools/Ecstatica2.json
+          for E2) to Assets/ecstatica/xesf.Ecstatica/. The game then appears
+          in the Pocket's core menu.
+
+          mkiso.sh needs xorriso, mkisofs, genisoimage or (macOS) hdiutil.
+
+          No MIDI soundfont is included for licensing reasons, so music is
+          silent. Sound effects and speech play. To get music, put your own
+          bank.ofsf in Assets/ecstatica/common/.
+          EOF
+          cd dist && zip -r ../ecstatica-pocket.zip Cores Platforms Assets tools README.TXT
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pocket-build
+          path: ecstatica-pocket.zip
+
   release:
-    needs: [build-macos, build-linux-x86_64, build-linux-arm64, build-windows-x86_64, build-windows-arm64, build-dos, build-win9x, build-psp, build-vita]
+    needs: [build-macos, build-linux-x86_64, build-linux-arm64, build-windows-x86_64, build-windows-arm64, build-dos, build-win9x, build-psp, build-vita, build-pocket]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -340,4 +393,5 @@ jobs:
             artifacts/psp-build/ecstatica-psp.zip
             artifacts/vita-build/ecstatica-vita-e1.vpk
             artifacts/vita-build/ecstatica-vita-e2.vpk
+            artifacts/pocket-build/ecstatica-pocket.zip
           generate_release_notes: true
