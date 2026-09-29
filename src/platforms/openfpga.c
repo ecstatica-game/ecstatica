@@ -365,6 +365,13 @@ int platform_mouse_state(platform_t *p, int *out_x, int *out_y) {
     return p->mouse_buttons;
 }
 
+/* Flip an axis to positive-up. -(-32768) does not fit an int16, so a stick
+ * held fully forward would wrap round to fully back. */
+static int16_t neg_axis(int v) {
+    v = -v;
+    return (int16_t)(v > 32767 ? 32767 : (v < -32767 ? -32767 : v));
+}
+
 void platform_gamepad_poll(platform_t *p, platform_gamepad_state_t *state) {
     if (!state)
         return;
@@ -384,9 +391,9 @@ void platform_gamepad_poll(platform_t *p, platform_gamepad_state_t *state) {
     /* win.c reads left_y as "positive is up", matching the desktop
      * backends; the SDK reports positive-down, so invert here. */
     state->left_x  = st.joy_lx;
-    state->left_y  = (int16_t)-st.joy_ly;
+    state->left_y  = neg_axis(st.joy_ly);
     state->right_x = st.joy_rx;
-    state->right_y = (int16_t)-st.joy_ry;
+    state->right_y = neg_axis(st.joy_ry);
 
     state->btn_south  = (st.buttons & OF_BTN_A) != 0;
     state->btn_east   = (st.buttons & OF_BTN_B) != 0;

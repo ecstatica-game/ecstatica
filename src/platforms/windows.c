@@ -640,6 +640,13 @@ void platform_set_title(platform_t *p, const char *title) {
 
 #ifdef __WATCOMC__
 
+/* Flip an axis to positive-up. -(-32768) does not fit an int16, so a stick
+ * held fully forward would wrap round to fully back. */
+static int16_t neg_axis(int v) {
+    v = -v;
+    return (int16_t)(v > 32767 ? 32767 : (v < -32767 ? -32767 : v));
+}
+
 /* Win9x path. joyGetPosEx reports axes over a driver-declared range, so each
  * one is normalised against the caps rather than assumed to be 0..65535, and
  * Y is inverted to match XInput's up-is-positive convention. */
@@ -666,9 +673,9 @@ void platform_gamepad_poll(platform_t *p, platform_gamepad_state_t *state) {
         ((int16_t)((hi) > (lo) ? (((int)(v) - (int)(lo)) * 65535 / ((int)(hi) - (int)(lo)) - 32768) : 0))
 
     state->left_x  =  AXIS(ji.dwXpos, caps.wXmin, caps.wXmax);
-    state->left_y  = (int16_t)-AXIS(ji.dwYpos, caps.wYmin, caps.wYmax);
+    state->left_y  = neg_axis(AXIS(ji.dwYpos, caps.wYmin, caps.wYmax));
     state->right_x =  AXIS(ji.dwRpos, caps.wRmin, caps.wRmax);
-    state->right_y = (int16_t)-AXIS(ji.dwUpos, caps.wUmin, caps.wUmax);
+    state->right_y = neg_axis(AXIS(ji.dwUpos, caps.wUmin, caps.wUmax));
     #undef AXIS
 
     /* POV hat, in hundredths of a degree; 0xFFFF means centred. */
