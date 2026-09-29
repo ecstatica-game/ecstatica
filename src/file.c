@@ -373,8 +373,16 @@ void init_data_roots(void) {
         FILE *probe = fopen(resolved, "rb");
         if (probe) {
             fclose(probe);
-            /* Store the case-resolved W directory, not the literal "W". */
-            char *slash = strchr(resolved, '/');
+            /* Store the case-resolved W directory, not the literal "W". The
+             * path starts with data_root when one is set (an absolute mount
+             * such as ux0:data/ecstatica), so the W component is the first
+             * one after it, not the first slash in the string. */
+            size_t root_len = strlen(data_root);
+            char *rel = resolved;
+            if (root_len && strncmp(resolved, data_root, root_len) == 0 &&
+                resolved[root_len] == '/')
+                rel = resolved + root_len + 1;
+            char *slash = strchr(rel, '/');
             if (slash) {
                 *slash = '\0';
                 snprintf(alt_data_root, sizeof(alt_data_root), "%s", resolved);
