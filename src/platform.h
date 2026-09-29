@@ -156,6 +156,17 @@ bool platform_scale_mode_supported(platform_t *p);
 void platform_set_scale_mode(platform_t *p, int mode);
 
 /**
+ * Rows hidden off the top (equal to the bottom) of the game's own render
+ * image by the active scale mode, in game-framebuffer pixels — always 0
+ * except under SCALE_CROP. Lets shared UI code (subtitle placement) keep
+ * text inside the visible band without knowing the panel's shape.
+ *
+ * @param render_h  Current game render height (screen_height), matching
+ *                  whatever was last passed to platform_set_render_size.
+ */
+int platform_crop_inset_y(platform_t *p, int render_h);
+
+/**
  * Blit a 32-bit RGBA framebuffer to the window.
  *
  * @param p           Platform handle

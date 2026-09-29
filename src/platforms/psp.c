@@ -73,6 +73,14 @@ static platform_t g_plat;
 static volatile bool s_running = true;
 static int s_scale_mode = SCALE_PILLARBOX;
 
+int platform_crop_inset_y(platform_t *p, int render_h) {
+    (void)p;
+    if (s_scale_mode != SCALE_CROP) return 0;
+    int full_h = SCREEN_W * 3 / 4;
+    int off = (full_h - SCREEN_H) / 2;
+    return off * render_h / full_h;
+}
+
 /* ── Video ──────────────────────────────────────────────────── */
 
 /* Display list. 64 KB is far more than a handful of textured sprites needs,

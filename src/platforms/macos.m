@@ -382,6 +382,12 @@ void platform_set_scale_mode(platform_t *p, int mode) {
     (void)mode;
 }
 
+int platform_crop_inset_y(platform_t *p, int render_h) {
+    (void)p;
+    (void)render_h;
+    return 0;
+}
+
 void platform_set_render_size(platform_t *p, int w, int h) {
     if (!p) return;
     p->render_width  = w;

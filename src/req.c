@@ -14,6 +14,7 @@
 #include "menu.h"
 #include "platform.h"
 #include "music.h"
+#include "win.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -679,6 +680,12 @@ void draw_subtitles(void) {
         if (base < 0) base = 0;
     }
 
+    /* On a panel that crops rather than pillarboxes (Vita/PSP SCALE_CROP),
+     * rows this far off the top and bottom never reach the screen — keep the
+     * whole caption block inside what actually shows. */
+    int crop_inset = platform_crop_inset_y(win_platform(), screen_height);
+    if (base < crop_inset) base = crop_inset;
+
     for (int i = 0; i < MAX_SUBTITLES; i++) {
         if (subtitle_status[i] != 1) continue;
 
@@ -689,8 +696,8 @@ void draw_subtitles(void) {
         if (subtitle_offset[i] < 0) subtitle_offset[i] = 0;
 
         int y = base + i * line_h;
-        if (y + line_h > screen_height) y = screen_height - line_h;
-        if (y < 0) y = 0;
+        if (y + line_h > screen_height - crop_inset) y = screen_height - crop_inset - line_h;
+        if (y < crop_inset) y = crop_inset;
         draw_mode[2] = 2;
         subtitle_status[i] = 2;
         int16_t col = subtitle_colour[i];
