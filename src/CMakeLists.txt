@@ -23,6 +23,7 @@ set(C_SRCS
     tri.c
     icon.c
     tools/viewer.c
+    tools/pointcloud.c
     win.c
     chars.c
     main.c

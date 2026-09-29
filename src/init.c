@@ -19,6 +19,7 @@
 #include "render.h"
 #include "req.h"
 #include "topo.h"
+#include "tools/pointcloud.h"
 #include "tools/viewer.h"
 #include "win.h"
 #include "platform.h"
@@ -154,6 +155,10 @@ void setup(void) {
 
     /* --viewer: same archives, same render pipeline, no world. Takes over
      * here because everything it browses is loaded by the merges above. */
+    if (viewer_mode == VIEWER_POINTCLOUD) {
+        pointcloud_main();
+        return;
+    }
     if (viewer_mode) {
         viewer_main();
         return;

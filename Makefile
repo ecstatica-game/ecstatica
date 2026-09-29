@@ -12,6 +12,7 @@
 #   make e1-viewer  — same as e1, but opens the model/animation viewer
 #   make e2-scenes  — same, opening on the scripted-scene browser
 #   make e1-scenes  — same, opening on the scripted-scene browser
+#   make e2-pointcloud / e1-pointcloud — write pointcloud.ply from every view
 #   make clean      — remove build artifacts
 #   make dump       — regenerate wdump text for E2WIN95P.EXE
 #
@@ -64,7 +65,7 @@ DOS4GW      = $(WATCOM)/binw/dos4gw.exe
 WIN9X_EXE   = win9x/ecstatica.exe
 WINE       ?= wine
 
-.PHONY: all run e1 e2 e1-viewer e2-viewer e1-scenes e2-scenes build clean dump \
+.PHONY: all run e1 e2 e1-viewer e2-viewer e1-scenes e2-scenes e1-pointcloud e2-pointcloud build clean dump \
         dos dos-e1 dos-e2 dos-clean win9x win9x-e1 win9x-e2 win9x-clean \
         psp psp-release psp-install psp-clean
 
@@ -99,6 +100,17 @@ e1-viewer: $(BUILT)
 	cp $(BUILT) $(E1_DIR)/
 	chmod +x $(E1_DIR)/$(TARGET)
 	cd $(E1_DIR) && ./$(TARGET) --viewer
+
+e2-pointcloud: $(BUILT)
+	cp $(BUILT) $(E2_DIR)/
+	chmod +x $(E2_DIR)/$(TARGET)
+	cd $(E2_DIR) && ./$(TARGET) --pointcloud
+
+e1-pointcloud: $(BUILT)
+	mkdir -p $(E1_DIR)
+	cp $(BUILT) $(E1_DIR)/
+	chmod +x $(E1_DIR)/$(TARGET)
+	cd $(E1_DIR) && ./$(TARGET) --pointcloud
 
 e2-scenes: $(BUILT)
 	cp $(BUILT) $(E2_DIR)/
