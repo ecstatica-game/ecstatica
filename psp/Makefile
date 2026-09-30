@@ -54,8 +54,13 @@ LDFLAGS += -Wl,--wrap=sceIoRead -Wl,--wrap=sceIoLseek -Wl,--wrap=sceIoLseek32
 endif
 ASFLAGS = $(CFLAGS)
 
-EXTRA_TARGETS   = EBOOT.PBP
-PSP_EBOOT_TITLE = Ecstatica
+EXTRA_TARGETS    = EBOOT.PBP
+PSP_EBOOT_TITLE  = Ecstatica
+# Shown in the XMB game list (ICON0, 144x80) and behind it when selected
+# (PIC1, 480x272). One shared EBOOT covers both games, so this reads as
+# "Ecstatica" generically rather than favouring E1 or E2.
+PSP_EBOOT_ICON   = ICON0.PNG
+PSP_EBOOT_PIC1   = PIC1.PNG
 
 include $(PSPSDK)/lib/build.mak
 
