@@ -1,10 +1,8 @@
 /**
  * tri.c
  *
- * Triangle / polygon rendering:
- *   draw_polygon handles quads (splits to 2 tris), calls draw_triangle.
- *
- * 4 functions prefixed tri_ in the original ASM.
+ * Triangle / polygon rendering: draw_polygon splits quads into two
+ * triangles, near-plane clips them and hands them to the rasterizers.
  */
 
 #include "tri.h"
@@ -17,22 +15,12 @@
 #include <string.h>
 #include <stdint.h>
 
-/* ══════════════════════════════════════════════════════════════
- *  Near-plane clipping
- *
- *  view_transform() zeroes screen_coord.Z for any vertex that falls
- *  behind the near plane (view-Z < 128) OR overflows the perspective
- *  projection laterally. The column rasterizers then drop the *entire*
- *  triangle if any vertex has Z==0, so triangles that merely straddle
- *  the near plane vanish (intro close-ups, etc.).
- *
- *  raster_triangle() below reconstructs each vertex's view-space
- *  position from its retained world_position, clips the triangle
- *  against the near plane (Sutherland-Hodgman), re-projects the
- *  resulting 3- or 4-vertex polygon, and rasterizes the fan. Pristine
- *  triangles (all vertices projected fine) skip all of this and take
- *  the original, bit-identical path.
- * ══════════════════════════════════════════════════════════════ */
+/* view_transform() zeroes screen_coord.Z for a vertex behind the near plane or
+ * overflowing the projection, and the column rasterizers drop any triangle with
+ * such a vertex — so triangles straddling the near plane vanished (intro
+ * close-ups). clip_and_raster() rebuilds the view-space positions, clips
+ * against the near plane (Sutherland-Hodgman) and re-projects. Triangles with
+ * every vertex projected take the original path unchanged. */
 
 #define NEAR_Z 128
 
@@ -141,15 +129,13 @@ static void clip_and_raster(tri_t *tri, int plane, tri_t *shade) {
     point_t *p1 = tri->point1, *p2 = tri->point2, *p3 = tri->point3;
     if (!p1 || !p2 || !p3) return;
 
-    /* Fast path: every vertex already has a valid projection. */
     if (p1->screen_coord.Z && p2->screen_coord.Z && p3->screen_coord.Z) {
         raster_triangle(tri, plane, shade);
         return;
     }
 
     clip_vtx_t in[3];
-    /* Assigned rather than initialised — Open Watcom only accepts constant
-     * aggregate initialisers. */
+    /* Assigned: Open Watcom only accepts constant aggregate initialisers. */
     point_t *pts[3];
     int uu[3], vv[3];
     pts[0] = p1; pts[1] = p2; pts[2] = p3;
@@ -171,7 +157,6 @@ static void clip_and_raster(tri_t *tri, int plane, tri_t *shade) {
 
     if (inside_count == 0) return;         /* wholly behind near plane */
 
-    /* Sutherland-Hodgman against the single near plane. */
     clip_vtx_t out[4];
     int oc = 0;
     for (int i = 0; i < 3; i++) {
@@ -188,22 +173,14 @@ static void clip_and_raster(tri_t *tri, int plane, tri_t *shade) {
         draw_clipped_subtri(tri, plane, shade, &out[0], &out[i], &out[i + 1]);
 }
 
-/* tri_draw_polygon_433D30
- * Renders a triangle or quad. Quads are split into two triangles:
- *   tri 1: point1-point2-point3 (original)
- *   tri 2: point3-quad_point4 with adjusted texture coords.
- *
- * Each triangle is near-plane clipped before rasterization
- * (see clip_and_raster).
- */
+/* tri_draw_polygon_433D30 — a quad is drawn as p1-p2-p3, then p3-p4 with
+ * adjusted texture coordinates. */
 void draw_polygon(tri_t *triangle, int plane, tri_t *shade) {
     tri_t saved_tri;
 
     if (triangle->quad_point4) {
-        /* First triangle: p1-p2-p3 */
         clip_and_raster(triangle, plane, shade);
 
-        /* Save original state */
         memcpy(&saved_tri, triangle, sizeof(tri_t));
 
         /* Set up second triangle: p3-p4 with shifted texture coords */
@@ -220,27 +197,16 @@ void draw_polygon(tri_t *triangle, int plane, tri_t *shade) {
         if (saved_tri.tri_use_flag & 0x0200)
             triangle->tri_use_flag |= 0x0100;
 
-        /* Second triangle */
         clip_and_raster(triangle, plane, shade);
 
-        /* Restore original state */
         memcpy(triangle, &saved_tri, sizeof(tri_t));
     } else {
-        /* Simple triangle */
         clip_and_raster(triangle, plane, shade);
     }
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  Textured Triangle Rasterizer
- *
- *  tri_draw_new_tex_tri_437A64 — E2: 0x437A64
- *
- *  Column-by-column textured triangle renderer. Same structure as
- *  draw_triangle_ell (flat shaded) but interpolates texture UV
- *  coordinates across edges and calls tex_tri_line_win95 per column.
- * ══════════════════════════════════════════════════════════════ */
-
+/* tri_draw_new_tex_tri_437A64 — column-by-column textured triangle, like
+ * draw_triangle_ell but interpolating UVs and calling tex_tri_line_win95. */
 void draw_new_tex_tri(tri_t *tri, int plane, tri_t *shade) {
     if (!tri->point1 || !tri->point2 || !tri->point3) return;
 
@@ -261,7 +227,6 @@ void draw_new_tex_tri(tri_t *tri, int plane, tri_t *shade) {
     int ref_z = z1;
     int mask_idx = (plane == 2) ? 1 : 0;
 
-    /* Screen bounds check */
     int x_left  = (((x1 < x2 ? x1 : x2) < x3 ? (x1 < x2 ? x1 : x2) : x3) >> 4) + screen_centre_x;
     int x_right = (((x1 > x2 ? x1 : x2) > x3 ? (x1 > x2 ? x1 : x2) : x3) >> 4) + screen_centre_x;
     int y_top_b = (((y1 < y2 ? y1 : y2) < y3 ? (y1 < y2 ? y1 : y2) : y3) >> 4) + screen_centre_y;
@@ -270,7 +235,6 @@ void draw_new_tex_tri(tri_t *tri, int plane, tri_t *shade) {
     if (x_left >= screen_width || x_right < 0 || y_top_b >= screen_height || y_bot_b < 0)
         return;
 
-    /* Dirty rectangle update */
     if (tri->parent_actor) {
         subarea_t *area = tri->parent_actor->area_to_clear;
         if (x_left   < area->left)   area->left   = x_left;
@@ -285,7 +249,6 @@ void draw_new_tex_tri(tri_t *tri, int plane, tri_t *shade) {
     int cross_y = (x2 - x3) * (z1 - z3) - (z2 - z3) * (x1 - x3);
     int tri_color;
 
-    /* Backface cull / flip */
     if (cross_z <= 0) {
         if (!(tri->tri_use_flag & 1)) return;
         cross_x = -cross_x;
@@ -364,7 +327,6 @@ void draw_new_tex_tri(tri_t *tri, int plane, tri_t *shade) {
     int tu3 = tri->u3;
     int tv3 = tri->v3;
 
-    /* Load texture data */
     int tex_name_idx = tri->texture_name_index;
     texture_t *tex = NULL;
     if (tex_name_idx >= 0 && tex_name_idx < TEXTURE_TAB_SIZE)
@@ -407,7 +369,6 @@ void draw_new_tex_tri(tri_t *tri, int plane, tri_t *shade) {
         }
     }
 
-    /* Re-read sorted vertex coordinates */
     int px1 = left_pt->screen_coord.X;
     int py1 = left_pt->screen_coord.Y;
     int pz1 = left_pt->screen_coord.Z;
@@ -673,26 +634,7 @@ void draw_new_tex_tri(tri_t *tri, int plane, tri_t *shade) {
     dd_unlock(plane, fb_data);
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  Textured Triangle (cuboid variant)
- *
- *  tri_draw_textured_tri_433E1C — E2: 0x433E1C
- *
- *  Called from put_a_cuboid. Identical structure to draw_new_tex_tri
- *  for Win95 mode — both use the same column rasterization with
- *  tex_tri_line_win95.
- * ══════════════════════════════════════════════════════════════ */
-
+/* tri_draw_textured_tri_433E1C — called from put_a_cuboid. */
 void draw_textured_tri(tri_t *tri, int plane, tri_t *shade) {
     draw_new_tex_tri(tri, plane, shade);
 }
-
-/* ══════════════════════════════════════════════════════════════
- *  Triangle Clipper
- *
- *  tri_clip_tri_4356CC — E2: 0x4356CC
- *
- *  Recursive Sutherland-Hodgman triangle clipper using floats.
- *  Clips triangle against view frustum planes with recursion
- *  depth limit of 5. No external callers found in binary —
- */

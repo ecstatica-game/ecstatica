@@ -99,9 +99,7 @@ int main(int argc, char *argv[]) {
         dbg_log_commit();
     }
 
-    /* The original game went through WinMain → do_init → win_main_game.
-     * win_main_game (win.c) now sets up the platform layer and
-     * drives the game loop. */
+    /* The original ran WinMain → do_init → win_main_game. */
     win_main_game();
 
     return 0;

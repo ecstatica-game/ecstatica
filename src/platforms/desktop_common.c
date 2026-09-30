@@ -1,11 +1,8 @@
 /**
  * desktop_common.c
  *
- * The platform capabilities that macOS, Linux and Windows all answer the same
- * way: the game runs with its data directory as the working directory, saves
- * are files under saved/, and the display is whatever the database asks for.
- *
- * Kept out of the three window backends so the answers can't drift apart.
+ * Platform capabilities macOS, Linux and Windows share: the data directory is
+ * the working directory, saves are files under saved/.
  */
 
 #include "../platform.h"
@@ -71,16 +68,10 @@ static void appimage_dir(char *buf, size_t bufsz) {
     *slash = '\0';
 }
 
-/* The game reads every asset relative to the working directory, so it has to
- * be the folder holding the data. Running the binary from inside that folder
- * gets this for free; an AppImage, a .desktop entry or a Steam shortcut does
- * not — they inherit whatever cwd the launcher had, usually $HOME, and the
- * game used to load nothing and quit without a word.
- *
- * So look for the database in the places it can plausibly be, and chdir to the
- * first that has it. Order matters: an explicit ECSTATICA_DATA outranks
- * everything, and a working directory that already holds the data is left
- * alone, so nothing changes for the normal case. */
+/* Assets are read relative to the working directory, but an AppImage, a
+ * .desktop entry or a Steam shortcut starts in the launcher's cwd (usually
+ * $HOME). So chdir to the first candidate holding the database:
+ * ECSTATICA_DATA first, and a cwd that already has it is left alone. */
 void platform_early_init(void) {
     struct { const char *what; char dir[1024]; } cand[5];
     int n = 0;
@@ -108,9 +99,7 @@ void platform_early_init(void) {
     n++;
 
     for (int i = 0; i < n; i++) {
-        /* The cwd candidate is the only one with an empty path, and it needs
-         * no chdir; the rest are probed absolute so a failed candidate cannot
-         * leave the process somewhere unexpected. */
+        /* Only the cwd candidate is empty; others are probed by absolute path. */
         if (i > 0 && !cand[i].dir[0]) continue;
         if (!file_dir_has_database(cand[i].dir)) continue;
         if (cand[i].dir[0]) {

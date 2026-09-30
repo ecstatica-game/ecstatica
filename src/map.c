@@ -1,11 +1,8 @@
 /**
  * map.c
  *
- * Map / camera management:
- *   camera switching, view loading, visibility checks,
- *   actor swap-in/out, display list management.
- *
- * 14 functions prefixed map_ in the original ASM.
+ * Camera and map management: camera switching, view loading, visibility,
+ * actor swap-in/out, display list management.
  */
 
 #include "map.h"
@@ -45,9 +42,7 @@ void switch_camera(camera_data_t *camera) {
     calculate_view_matrices();
 }
 
-/* map_check_view_44BE20
- * Switch to a new camera, reload background, update visibility.
- */
+/* map_check_view_44BE20 */
 static void check_view_body(int camera_idx);
 
 void check_view(int camera_idx) {
@@ -99,8 +94,7 @@ static void check_view_body(int camera_idx) {
     clip_mask(2, 1, 0, 0, screen_width, screen_height);
     clip_mask(2, 0, 0, 0, screen_width, screen_height);
 
-    /* New view: bitmap[3] and mask_map[2] both changed, and the hardware
-     * renderer holds them as textures. This is the only place they move. */
+    /* The only place bitmap[3] and mask_map[2] change for a new view. */
     render_invalidate_background();
 
     for (int i = 0; i < THING_TAB_SIZE; ++i) {
@@ -567,9 +561,8 @@ void make_invisible(actor_t *actor) {
     actor->flags &= ~0x08;
 }
 
-/* map_copy_vga_to_svga  E2: 0x44C434
- * Upscales VGA (320x200) background + mask to SVGA (640x480).
- * Horizontal: 2x. Vertical: 2.4x via pattern (3,2,2,3,2 per 5 rows). */
+/* map_copy_vga_to_svga  E2: 0x44C434 — 2x horizontally, 2.4x vertically
+ * (rows repeated 3,2,2,3,2 per 5). */
 void copy_vga_to_svga(void) {
     static char svga_buf[640 * 480];
 

@@ -1,21 +1,16 @@
 /**
  * render.c
  *
- * Backend-independent half of the hardware renderer: it collects what the
- * engine's display traversal asks to draw, does the parts of the original's
- * shading that are cheaper and more exact on the CPU, and derives the view and
- * projection matrices from the engine's own camera state.
- *
- * Backends (render_gl.c) consume the lists built here and nothing else. That
- * split is what keeps a second backend from becoming a second renderer.
+ * Backend-independent half of the hardware renderer: builds the draw lists,
+ * does the per-face shading on the CPU so it matches the software path, and
+ * derives view/projection from the engine's camera. Backends (render_gl.c)
+ * consume only these lists.
  */
 
 #include "render.h"
 
-/* The four preferences exist on every target so file.c can round-trip the
- * config on a build that has no backend to apply them to. render_backend is a
- * real variable only where there is something for it to switch to; elsewhere
- * render.h makes it a constant. */
+/* The preferences exist on every target so file.c round-trips the config even
+ * where no backend can apply them. */
 #ifdef ECS_ENABLE_GL
 render_backend_t render_backend = RENDER_SOFTWARE;
 #endif
@@ -70,12 +65,8 @@ static void mat4_identity(float *m) {
     m[0] = m[5] = m[10] = m[15] = 1.0f;
 }
 
-/**
- * View matrix: the engine computes  out = view_matrix * (world - view_pos),
- * with matrix entries in 14-bit fixed point (asm_f.c matrix_vector). That is a
- * rotation about the camera position, so it drops straight into a 4x4 with the
- * translation folded into the last column.
- */
+/* The engine computes out = view_matrix * (world - view_pos) in 14-bit fixed
+ * point: a rotation about the camera, with the translation in the last column. */
 static void build_view_matrix(float *m) {
     const matrix3x3_t *v = &view_matrix;
     float r[9];
@@ -104,17 +95,12 @@ static void build_view_matrix(float *m) {
  *   coeff_y    = coeff_x * 7/8,    scaled by screen_height/200
  *   pixel_x    = centre_x + (coeff_x * X >> 10) >> 4
  *
- * so  pixel_x - centre_x = kx * X / z  with  kx = zoom * (sw/320) / 16384,
- * and the NDC form divides by half the viewport.
+ * so  pixel_x - centre_x = kx * X / z  with  kx = zoom * (sw/320) / 16384.
  *
- * Depth is the ordinary perspective mapping rather than a linear one. A linear
- * z_ndc is impossible to express here — with w = z it would need z² — and it is
- * not needed: the background's linear int16 depth is converted per pixel by the
- * background shader, which has to write gl_FragDepth anyway. Everything else
- * then gets interpolated depth and keeps early-Z.
- *
- * The engine's Y axis points down and its Z points into the screen. Both are
- * baked here so no axis flipping leaks into the rest of the renderer.
+ * Depth is the ordinary perspective mapping: a linear z_ndc would need z² with
+ * w = z. The background shader converts its linear int16 depth per pixel, so
+ * everything else keeps interpolated depth and early-Z. Engine +Y is down and
+ * +Z into the screen; both are baked in here.
  */
 static void build_proj_matrix(float *m) {
     const float near_z = (float)RENDER_NEAR_Z;
@@ -135,11 +121,9 @@ static void build_proj_matrix(float *m) {
 }
 
 /* ── Per-face shading ─────────────────────────────────────────
- * Lifted from draw_triangle_ell (ellipse.c:263-341). Doing it on the CPU costs
- * ~40 operations per triangle and guarantees the hardware path picks the same
- * palette entry the software path would, including the backface colour swap.
- *
- * Returns 0 when the face is culled.
+ * From draw_triangle_ell (ellipse.c), so the hardware path picks the same
+ * palette entry as software, backface colour swap included. Returns 0 when the
+ * face is culled.
  */
 static int face_palette_index(tri_t *tri, tri_t *shade, uint8_t *out_index) {
     point_t *p1 = tri->point1, *p2 = tri->point2, *p3 = tri->point3;
@@ -149,10 +133,8 @@ static int face_palette_index(tri_t *tri, tri_t *shade, uint8_t *out_index) {
     int x2 = p2->screen_coord.X, y2 = p2->screen_coord.Y, z2 = p2->screen_coord.Z;
     int x3 = p3->screen_coord.X, y3 = p3->screen_coord.Y, z3 = p3->screen_coord.Z;
 
-    /* screen_coord.Z of 0 marks a near-clipped vertex. The software renderer
-     * routes those through clip_and_raster; the hardware path lets GL clip the
-     * geometry, but the shade still has to come from somewhere, so fall back to
-     * the unshaded face colour rather than dividing by a zero Z below. */
+    /* Z 0 marks a near-clipped vertex. GL clips the geometry, so use the
+     * unshaded face colour rather than dividing by zero below. */
     int near_clipped = (!z1 || !z2 || !z3);
 
     int cross_x = (z2 - z3) * (y1 - y3) - (z1 - z3) * (y2 - y3);
@@ -241,9 +223,7 @@ static void push_vertex(render_vertex_t *dst, const point_t *p,
     dst->layer  = (int16_t)layer;
 }
 
-/* One triangle out of a tri_t whose point1/2/3 are already the three corners
- * wanted. `uv` carries the six texel coordinates in the tri_t field order that
- * draw_new_tex_tri expects (tri.c:370-375). */
+/* `uv` holds the six texel coordinates in draw_new_tex_tri's field order. */
 static void emit_triangle(tri_t *tri, tri_t *shade, const int *uv) {
     uint8_t pal;
     if (!face_palette_index(tri, shade, &pal)) return;
@@ -269,14 +249,8 @@ static void emit_triangle(tri_t *tri, tri_t *shade, const int *uv) {
     }
 }
 
-/**
- * Mirrors draw_polygon (tri.c:200): a quad becomes two triangles, the second
- * one built from point3 + quad_point4 with the texture coordinates rotated
- * through the same field shuffle the original performs.
- *
- * No near-plane clipping here — GL clips, which is the one place the hardware
- * path is allowed to be simpler than clip_and_raster.
- */
+/* As draw_polygon (tri.c): a quad is two triangles, the second from point3 +
+ * quad_point4 with the same texture field shuffle. GL does the near clipping. */
 void render_triangle(tri_t *tri, int plane, tri_t *shade) {
     (void)plane;
     if (!tri) return;
@@ -310,15 +284,9 @@ void render_triangle(tri_t *tri, int plane, tri_t *shade) {
 
 /* ── Ellipsoid submission ─────────────────────────────────── */
 
-/**
- * Everything needed is already in part_t by the time put_an_ellipse reaches its
- * leaf: matrix_2 is view_matrix * matrix_1 (display.c:2038), VECTOR_Squash is
- * the semi-axis triple, and persp_origin holds the view-space centre X/Y from
- * before perspective_transform overwrote vector_persp in place (display.c:1870).
- *
- * So the ellipsoid is  p = centre + R * diag(squash) * u,  |u| = 1,  entirely
- * in view space. The backend intersects a ray against it per pixel.
- */
+/* By put_an_ellipse's leaf, matrix_2 is view_matrix * matrix_1, VECTOR_Squash
+ * holds the semi-axes and persp_origin the view-space centre X/Y. The ellipsoid
+ * p = centre + R * diag(squash) * u, |u| = 1, is ray-traced per pixel. */
 void render_ellipsoid(part_t *part, int plane) {
     (void)plane;
     if (!part) return;
@@ -374,25 +342,18 @@ void render_ellipsoid(part_t *part, int plane) {
 }
 
 /* ── Debug map geometry ───────────────────────────────────────
- * The map the game actually collides against, drawn as real geometry from the
- * game's own camera in place of the pre-rendered background.
- *
- * Grid to world is the inverse of find_map_element (topo.c:73):
+ * The collision map drawn as geometry from the game camera, in place of the
+ * pre-rendered background. Grid to world, the inverse of find_map_element:
  *   world X = (col - 64) << 9,  world Z = (row - 64) << 9,  cell = 512 units
  *   world Y = (128 - def_height) << height_shift
- *
- * Built once and kept until the map data changes, which top_of_map_elements
- * tracks well enough — it moves whenever a new area is merged in.
+ * Rebuilt when top_of_map_elements moves (a new area was merged in).
  */
 #define MAP_GRID   128
 #define MAP_CELL   512
 
-/* Drawn around the camera rather than whole: the grid is 128x128 and most of it
- * is nowhere near the player, and at this scale distant cells pile into a wall
- * of columns that hides the part being looked at. */
+/* Only around the camera: distant cells pile into a wall that hides the view. */
 #define MAP_VIEW_RADIUS 26
-/* A cell whose neighbour is far below would otherwise grow a skirt hundreds of
- * units tall. Enough to read as solid ground, not enough to become a curtain. */
+/* Caps a skirt toward a much lower neighbour. */
 #define MAP_SKIRT_MAX   (12 << 7)
 
 static render_map_vertex_t *s_map_verts;
@@ -447,19 +408,14 @@ static int map_cell_height(int row, int col, int *out_flags) {
     return y;
 }
 
-/* Colour coding follows the 2D overlay (debug_overlay.c:26-34), with one
- * deliberate departure: camera zones are not tinted. Nearly every cell belongs
- * to some camera, so colouring by that turned the whole map one colour and hid
- * everything worth seeing. Action, spawn and impassable are the rare, useful
- * ones; everything else is plain ground shaded by height. */
+/* Colours follow debug_overlay.c, except camera zones: nearly every cell has
+ * one, so tinting them hid everything else. */
 static void map_cell_colour(int flags, int y, uint8_t out[3]) {
     uint8_t r = 105, g = 110, b = 100;
     if (flags & 1)             { r = 190; g = 60;  b = 60; }   /* action  */
     else if (flags & 4)        { r = 60;  g = 180; b = 70; }   /* spawn   */
     else if (flags & 8)        { r = 60;  g = 170; b = 180; }  /* blocked */
 
-    /* Higher ground reads lighter. The range is the whole 8-bit height field
-     * scaled by height_shift, so normalise against that rather than guessing. */
     float t = 0.55f + 0.45f * (1.0f - (float)(y + (128 << height_shift)) /
                                        (float)(256 << height_shift));
     if (t < 0.35f) t = 0.35f;
@@ -468,7 +424,6 @@ static void map_cell_colour(int flags, int y, uint8_t out[3]) {
 }
 
 static void build_map_mesh(void) {
-    /* Centre on the camera, which is where the player is looking from. */
     int ccol = (view_pos.X >> 9) + 64;
     int crow = (view_pos.Z >> 9) + 64;
 
@@ -502,9 +457,7 @@ static void build_map_mesh(void) {
             map_cell_colour(flags, y, c);
             map_quad(x0, z0, x1, z1, fy, fy, fy, fy, c);
 
-            /* Skirts toward the lower neighbour on two sides only, so each
-             * shared edge is emitted once. Without them the terrain reads as
-             * floating tiles rather than solid ground. */
+            /* Skirts on two sides only, so each shared edge is emitted once. */
             static const int nb[2][2] = { { 0, -1 }, { -1, 0 } };
             for (int e = 0; e < 2; e++) {
                 int ny = map_cell_height(row + nb[e][0], col + nb[e][1], NULL);
@@ -582,10 +535,7 @@ render_backend_t render_select(render_backend_t want) {
         render_backend = RENDER_SOFTWARE;
     }
 
-    /* Both directions: the baked background store is a software-renderer
-     * artefact, and neither renderer can use the other's. Dropping it is what
-     * stops actors that were baked before the switch from staying invisible
-     * (hardware) or double-painted (software). */
+    /* The baked background store belongs to neither renderer across a switch. */
     unbake_stuck_actors();
     render_gl_invalidate_background();
     return render_backend;
@@ -601,9 +551,7 @@ void render_init(void) {
         return;
     }
 
-    /* Env override beats the stored preference, matching ECSTATICA_DEBUG and
-     * ECSTATICA_PROBE_XY. Useful for bisecting a rendering difference without
-     * going through the menu. */
+    /* The ECSTATICA_RENDERER env override beats the stored preference. */
     bool want_hw = (render_hardware_pref != 0);
     const char *env = getenv("ECSTATICA_RENDERER");
     if (env && *env) {

@@ -3,7 +3,6 @@
  *
  * Movement system: actor movement processing, walking, collision,
  * height finding, animation playback, behavioral state machine.
- * 49 functions prefixed with move_ in the original ASM.
  */
 
 #include "move.h"
@@ -124,7 +123,6 @@ void do_movement(void) {
 
     PROF_FRAME();
 
-    /* Wait for next clock tick */
     PROF_BEGIN(PROF_WAIT);
     int wait_time = my_time();
     while (wait_time == some_time)
@@ -171,11 +169,9 @@ void do_movement(void) {
             action_t *action = actor->actor_act.act_action;
 
             if (action && (action->action_flags & 2)) {
-                /* Actor is playing a scene action */
                 set_vector(&actor->actor_velocity, 0, 0, 0);
 
                 if (actor->actor_act.flags & 0x400) {
-                    /* This actor's scene action has completed */
                     actor->actor_act.act_action = NULL;
                     actor->flags |= 0x40;
                     if (!moving_camera)
@@ -185,7 +181,6 @@ void do_movement(void) {
 
                     /* Only walk scripts if actor was bound to a scene. */
                     if (actor_scene) {
-                        /* Check if ALL scripts for this scene are done */
                         bool all_done = true;
                         int blocker_ai = -1;
                         for (script_t *script = actor_scene->scene_script_list;
@@ -218,7 +213,6 @@ void do_movement(void) {
                         }
                     }
                 } else {
-                    /* Update all acts in the actor's act chain */
                     for (act_t *act = actor->actor_act_list; act; act = act->next)
                         update_act(act, actor, local_game_time);
 
@@ -226,8 +220,7 @@ void do_movement(void) {
                     free_spent_acts(actor);
                 }
             } else {
-                /* Not in a scene action — run behaviour AI */
-                actor->flags &= 0xFF7F;  /* clear 0x80 */
+                actor->flags &= 0xFF7F;
                 if (actor->actor_behavior != BH_EXTERNAL)
                     behaviour(actor, local_game_time);
             }
@@ -259,9 +252,7 @@ void do_movement(void) {
             }
 
             if (all_done) {
-                /* Phase 1 marks bit 4 first when it fires scene_code_2 through
-                 * the actor-act-complete path. If bit 4 already set, Phase 1
-                 * already handled scene_code_2 — don't re-fire it here. */
+                /* Phase 1 sets bit 4 when it fires scene_code_2; don't fire it twice. */
                 bool already_finished = (scene_name_flags[scene->scene_index] & 4) != 0;
                 scene_name_flags[scene->scene_index] |= 4;
                 if (!current_scene)
@@ -269,13 +260,10 @@ void do_movement(void) {
                 else
                     current_scene->next_scene = scene->next_scene;
                 scene->scene_use_flag &= 0xFFFE;
-                /* E1 fallback: fire scene_code_2 when Phase 1 missed it AND
-                 * the scene has no scene_code_index. Scenes with a running
-                 * code_index (intro cascade 741/501/508/507/503) already
-                 * chain via their own per-frame code — firing scene_code_2
-                 * here restarts scene 498 repeatedly on skip.
-                 * Only code_idx=-1 scenes (intro scene 139) rely on Phase 2
-                 * to fire CT_END_OF_INTRO; without this the intro deadlocks. */
+                /* E1 fallback for scenes with no scene_code_index (intro scene
+                 * 139), which rely on this to reach CT_END_OF_INTRO. Scenes with
+                 * a running code_index chain on their own; firing scene_code_2
+                 * for them restarts scene 498 on skip. */
                 if (game_version == GAME_VERSION_E1 && !already_finished
                     && scene->scene_code_index < 0
                     && scene->scene_code_2 >= 0) {
@@ -483,7 +471,7 @@ int16_t do_new_wander(actor_t *actor) {
 void behaviour(actor_t *actor, int game_time_arg) {
     if (!actor) return;
 
-    int one_shot_action = 0;  /* one-shot action flag */
+    int one_shot_action = 0;
 
     actor->state_flags &= 0xFFFD;
     if (actor == selected_thing) {
@@ -576,9 +564,8 @@ void behaviour(actor_t *actor, int game_time_arg) {
     }
 
     rephead_t *repertoire = actor->actor_reperture;
-    /* E1 hero has default_repert=0 → rep->rep_index=0 → this exit fires and
-     * BH_JOYSTICK is never assigned → keyboard dead. Hero must fall through
-     * to the joystick assignment even without a valid repertoire. */
+    /* The E1 hero has default_repert 0, so this exit would fire and it would
+     * never get BH_JOYSTICK. */
     bool hero_needs_input =
         (actor == selected_thing) && joystick_control &&
         actor->actor_behavior != BH_GET_HIT &&
@@ -664,11 +651,11 @@ void behaviour(actor_t *actor, int game_time_arg) {
         && (interact_actor->actor_parts_list->flags & 0x42))
         interact_actor = NULL;
 
-    int target_direction = 0;     /* direction to target */
-    int16_t target_distance = 0x7FFF;  /* distance to target */
+    int target_direction = 0;
+    int16_t target_distance = 0x7FFF;
     int16_t rel_angle = 0;
-    int vertical_direction = 0; (void)vertical_direction;     /* up/down direction — computed but no downstream reader ported yet */
-    int los_blocked = 0;     /* visibility blocked flag */
+            int vertical_direction = 0; (void)vertical_direction;
+    int los_blocked = 0;
 
     if (!interact_actor || (interact_actor->flags & 0x80)) {
         rel_angle = 0;
@@ -683,14 +670,10 @@ void behaviour(actor_t *actor, int game_time_arg) {
             : abs(dx) / 2 + abs(dz));
 
         if (game_version == GAME_VERSION_E1) {
-            /* asm anim_behaviour_428914+36D..+3A1. E1 is only this much: the
-             * facing comes straight from rotate_vector.Y (arctan() returns an
-             * int8 table entry << 8, so routing it through the part matrix
-             * would quantise the angle to 256-unit steps and make rel_angle
-             * chatter on the 4096 turn threshold), and a single vertical
-             * cutoff. There is no line-of-sight raycast, no interact_state or
-             * interact_timer bookkeeping and no repertoire switch — all of
-             * that is E2 (E2 behaviour_427554 calls find_height_now_vis). */
+            /* anim_behaviour_428914+36D..+3A1: E1 takes the facing straight from
+             * rotate_vector.Y (the part matrix would quantise it to 256-unit steps
+             * and make rel_angle chatter on the 4096 turn threshold) and has no
+             * line-of-sight raycast or interact bookkeeping — that is E2. */
             rel_angle = actor->rotate_vector.Y - (int16_t)target_direction;
             if (abs(dy) > 768) {
                 target_distance = 0x7FFF;
@@ -699,11 +682,9 @@ void behaviour(actor_t *actor, int game_time_arg) {
             goto have_target;
         }
 
-        /* asm behaviour_427554+8FD: rel_angle is the actor's own facing, not
-         * a body part's. The part heading below only feeds the "target is
-         * behind me" test; using it for rel_angle left an actor whose torso
-         * is twisted in its idle/walk pose never inside the 2048 attack cone,
-         * so it walked and turned next to the target instead of striking. */
+        /* behaviour_427554+8FD: rel_angle is the actor's own facing. A body
+         * part's heading, twisted by the idle pose, kept actors out of the 2048
+         * attack cone. */
         rel_angle = actor->rotate_vector.Y - (int16_t)target_direction;
         if (abs(dy) <= 768 || abs(dy) <= target_distance) {
             if (target_distance / 3 >= abs(dy))
@@ -804,11 +785,9 @@ have_target:
     if (actor->interact_cooldown > 0) actor->interact_cooldown -= game_time_arg;
     if (actor->interact_cooldown < 0) actor->interact_cooldown = 0;
 
-    /* asm anim_behaviour_428914+3CE: action_variant is a per-actor cooldown on
-     * re-deciding next_move. While it is still >= 0 the actor keeps its current
-     * move_type, so the behaviour AI cannot flip between e.g. walk and turn on
-     * consecutive frames and restart the action each time. Only the player and
-     * the hit/death states re-decide unconditionally. */
+    /* anim_behaviour_428914+3CE: action_variant is a cooldown on re-deciding
+     * next_move, so the AI cannot flip between e.g. walk and turn every frame.
+     * Only the player and the hit/death states re-decide unconditionally. */
     if (game_version == GAME_VERSION_E1) {
         if (actor == selected_thing
             || actor->actor_behavior == BH_GET_HIT
@@ -1102,19 +1081,13 @@ have_target:
             next_move = actor->move_type;
             if (next_move >= 9 && next_move != 1000 && !(actor->flags & 0x40))
                 goto center_function;
-            /* E1 has no LOS test here (anim_behaviour_428914+981 goes straight
-             * from the move_type check to the distance tiers). Gating on
-             * los_blocked suppressed attacks at close range, because with
-             * 64 <= max_dim < 128 the raycast runs exactly one step without
-             * dividing the step vector, so its only sample lands on the target
-             * itself and always reports blocked. */
+            /* E1 has no LOS test here (anim_behaviour_428914+981). With
+             * 64 <= max_dim < 128 the raycast's only sample lands on the target
+             * and always reports blocked. */
             if (game_version == GAME_VERSION_E1 || !los_blocked) {
-                /* NPC attack next_move selection */
                 if (game_version == GAME_VERSION_E1) {
-                    /* asm anim_behaviour_428914+981: three tiers. Beyond 900 the
-                     * actor keeps whatever move_type it already had — the port
-                     * previously folded that into the mid tier and used the
-                     * close tier's thresholds for it. */
+                    /* anim_behaviour_428914+981: three tiers; beyond 900 the actor
+                     * keeps its current move_type. */
                     uint16_t random_value = 2 * my_rand();
                     if (target_distance < 700) {
                         if (random_value > 0xC000u)      next_move = 9;
@@ -1212,9 +1185,8 @@ have_target:
         int key_up = extra_keys_pressed[72];
 
         if (game_version == GAME_VERSION_E1) {
-            /* E1 BH_JOYSTICK (IDA 0x429452): key check order matches original.
-             * No velocity pre-checks (E2-only). Diagonal turn uses
-             * move_direction not game_time_arg. */
+            /* E1 BH_JOYSTICK (0x429452): no velocity pre-checks, and the
+             * diagonal turn uses move_direction. */
             next_move = 1000;
 
             if (ctrl_pressed && (key_up || key_down || key_left || key_right)) {
@@ -1418,7 +1390,6 @@ have_target:
             actor->actor_behavior = BH_DYING;
             thing_name_flags[actor->name_index] |= 4;
         } else {
-            /* Hit direction-based reaction */
             int16_t hit_octant = (((actor->rotate_vector.Y - actor->hit_angle) + 4096) >> 13) & 7;
             int16_t dir_val = hit_dir_table[hit_octant];
             if (actor->actor_hitpoints >= 0)
@@ -1429,7 +1400,6 @@ have_target:
             uint16_t random_value = 2 * my_rand();
             if (dir_val == 3) {
                 if (random_value < 0x2AAAu) {
-                    /* base next_move */
                 } else if (random_value < 0x5555u) {
                     next_move++;
                 } else if (random_value >= 0x8000u) {
@@ -1520,10 +1490,8 @@ center_function:
             if (!(actor->flags & 0x40)) {
                 if (1000 == actor->move_type)
                     goto label_917;
-                /* asm anim_behaviour_428914+D8B: E1 keeps the running action only
-                 * when it is marked uninterruptible (0x40). The wider mask held
-                 * every turn action (flags 0x204) to its end, so an NPC facing
-                 * the hero overshot on each turn and never reached its action. */
+                /* anim_behaviour_428914+D8B: E1 keeps the running action only
+                 * when it is uninterruptible (0x40), or NPCs overshoot every turn. */
                 int keep_mask = (game_version == GAME_VERSION_E1) ? 0x40 : (0x40 | 0x20FF);
                 if ((game_version == GAME_VERSION_E1 || actor != selected_thing)
                     && actor->actor_act.act_action
@@ -1727,12 +1695,10 @@ void unmake2_part_limb(actor_t *actor) {
 
 /* move_check_steps  E1: ? | E2: 0x429FC8 */
 void check_steps(void) {
-    /* E2 stub — just returns */
 }
 
 /* move_recover_hit_points  E1: ? | E2: 0x42A67C */
 void recover_hit_points(void) {
-    /* E2 stub — just returns */
 }
 
 /* move_find_free_act  E1: 0x4263FC | E2: 0x42CE78 */
@@ -1760,7 +1726,6 @@ void spawn_action(event_t *event, actor_t *actor, int some_time) {
         if (act->flags & 0x0400) {
             act->flags = 0;
         } else {
-            /* Append to tail of actor's act list */
             if (actor->actor_act_list) {
                 act_t *tail = actor->actor_act_list;
                 while (tail->next)
@@ -1845,13 +1810,11 @@ void position_act(act_t *act, uint16_t some_duration, actor_t *actor) {
 void free_spent_acts(actor_t *actor) {
     if (!actor || !actor->actor_act_list) return;
 
-    /* Clear flags on leading spent acts */
     for (act_t *act = actor->actor_act_list; act; act = act->next) {
         if (!(act->flags & 0x400)) break;
         act->flags = 0;
     }
 
-    /* Unlink interior spent acts */
     for (act_t *act = actor->actor_act_list; act && act->next; act = act->next) {
         if (act->next->flags & 0x400) {
             act->next->flags = 0;
@@ -1918,11 +1881,9 @@ void find_dirn_and_dist(int16_t *dir, int16_t *dist, int16_t dx, int16_t dz) {
     *dist = (int16_t)(low < 0 ? -low : low);
 }
 
-/* move_find_direction_and_distance_427160.
- * NOTE: asm computes int32 d, then truncates to int16 BEFORE taking abs.
- * Doing abs in full int width then truncating yields wrong sign when |d|
- * overflows int16 such that low-16 sign-extension flips polarity. */
-/* Unlike find_dirn_and_dist (X = sin, Z = cos), this uses X = cos, Z = sin. */
+/* move_find_direction_and_distance_427160 — truncates d to int16 before abs(),
+ * as the original does. Unlike find_dirn_and_dist (X = sin, Z = cos), this uses
+ * X = cos, Z = sin. */
 void find_direction_and_distance(int16_t *dir, int16_t *dist, int16_t dx, int16_t dz) {
     uint16_t angle = arctan(dz, dx);
     *dir = (int16_t)angle;
@@ -2003,8 +1964,7 @@ void smart_bomb(actor_t *attacker, int range, int damage) {
         if (!victim->actor_reperture) continue;
         if (thing_name_flags[victim->name_index] & 4) continue;
         rephead_t *vrep = victim->actor_reperture;
-        /* Bug 54: Interact must be loaded, and target must be either a
-         * walker (WalkLeft loaded) or the hero. */
+        /* Needs Interact, and must be a walker (WalkLeft loaded) or the hero. */
         if (vrep->action_slots[34] < 0) continue;
         if (vrep->action_slots[3] < 0 && victim != selected_thing) continue;
         if (victim == attacker) continue;
@@ -2034,8 +1994,6 @@ void smart_bomb(actor_t *attacker, int range, int damage) {
         victim->hit_type = 1;  /* HitType::Normal */
         victim->hit_angle = (int16_t)arctan(dx, dz);
 
-        /* Bug 54: attacker.hit_code_id == null → apply default damage;
-         * else run attacker's hit code. Then run victim's hp-change code. */
         if (attacker->actor_hit_code < 0) {
             victim->actor_behavior = BH_GET_HIT;
             victim->flags |= 0x2000;   /* CannotBeHit */
@@ -2075,12 +2033,9 @@ void modify_part(event_t *event, actor_t *actor, int some_time, action_t *action
 
     int16_t et_flags = event_type_flags[event->event_type];
 
-    /* 0x425000: while an act is being wound forward to its end state
-     * (complete_act during scene setup / swap-in), only events flagged
-     * NO_SUPRESS are applied — pose data. Everything else, INTERACT above all,
-     * must not fire. The port had the flag in the table and the writes in
-     * map.c but nothing ever read them, so a scene's pick-ups, put-downs and
-     * HoldThingWithPart all fired during setup. */
+    /* 0x425000: while an act is wound forward to its end state (complete_act
+     * during scene setup / swap-in), only NO_SUPRESS pose events apply, so
+     * pick-ups, put-downs and HoldThingWithPart do not fire. */
     if (suppress_events && !(et_flags & EVENT_FLAGS_NO_SUPRESS)) return;
     if (event->event_type == INTERACT)
         WTRACE("MP INTERACT actor=%d act=%d etflags=%04x ev_idx=%d p1=%d p2=%d parttab=%p\n",
@@ -2089,7 +2044,6 @@ void modify_part(event_t *event, actor_t *actor, int some_time, action_t *action
                event->param1, event->param2,
                (actor && actor->_PartTab) ? (void *)actor->_PartTab->field_0[event->event_index < 0 ? 0 : event->event_index] : NULL);
 
-    /* Handle creation events that don't require an existing actor/part lookup */
     switch (event->event_type) {
     case ADD_THING: {
         actor_t *new_actor = add_thing();
@@ -2112,7 +2066,6 @@ void modify_part(event_t *event, actor_t *actor, int some_time, action_t *action
         break;
     }
 
-    /* All other events require an existing actor */
     if (!actor) return;
 
     part_t *part = NULL;
@@ -2120,7 +2073,6 @@ void modify_part(event_t *event, actor_t *actor, int some_time, action_t *action
     tri_t *triangle = NULL;
 
     if (et_flags & 0x10) {
-        /* Part-targeted event */
         if (event->event_index < 0) return;
         if (et_flags & 0x200) {
             for (part_t *p = actor->actor_parts_list; p; p = p->next_in_display_list) {
@@ -2134,13 +2086,8 @@ void modify_part(event_t *event, actor_t *actor, int some_time, action_t *action
         } else {
             if (actor->_PartTab)
                 part = actor->_PartTab->field_0[event->event_index];
-            /* 0x425075..0x4250D5: E1 has no fallback here at all — if the
-             * owning actor has no part with this index the event is dropped.
-             * The redirect below (part_heap_link, then a search of every held
-             * object) is a port addition: it hands events meant for a part the
-             * actor does not own to whatever it happens to be holding. That is
-             * what rewrote part 76 of the held book, and what lets a scene
-             * script aimed at one held item land on another. */
+            /* 0x425075..0x4250D5: E1 drops the event when the actor has no part
+             * with this index. The redirect to held objects below is E2-only. */
             if (game_version == GAME_VERSION_E1 && !part) return;
             if (!part) {
                 if (actor->part_heap_link) {
@@ -2190,16 +2137,12 @@ void modify_part(event_t *event, actor_t *actor, int some_time, action_t *action
             }
         }
     } else if (et_flags & 0x20) {
-        /* Triangle-targeted event. ADD_TRIANGLE is the creation event —
-         * its target does not exist yet, so let it fall through to the
-         * handler (which creates the triangle and registers it in
-         * _TriangleTab). All other triangle events modify an existing one. */
+        /* ADD_TRIANGLE creates its target, so it falls through to the handler. */
         if (event->event_index < 0) return;
         if (actor->_TriangleTab)
             triangle = actor->_TriangleTab->field_0[event->event_index];
         if (!triangle && event->event_type != ADD_TRIANGLE) return;
     } else if (et_flags & 0x40) {
-        /* Point-targeted event */
         if (event->event_index < 0) return;
         if (actor->_PointTab)
             point = actor->_PointTab->field_0[event->event_index];
@@ -2446,7 +2389,6 @@ void modify_part(event_t *event, actor_t *actor, int some_time, action_t *action
             fprintf(stderr, "\n");
             fflush(stderr);
         }
-        /* Interaction events dispatched by sub-type */
         switch (event->param1) {
         case 0: /* CheckPartHit */
             WTRACE("EVT CheckPartHit actor=%d part=%p p2=%d p3=%d\n",
@@ -2787,16 +2729,12 @@ void play_sound_ecstatica(actor_t *actor, int sound_index, int volume_flags, int
     start_playing_sample(sound, volume_flags, dist_volume);
 }
 
-/* move_see_if_anything_hit_42EFDC — collision detection for combat.
- * Called with a hitting part; iterates all actors and checks if the part
- * intersects.  On hit: sets behavior to GetHit, computes damage, runs
- * hit-code scripts.  Ref: move.c SeeIfAnyhingHit (line 4768). */
+/* move_see_if_anything_hit_42EFDC — combat collision for a hitting part. */
 void see_if_anything_hit(part_t *part, int16_t hit_param) {
     if (!part || !part->parent_actor) return;
 
     actor_t *hitter_actor = part->parent_actor;
 
-    /* Determine the holding actor (if part belongs to a held weapon) */
     actor_t *holder = NULL;
     if (hitter_actor->part_heap_link) {
         holder = hitter_actor->part_heap_link->parent_actor;
@@ -2816,21 +2754,17 @@ void see_if_anything_hit(part_t *part, int16_t hit_param) {
     for (actor_t *target = root_thing; target; target = target->next_in_display_list) {
         if (target == selected_thing && (target->flags & 0x2000)) {
         }
-        /* Skip self, holder, and ally actors */
         if (target == hitter_actor) { HREJ("self"); continue; }
         if (target == holder) { HREJ("holder"); continue; }
         if (target->name_index == hitter_actor->spawner_index) { HREJ("spawner"); continue; }
 
-        /* Skip if target is held by the hitter */
         if (target->part_heap_link &&
             target->part_heap_link->parent_actor == hitter_actor) { HREJ("held-by-hitter"); continue; }
 
-        /* Skip if target has no repertoire or no Interact action */
         if (!target->actor_reperture || target->actor_reperture->action_slots[34] < 0) {
             HREJ("no-interact-slot(34)"); continue;
         }
 
-        /* Distance check: horizontal */
         int16_t direction, distance;
         find_direction_and_distance(&direction, &distance,
             part->joint_position.X - target->position_vector.X,
@@ -2841,23 +2775,19 @@ void see_if_anything_hit(part_t *part, int16_t hit_param) {
             continue;
         }
 
-        /* Distance check: vertical */
         int16_t vert = part->joint_position.Y - target->position_vector.Y;
         if (vert <= -2560 || vert >= 512) {
             HREJ("vert out of range"); continue;
         }
 
-        /* Skip dying/dead actors */
         if (target->actor_behavior == BH_DYING || target->actor_behavior == BH_DEAD) {
             HREJ("dying/dead"); continue;
         }
 
-        /* Skip actors with CannotBeHit flag (0x2000) */
         if (target->flags & 0x2000) {
             HREJ("flags&0x2000 CannotBeHit"); continue;
         }
 
-        /* Skip scene-linked actors */
         if (target->actor_scene) {
             HREJ("in scene"); continue;
         }
@@ -2866,8 +2796,8 @@ void see_if_anything_hit(part_t *part, int16_t hit_param) {
             HREJ("act.flags&0x80"); continue;
         }
 
-        /* Scene 8 filter: if scene 8 has started, hitter has spawner_index >= 0,
-           target has no WalkLeft action (field_2[3] < 0), and target is not hero → skip */
+        /* Scene 8 started, hitter was spawned, target has no WalkLeft and is
+         * not the hero: skip. */
         if ((scene_name_flags[8] & 2) &&
             hitter_actor->spawner_index >= 0 &&
             target->actor_reperture->action_slots[3] < 0 &&
@@ -2879,9 +2809,6 @@ void see_if_anything_hit(part_t *part, int16_t hit_param) {
                    hitter_actor->actor_hit_code, target->code_at_hp_change,
                    target->actor_hitpoints);
 
-        /* --- HIT CONFIRMED --- */
-
-        /* Set hit angle and hit type */
         target->hit_angle = arctan(
             target->position_vector.X - hitter_actor->position_vector.X,
             target->position_vector.Z - hitter_actor->position_vector.Z);
@@ -2928,19 +2855,15 @@ void see_if_anything_hit(part_t *part, int16_t hit_param) {
             continue;
         }
 
-        /* Determine the effective hitter.
-         * If the hitter is a held puzzle-item (book, cross, etc.) with its own
-         * hit-code, use the item so the item's code fires on target.
-         * Otherwise use the holder (weapon/fist combat path). */
+        /* A held puzzle item (book, cross) with its own hit code fires that
+         * code; otherwise the holder is the hitter. */
         actor_t *effective_hitter;
         if (holder && hitter_actor->actor_hit_code >= 0)
             effective_hitter = hitter_actor;  /* puzzle item: use item's code */
         else
             effective_hitter = holder ? holder : hitter_actor;
 
-        /* Check if hitter has a hit-code script */
         if (effective_hitter->actor_hit_code >= 0) {
-            /* Execute hit code on target */
             code_t *code = code_tab[effective_hitter->actor_hit_code];
             if (code) {
                 execute_code(code, target);
@@ -2950,19 +2873,16 @@ void see_if_anything_hit(part_t *part, int16_t hit_param) {
                     code_names[effective_hitter->actor_hit_code].field_0);
             }
         } else {
-            /* Default hit behavior: set GetHit, apply damage */
             target->actor_behavior = BH_GET_HIT;
             target->flags |= 0x2000;  /* CannotBeHit */
 
             int damage = 0;
 
             if (target == selected_thing) {
-                /* Hero is being hit */
                 if (!no_die) {
                     damage = 5 * effective_hitter->actor_strength_factor / 100;
                 }
             } else {
-                /* NPC is being hit */
                 damage = 40 * effective_hitter->actor_strength_factor / 100;
 
                 actor_t *weapon = NULL;
@@ -2984,9 +2904,7 @@ void see_if_anything_hit(part_t *part, int16_t hit_param) {
                         /* Hitting with bare hand: halve damage */
                         damage /= 2;
                     }
-                    /* else: no arms at all, keep full damage */
                 } else {
-                    /* Apply weapon bonus */
                     if (weapon->actor_magic) {
                         damage += 20 * (weapon->actor_magic_factor - 100) / 100;
                         adjust_magic(weapon, -1);
@@ -3012,7 +2930,6 @@ void see_if_anything_hit(part_t *part, int16_t hit_param) {
             }
         }
 
-        /* Execute target's hp-change code if present */
         if (target->code_at_hp_change >= 0) {
             code_t *code = code_tab[target->code_at_hp_change];
             if (code) {
@@ -3024,7 +2941,6 @@ void see_if_anything_hit(part_t *part, int16_t hit_param) {
             }
         }
 
-        /* Update life bar if hero was hit */
         if (target == selected_thing) {
             WTRACE("  HERO after: hp=%d bh=%d flags=%04x\n",
                    target->actor_hitpoints, target->actor_behavior, target->flags);
@@ -3033,10 +2949,9 @@ void see_if_anything_hit(part_t *part, int16_t hit_param) {
     }
 }
 
-/* move_look_for_pick_up_427128 — the E1 entry point takes the hand PART, not the
- * actor, and answers 4 (the put-down slot) when that hand is absent or already
- * holding something. The return value is a repertoire slot offset, so getting it
- * wrong animates one arm while the held-object link moves on another. */
+/* move_look_for_pick_up_427128 — E1 takes the hand part and answers 4 (the
+ * put-down slot) when the hand is absent or full. The result is a repertoire
+ * slot offset. */
 int look_for_pick_up_e1(part_t *hand) {
     if (!hand) {
         PTRACE("[PICK] hand=NULL -> 4\n");
@@ -3240,7 +3155,6 @@ int find_best_target_up_down(actor_t *actor) {
 
     if (!best) return 0;
 
-    /* Compare head heights */
     part_t *target_head = best->_PartTab ? best->_PartTab->field_0[2] : NULL;
     if (!target_head) target_head = best->actor_parts_list;
     part_t *self_head = actor->_PartTab ? actor->_PartTab->field_0[2] : NULL;
@@ -3347,7 +3261,6 @@ void find_2_part_rot_z(part_t *part) {
         return;
     }
 
-    /* Walk up holding_actor chain */
     part_t *p = extremity;
     while (p->holding_actor) {
         ((part_t *)p->holding_actor)->next_in_path = p;
@@ -3421,7 +3334,6 @@ void make_2_part_limb(part_t *part) {
 
     actor_t *actor = part->parent_actor;
 
-    /* Compute extremity position relative to actor */
     vector_t input;
     input.X = extremity->joint_position.X - actor->position_vector.X;
     input.Y = extremity->joint_position.Y - actor->position_vector.Y;
@@ -3459,7 +3371,6 @@ void unmake_2_part_limb(part_t *part) {
         return;
     }
 
-    /* Walk up holding_actor chain, setting next_in_path */
     part_t *p = extremity;
     while (p->holding_actor) {
         ((part_t *)p->holding_actor)->next_in_path = p;
@@ -3469,7 +3380,6 @@ void unmake_2_part_limb(part_t *part) {
 
     find_positions_on_path(extremity->parent_actor);
 
-    /* Decompose part rotation relative to its parent */
     matrix3x3_t inv, combined;
 
     matrix_inverse(&((part_t *)part->holding_actor)->matrix_1, &inv);
@@ -3664,7 +3574,6 @@ void check_part_hit(part_t *part, int16_t hit_param) {
         part_t *second = (part_t *)part->actor_parts_list;
         part_t *extremity = second ? (part_t *)second->actor_parts_list : NULL;
         if (!extremity) {
-            /* Fallback: treat as single part */
             goto single_part;
         }
 
@@ -3693,7 +3602,6 @@ void check_part_hit(part_t *part, int16_t hit_param) {
         see_if_anything_hit(part, hit_param);
     }
 
-    /* Check held thing */
     if (part->actor_2_held) {
         find_positions((actor_t *)part->actor_2_held, 0);
         part_t *hp = (part_t *)part->actor_2_held->actor_parts_list;
@@ -3704,7 +3612,6 @@ void check_part_hit(part_t *part, int16_t hit_param) {
 
 /* move_check_pick_up  E1: 0x427308 | E2: 0x42DE2C */
 void check_pick_up(part_t *part, int16_t param) {
-    /* Walk holding_actor chain, set next_in_path */
     part_t *p = part;
     while (p->holding_actor) {
         ((part_t *)p->holding_actor)->next_in_path = p;
@@ -3733,7 +3640,6 @@ void check_pick_up(part_t *part, int16_t param) {
     if (dy < 0) dy = -dy;
     if (dist > dy) dy = dist;
 
-    /* Drop currently held thing */
     if (part->actor_2_held) {
         hold_thing_with_part(part->actor_2_held, part);
         if (game_version == GAME_VERSION_E1) {
@@ -3755,7 +3661,6 @@ void check_pick_up(part_t *part, int16_t param) {
         }
     }
 
-    /* Pick up the target */
     part->actor_2_held = target;
     target->part_heap_link = part;
 
@@ -3794,7 +3699,6 @@ void check_put_down(part_t *part, int flags) {
            held ? file_find_thing_name(held->name_index) : "-");
     if (!held) return;
 
-    /* Walk holding_actor chain */
     part_t *p = part;
     while (p->holding_actor) {
         ((part_t *)p->holding_actor)->next_in_path = p;
@@ -3935,11 +3839,9 @@ void make_path(part_t *part) {
 
 /* move_fix_part / move_unfix_part  E1: ? | E2: 0x42D8B8 */
 void fix_part(void) {
-    /* E2 stub — just returns */
 }
 
 void unfix_part(void) {
-    /* E2 stub — just returns */
 }
 
 /* move_reorient_thing  E1: ? | E2: 0x42DAE0 */
@@ -4010,7 +3912,7 @@ void likely_target_up_or_down(actor_t *actor, int *out_dir, int *out_updown) {
                             if (y_diff >= 0) best_dir = 1;
                         }
                     } else {
-                        best_dir ^= best_dir; /* 0 */
+                        best_dir ^= best_dir;
                     }
 
                     if (y_diff > 0)       best_updown = 1;

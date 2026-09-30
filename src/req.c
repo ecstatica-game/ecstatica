@@ -3,7 +3,6 @@
  *
  * Request/dialog system: requester panels, input gathering,
  * file requester, yes/no dialogs, game over screens.
- * 58 functions prefixed with req_ in the original ASM.
  */
 
 #include "req.h"
@@ -155,15 +154,13 @@ void do_request(void) {
 void open_requester(request_t *req) {
     if (!req) return;
 
-    /* Draw requester panel background */
     int panel_x = (screen_width - req->width) / 2;
     int panel_y = (screen_height - req->height) / 2;
 
-    /* White fill + 3D bevel border (matches req_request_43B384) */
+    /* White fill + bevel, as req_request_43B384. */
     a_pen_colour = 15;
     rect_fill(db, panel_x, panel_y, req->width, req->height);
 
-    /* 3D bevel: top-left dark (8), bottom-right bright (14) */
     a_pen_colour = 8;
     move_pen(db, (int16_t)panel_x, (int16_t)(panel_y + req->height - 1));
     draw(db, panel_x, panel_y);
@@ -174,7 +171,6 @@ void open_requester(request_t *req) {
     draw(db, panel_x + req->width - 1, panel_y + req->height - 1);
     draw(db, panel_x + 1, panel_y + req->height - 1);
 
-    /* Title: dark text on white (a=8, b=15) */
     if (req->gadget_header_text && req->gadget_header_text[0]) {
         a_pen_colour = 8;
         int title_len = (int)strlen(req->gadget_header_text);
@@ -186,7 +182,6 @@ void open_requester(request_t *req) {
 
 /* req_close_requester  E1: ? | E2P: 0x42A258 */
 void close_requester(void) {
-    /* Restore screen under requester from background */
     clear_background(db, 0, 0, screen_width, screen_height);
 }
 
@@ -330,7 +325,6 @@ int yes_no_requester(const char *question) {
 
     open_requester(&req);
 
-    /* Draw Yes/No buttons */
     int panel_x = (screen_width - req.width) / 2;
     int panel_y = (screen_height - req.height) / 2;
     int selected = 0;
@@ -339,7 +333,6 @@ int yes_no_requester(const char *question) {
         platform_pump_events(NULL);
         get_mouse();
 
-        /* Yes button — gadget style with 3D bevel */
         {
             int bx = panel_x + 40, by = panel_y + 46, bw = 60, bh = tx_h + 4;
             a_pen_colour = 15;
@@ -357,7 +350,6 @@ int yes_no_requester(const char *question) {
             text(db, "Yes", 3);
         }
 
-        /* No button */
         {
             int bx = panel_x + 160, by = panel_y + 46, bw = 60, bh = tx_h + 4;
             a_pen_colour = 15;
@@ -399,16 +391,14 @@ int yes_no_requester(const char *question) {
 
 /* req_text_requester  E1: ? | E2P: 0x42A3F8 */
 int text_requester(const char *prompt, char *output, int max_len) {
-    /* No-op: editor-only text input via gadget StringReq system.
-       Zero callers at runtime. */
+    /* Editor-only; no callers. */
     (void)prompt; (void)output; (void)max_len;
     return 0;
 }
 
 /* req_number_requester  E1: ? | E2P: 0x42A4C8 */
 int number_requester(const char *prompt) {
-    /* No-op: editor-only numeric input via gadget system.
-       Zero callers at runtime.  Ref: uses HandleStringGadg + numeric validation. */
+    /* Editor-only; no callers. */
     (void)prompt;
     return 0;
 }
@@ -416,7 +406,6 @@ int number_requester(const char *prompt) {
 /* req_add_gadget  E1: ? | E2P: 0x42A598 */
 void add_gadget(gadget_t *gadget) {
     if (!gadget) return;
-    /* Prepend gadget to active request's gadget linked list */
     gadget->next_gdg = active_request.gadget_list;
     active_request.gadget_list = gadget;
 }
@@ -424,7 +413,6 @@ void add_gadget(gadget_t *gadget) {
 /* req_remove_gadget  E1: ? | E2P: 0x42A668 */
 void remove_gadget(gadget_t *gadget) {
     if (!gadget) return;
-    /* Unlink gadget from active request's gadget linked list */
     if (active_request.gadget_list == gadget) {
         active_request.gadget_list = gadget->next_gdg;
     } else {
@@ -441,7 +429,6 @@ void remove_gadget(gadget_t *gadget) {
 void draw_gadget(gadget_t *gadget) {
     if (!gadget) return;
 
-    /* Draw gadget rectangle */
     a_pen_colour = gadget->flags ? 7 : 5;
     move_pen(db, gadget->X, gadget->Y);
     draw(db, gadget->X + gadget->width, gadget->Y);
@@ -449,7 +436,6 @@ void draw_gadget(gadget_t *gadget) {
     draw(db, gadget->X, gadget->Y + gadget->height);
     draw(db, gadget->X, gadget->Y);
 
-    /* Draw label */
     if (gadget->gadget_text && gadget->gadget_text[0]) {
         a_pen_colour = 1;
         int label_len = (int)strlen(gadget->gadget_text);
@@ -478,7 +464,6 @@ void game_over(void) {
 
     do_fade_in();
 
-    /* Wait for keypress */
     for (;;) {
         platform_pump_events(NULL);
         get_mouse();
@@ -486,26 +471,22 @@ void game_over(void) {
         platform_delay(16);
     }
 
-    /* Return to main menu */
     do_main_menu();
 }
 
 /* req_show_end_sequence  E1: ? | E2P: 0x42A9A8 */
 void show_end_sequence(void) {
-    /* End-game cutscene: requires knowing the end-scene index.
-       Falls back to game_over screen until scene data is identified. */
+    /* Until the end scene is identified. */
     game_over();
 }
 
 /* req_show_credits  E1: ? | E2P: 0x42AA78 */
 void show_credits(void) {
-    /* No-op: zero callers. Likely dead/cut code. */
+    /* No callers. */
 }
 
-/* The subtitle port options (size, hold) exist because the original 6x8 font
- * reads very small once it is stretched over the enhanced 640x480 set. The
- * original VGA mode is meant to look like the release, so both are pinned to
- * their original values there rather than following the saved setting. */
+/* The subtitle size/hold options exist for the enhanced 640x480 set; in VGA
+ * both are pinned to the original values. */
 static int subtitle_eff_scale(void) {
     if (!mode_svga) return 1;
     return subtitle_scale < 1 ? 1 : subtitle_scale;
@@ -520,7 +501,6 @@ static int subtitle_eff_hold(void) {
 void show_subtitle(const char *text_str, int duration) {
     if (!text_str) return;
 
-    /* Find empty subtitle slot */
     for (int i = 0; i < MAX_SUBTITLES; i++) {
         if (!subtitle_status[i]) {
             subtitle_status[i] = 1;
@@ -550,29 +530,15 @@ void req_clear_subtitles(void) {
     clear_subtitles = 1;
 }
 
-/* req_draw_subtitles  E1: ? | E2P: 0x42ACE8 */
-/* asm display_prepare_parts_421198+116..+240. Runs from prepare_parts before
- * the background restore, not from the subtitle renderer: the rects
- * clear_a_subtitle appends to clear_tab have to be in place before
- * clear_parts/clear_masking consume them, or they land a frame late.
- *
- * Blitting the background store straight into both draw planes (what this used
- * to do) skips the mask and the clear_tab bookkeeping, so anything composited
- * over the subtitle rect is lost. Stuck actors (flags & 0x0400) are only drawn
- * once and left in the buffer, so any of them overlapping the rect must have
- * its already-drawn bit cleared to make draw_stuck_parts render it again. */
+/* display_prepare_parts_421198+116..+240. Runs from prepare_parts before the
+ * background restore, so the rects clear_a_subtitle appends to clear_tab are in
+ * place for clear_parts/clear_masking this frame. Stuck actors overlapping a
+ * rect get their drawn bit cleared so draw_stuck_parts renders them again. */
 void clear_expired_subtitles(void) {
     if (!subtitles_on) return;
 
-    /* Finish time of the speech this caption belongs to. Latched when the
-     * caption is posted rather than tracked continuously: a paragraph is one
-     * long sample with its lines posted over it, and the *next* paragraph
-     * starting would otherwise drag the previous line along with it — the
-     * line stayed up ~5s past its own audio.
-     *
-     * The grace window covers the reverse case, where a script posts the text
-     * slightly ahead of the sound event (seen at ~110 units), so the caption
-     * still adopts the sample that arrives just after it. */
+    /* The speech end time is latched when the caption is posted, or the next
+     * paragraph's sample would keep this line up past its own audio. */
     const int32_t voice_grace_rt = 2 * MY_TIME_PER_SEC;
     int32_t now_rt = my_time();
 
@@ -591,9 +557,8 @@ void clear_expired_subtitles(void) {
     if (now_rt <= caption_post_rt + voice_grace_rt && sample_end_rt > caption_audio_end_rt)
         caption_audio_end_rt = sample_end_rt;
 
-    /* 0x41D853 expires every caption SUBTITLE_HOLD_TICKS after it was posted,
-     * flat, with no reference to the speech — which is why a voiced line
-     * outlives its text. The longer settings are a port option. */
+    /* 0x41D853 expires every caption SUBTITLE_HOLD_TICKS after posting,
+     * regardless of speech. The longer settings are a port option. */
     int hold = subtitle_eff_hold();
     int32_t expire_at = subtitles_time + SUBTITLE_HOLD_TICKS;
     if (hold == 1)
@@ -602,11 +567,10 @@ void clear_expired_subtitles(void) {
     int expired = (game_time - expire_at) > 0;
 
     if (hold >= 2) {
-        /* Match voice: a line is normally retired by the next CT_SUBTITLE
-         * (which sets clear_subtitles); this only decides the last line of a
-         * paragraph, which goes when its own audio stops. Compared in real
-         * time so a loading stall cannot cut it short. The cap is back in
-         * game_time and covers a sample that is missing or muted. */
+        /* Match voice: normally the next CT_SUBTITLE retires the line; this
+         * only decides a paragraph's last line. Compared in real time so a
+         * loading stall cannot cut it short; the game_time cap covers a missing
+         * or muted sample. */
         if (now_rt < caption_audio_end_rt)
             expired = 0;
         if ((game_time - (subtitles_time + SUBTITLE_HOLD_TICKS * 8)) > 0)
@@ -640,13 +604,9 @@ void clear_expired_subtitles(void) {
 
         clear_a_subtitle(i);
 
-        /* 0x41D925 retires the slot and blanks the rect, and deliberately
-         * leaves subtitle_text/subtitle_length alone. The port used to null
-         * them here, which destroyed a caption posted in this same frame:
-         * CT_SUBTITLE sets clear_subtitles and refills the slot, but the rect
-         * still belongs to the outgoing line, so the loop reaches it and wiped
-         * the incoming text before draw_subtitles ever saw it. Status stays 1
-         * for a fresh post, so only status 2 is retired. */
+        /* 0x41D925 leaves subtitle_text/subtitle_length alone: a caption
+         * posted this frame may already refill the slot whose rect still
+         * belongs to the outgoing line. Only status 2 is retired. */
         if (subtitle_status[i] == 2)
             subtitle_status[i] = 0;
         sub->left = sub->right = sub->top = sub->bottom = 0;
@@ -668,29 +628,23 @@ void draw_subtitles(void) {
         if (subtitle_status[i] == 1 || subtitle_status[i] == 2)
             lines = i + 1;
 
-    /* The original stacks lines downward from 240 in SVGA and from 0 in VGA
-     * (0x41E18A: mode_svga ? 240 : 0; 240 is screen_height/2 at 640x480).
-     * Scaling the line pitch alone would push the block that much closer to
-     * the bottom of the screen, so in SVGA anchor the block's bottom edge
-     * where the unscaled layout put it and let it grow upward instead. At
-     * scale 1 this is exactly the original placement; VGA is always original. */
+    /* The original stacks lines downward from 240 in SVGA, 0 in VGA
+     * (0x41E18A). At larger scales the SVGA block keeps the original bottom
+     * edge and grows upward; scale 1 is the original placement. */
     int base = 0;
     if (mode_svga) {
         base = screen_height / 2 + lines * 10 - lines * line_h;
         if (base < 0) base = 0;
     }
 
-    /* On a panel that crops rather than pillarboxes (Vita/PSP SCALE_CROP),
-     * rows this far off the top and bottom never reach the screen — keep the
-     * whole caption block inside what actually shows. */
+    /* Keep the block inside what a cropping panel (SCALE_CROP) shows. */
     int crop_inset = platform_crop_inset_y(win_platform(), screen_height);
     if (base < crop_inset) base = crop_inset;
 
     for (int i = 0; i < MAX_SUBTITLES; i++) {
         if (subtitle_status[i] != 1) continue;
 
-        /* Re-centre for the current scale rather than trusting the value
-         * show_subtitle computed — the size can change between the two. */
+        /* The scale can change after show_subtitle centred the line. */
         int line_w = cw * subtitle_length[i];
         subtitle_offset[i] = (int16_t)((screen_width - line_w - 2) / 2);
         if (subtitle_offset[i] < 0) subtitle_offset[i] = 0;
@@ -730,9 +684,6 @@ void draw_subtitles(void) {
         }
     }
 }
-
-/* Note: draw_polygon, find_ellipse, shade_ellipse, add_ellipse
- * are defined in tri.c and ellipse.c/anim.c respectively */
 
 /* req_do_choice_req  E2: 0x43C890 */
 int do_choice_req(const char *msg) {
@@ -939,21 +890,14 @@ void do_input_req(char *buffer, int buflen, const char *prompt) {
 
 /* req_do_input  E2: 0x43BCCC */
 void do_input(void) {
-    /* Keyboard input handler for text gadgets in requester system.
-       Not needed — simplified menu system handles input directly. */
 }
 
 /* req_load_saved_screen  E2: 0x43C138 */
 void load_saved_screen(void) {
-    /* Loads saved screenshot from "saved/XXXX.ecs" files.
-       264 instructions of file I/O + screen restoration. */
 }
 
 /* req_install_to_disk  E2: 0x43DA80 */
 void install_to_disk(void) {
-    /* Full CD-to-disk install routine.
-       0x1098 bytes — copies directories, shows progress bar.
-       Not needed for modern platforms. */
 }
 
 /* req_handle_dir_gadg  E2: 0x43C430 */
@@ -1009,7 +953,6 @@ void handle_set_install(void) {
 /* req_do_choice3_req  E2: 0x43CA20 */
 void do_choice3_req(const char *msg1, const char *msg2, const char *msg3) {
     choice_req.gadget_header_text = (char *)msg1;
-    /* msg2 and msg3 would populate additional gadget lines in the page req */
     do_choice_page_req();
 }
 

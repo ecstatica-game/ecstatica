@@ -1,6 +1,4 @@
-/* Font data: CharacterSet[132][8][6].
- * 132 glyphs, 8 rows x 6 cols each = 48 bytes/glyph. Cell '#' = fg pixel,
- * ' ' = bg pixel. Consumed by init.c text() via character_set global. */
+/* Font: 132 glyphs of 8 rows x 6 columns; '#' is a foreground pixel. */
 
 char character_set_ref[132][8][6] =
 {
@@ -1326,10 +1324,8 @@ char character_set_ref[132][8][6] =
 }
 };
 
-/* Populate global character_set (char[256][48]) from the source layout.
- * Called at init. Byte-copies each glyph's 48 raw bytes (8 rows x 6 cols
- * row-major, matching text() indexing [cy * tx_w + cx]). Fills glyphs 0..131,
- * leaves 132..255 zeroed for the ASCII-fallback path. */
+/* Copies the 132 glyphs into character_set; 132..255 stay zeroed for the
+ * ASCII fallback. */
 extern char character_set[256][48];
 void load_character_set_ref(void) {
     for (int i = 0; i < 132; ++i) {

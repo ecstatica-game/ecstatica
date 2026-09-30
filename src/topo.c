@@ -1,11 +1,8 @@
 /**
  * topo.c
  *
- * topography / terrain functions:
- *   height queries, map element lookup, position update with collision,
- *   velocity/gravity, background loading, palette, visibility map.
- *
- * 16 functions prefixed topo_ in the original ASM.
+ * Terrain: height queries, map element lookup, position update with
+ * collision, velocity/gravity, background loading, palette, visibility map.
  */
 
 #include "topo.h"
@@ -66,24 +63,17 @@ void init_profile_heights(void) {
     profile_height.field_C = -256;
 }
 
-/* topo_find_map_element_448744
- * Returns index of best matching map element at given (x,z) position,
- * using block configuration (triangle/quadrant subdivision).
- */
+/* topo_find_map_element_448744 — resolves the triangle/quadrant subdivision. */
 int find_map_element(vector_t *position) {
     int result_idx = -1;
     signed int test_height = -1;
     int col = (position->X >> 9) + 64;
     int row = (position->Z >> 9) + 64;
 
-    /* asm topo_find_map_element_448694+35: the original indexes new_map with the
-     * flat offset row*128 + col and does not range-check either axis, so a
-     * position just outside the grid wraps into the neighbouring row and still
-     * resolves to a usable element. Rejecting per-axis instead made any such
-     * position return -1, which check_camera turns into camera 0 and
-     * play_dead_scene(7) — the player getting eaten by the dragon after being
-     * nudged off the edge of the map by collision. Bound the flat index only,
-     * which keeps the wrap without reading out of bounds. */
+    /* topo_find_map_element_448694+35 indexes new_map with the flat offset and
+     * no per-axis check, so a position just off the grid wraps into the next
+     * row. Rejecting it returned -1, i.e. camera 0 and play_dead_scene(7).
+     * Bound only the flat index. */
     int flat = row * 128 + col;
     if (flat < 0 || flat >= 128 * 128)
         return -1;
@@ -141,9 +131,7 @@ int find_map_element(vector_t *position) {
     return result_idx;
 }
 
-/* topo_find_map_element_vis_4488A4
- * Same as find_map_element but without the height step offset.
- */
+/* topo_find_map_element_vis_4488A4 — find_map_element without the height step. */
 signed int find_map_element_vis(vector_t *position) {
     int result_idx = -1;
     signed int test_height = -1;
@@ -208,10 +196,7 @@ int16_t find_height_now(vector_t *position, actor_t *actor) {
     return find_height_now_material(position, actor, 0);
 }
 
-/* topo_find_height_now_material_448A48
- * Returns terrain height, checks code tokens for CT_BLOCK_ACTOR,
- * CT_BLOCK_WANDERERS, CT_BLOCK_ALL, CT_BLOCK_AQUATIC.
- */
+/* topo_find_height_now_material_448A48 — also applies the CT_BLOCK_* tokens. */
 int16_t find_height_now_material(vector_t *position, actor_t *actor, int *material) {
     int result;
     int map_elem_idx = find_map_element(position);
@@ -282,9 +267,7 @@ int16_t find_height_now_vis(vector_t *position) {
     return (int16_t)((0x80 - (uint8_t)map_elements[map_elem_idx].height) << height_shift);
 }
 
-/* topo_update_position_448C1C
- * Recursively halves large increments to ensure collision precision.
- */
+/* topo_update_position_448C1C — halves large increments for collision precision. */
 void update_position(actor_t *actor, vector_t *increment) {
     if (abs(increment->X) <= 64 && abs(increment->Y) <= 64 && abs(increment->Z) <= 64) {
         do_update_position(actor, increment);
@@ -298,11 +281,8 @@ void update_position(actor_t *actor, vector_t *increment) {
     }
 }
 
-/* topo_do_update_position_448CB4
- * Core collision detection: probes bounding box in 5 directions around
- * movement direction, checks other actor bounding boxes, applies wall
- * sliding when blocked.
- */
+/* topo_do_update_position_448CB4 — probes five directions around the move,
+ * checks other actors' boxes and slides along walls. */
 void do_update_position(actor_t *actor, vector_t *increment) {
     int16_t direction;
     int16_t distance;
@@ -314,7 +294,6 @@ void do_update_position(actor_t *actor, vector_t *increment) {
 
     find_dirn_and_dist(&direction, &actor->move_direction, increment->X, increment->Z);
 
-    /* Skip collision when topography/editor/script mode active — apply directly */
     if (topography || editor_mode || script_mode) {
         actor->position_vector.X += increment->X;
         actor->position_vector.Y += increment->Y;
@@ -332,7 +311,6 @@ void do_update_position(actor_t *actor, vector_t *increment) {
     int inc_z = increment->Z;
     int move_angle = 0;
 
-    /* Check collisions with other actors */
     if (root_thing) {
         for (actor_t *cur_actor = root_thing; cur_actor; cur_actor = cur_actor->next_in_display_list) {
             if (cur_actor == actor) continue;
@@ -370,8 +348,6 @@ void do_update_position(actor_t *actor, vector_t *increment) {
 
     if (game_version == GAME_VERSION_E1) {
         /* E1 treats every probe alike: any height delta over 256 blocks. */
-        /* Assigned, not initialised: the values are runtime expressions, and
-         * Open Watcom only accepts constant aggregate initialisers. */
         int16_t probe_dirs[5];
         probe_dirs[0] = direction;
         probe_dirs[1] = (int16_t)(direction + 0x1000);
@@ -434,7 +410,6 @@ void do_update_position(actor_t *actor, vector_t *increment) {
         }
     }
 
-    /* Apply wall deflection if any obstacles found */
     int adj_x = inc_x;
     int adj_z = inc_z;
     move_angle = arctan(inc_z, inc_x);
@@ -521,7 +496,6 @@ apply_movement:
     int height_diff = (int)actor->position_vector.Y - (int)new_pos.Y;
 
     if (game_version == GAME_VERSION_E1) {
-        /* E1: block if abs(height_diff) > 256 — reject both drops AND walls */
         if (abs(height_diff) > 256)
             return;
         actor->position_vector.X = new_pos.X;
@@ -558,9 +532,7 @@ void update_velocity(actor_t *actor) {
     }
 }
 
-/* topo_do_update_velocity_449680
- * Processes gravity, fall damage, fall-impact actions.
- */
+/* topo_do_update_velocity_449680 — gravity, fall damage and fall-impact actions. */
 int do_update_velocity(actor_t *actor, int time_interval) {
     int map_area_height = find_height_now_material(&actor->position_vector, 0, 0);
     int landed = 0;
@@ -649,9 +621,7 @@ void flush_backgrounds(void) {
     loaded_background[3] = -1;
 }
 
-/* topo_load_raw_449B4C
- * Loads a packed background image for the current camera view.
- */
+/* topo_load_raw_449B4C — packed background for the current camera. */
 int load_raw(void) {
     if (selected_camera < 0) {
         do_info_req("Can't load negative camera");
@@ -664,11 +634,9 @@ int load_raw(void) {
 
     char source[64];
 
-    /* The two view sets are different resolutions, so the source must follow
-     * the active mode — a 640x480 HIRES background loaded while in VGA (or a
-     * 320x200 VIEWS background loaded while in SVGA) overruns the row stride
-     * and tiles the image. Cameras with no HIRES entry return failure so the
-     * caller can reload in VGA and upscale via copy_vga_to_svga(). */
+    /* The source must match the active mode, or the row stride is wrong and
+     * the image tiles. A camera with no HIRES entry fails so the caller can
+     * reload in VGA and upscale with copy_vga_to_svga(). */
     FILE *stream = NULL;
     if (mode_svga) {
         snprintf(source, sizeof(source), "HIRES/%04d.RAW", selected_camera);
@@ -716,12 +684,8 @@ int load_raw(void) {
     clip_mask(2, 1, 0, 0, screen_width, screen_height);
     clip_mask(2, 0, 0, 0, screen_width, screen_height);
 
-    /* Here rather than at the call sites: this is the one function that
-     * rewrites bitmap[3] and mask_map[2], and it has two callers that each do
-     * their own camera switch — check_view for scripted scenes and
-     * check_camera for the player walking between map areas. Invalidating in
-     * only one of them left the hardware renderer holding the previous room's
-     * colour and depth for the whole of normal play. */
+    /* Here rather than in check_view/check_camera: this is the one function
+     * that rewrites bitmap[3] and mask_map[2]. */
     render_invalidate_background();
 
     return 0;
@@ -750,15 +714,12 @@ char *load_raw_graphic(const char *source, int *size_x, int *size_y) {
     fread(&header, 1, 0x20, stream);
     fread(palette, 1, 768, stream);
 
-    /* big-endian to little-endian conversion */
     int16_t sx = reverse_char_word_val(header.size_x);
     int16_t sy = reverse_char_word_val(header.size_y);
     *size_x = sx;
     *size_y = sy;
 
-    /* Zeroed: a short or truncated file leaves the tail of the buffer
-     * untouched, and this buffer is pixel data that goes straight to the
-     * screen. Reading it raw makes the image depend on heap contents. */
+    /* Zeroed: a short file must not leave heap garbage on screen. */
     char *result = (char *)calloc(1, (size_t)*size_y * (size_t)*size_x);
     if (!result) quit("Not enough memory for Graphic");
 
@@ -830,8 +791,7 @@ void load_palette(const char *filename) {
                     view_cmap[i].B = colour_map[i].B;
                 }
             }
-            /* check_fade uses fade_cmap as source palette. Mirror view_cmap
-             * into fade_cmap so fade_in can interpolate toward the cam palette. */
+            /* fade_in interpolates from fade_cmap toward the camera palette. */
             memcpy(fade_cmap, view_cmap, sizeof(view_cmap));
         }
     } else {
@@ -875,7 +835,6 @@ void load_visibility_map(void) {
     map_area_element_t *work_map_elem;
     uint16_t map_elem_idx;
 
-    /* Clear all visibility flags */
     for (int i = 0; i < 128; ++i) {
         for (int j = 0; j < 128; ++j) {
             map_elem_idx = new_map[j][i];

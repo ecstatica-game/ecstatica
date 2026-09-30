@@ -4,9 +4,8 @@
 #define NOMINMAX
 #include <windows.h>
 #include <mmsystem.h>
-/* XInput is XP-era and has no Win9x equivalent, and Open Watcom does not ship
- * it. That target uses the winmm joystick API instead — the one Win9x actually
- * had. See platform_gamepad_poll(). */
+/* No XInput on Win9x or in Open Watcom; that target uses the winmm joystick
+ * API. */
 #ifndef __WATCOMC__
 #include <xinput.h>
 #endif
@@ -15,13 +14,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdbool.h>
-/* gl.h's typedefs would collide with gl_loader.h's. The two are never in the
- * same translation unit: this file only creates the context, render_gl.c only
- * uses it.
- *
- * Only the hardware build pulls this in. The Win9x/Watcom target is software
- * only — it links no opengl32 — so it leaves ECS_ENABLE_GL undefined and every
- * WGL path below drops out. */
+/* gl.h's typedefs collide with gl_loader.h's; they never share a translation
+ * unit. The Win9x/Watcom build is software only and leaves ECS_ENABLE_GL
+ * undefined. */
 #ifdef ECS_ENABLE_GL
 #include <GL/gl.h>
 #endif
@@ -61,13 +56,11 @@ struct platform_t {
     DWORD saved_style;
     RECT  saved_rect;        /* window rect to come back to */
 
-    /* Destination rectangle inside the client area — the whole of it when the
-     * aspect happens to match, letterboxed when it does not. */
+    /* Destination rect in the client area, letterboxed when aspects differ. */
     int dst_x, dst_y, dst_w, dst_h;
 
-    /* Hardware renderer. The context goes on the game window's own DC — unlike
-     * GLX there is no visual to fix up front, only a pixel format, and that can
-     * be set on an existing window. */
+    /* The GL context uses the game window's own DC: a pixel format can be set
+     * on an existing window. */
     HDC   gl_dc;
     HGLRC gl_rc;
     bool  gl_active;
@@ -76,9 +69,8 @@ struct platform_t {
 
 static platform_t *s_platform = NULL;
 
-/* Largest fb-aspect rectangle that fits the client area, centred. Recomputed
- * per frame rather than cached: it costs one GetClientRect and it cannot then
- * go stale behind a resize, a mode change or a taskbar appearing. */
+/* Largest fb-aspect rect that fits the client area, centred. Per frame, so it
+ * cannot go stale after a resize or mode change. */
 static void compute_dest_rect(platform_t *p) {
     RECT rc;
     int cw, ch, sw, sh;
@@ -107,13 +99,9 @@ static void compute_dest_rect(platform_t *p) {
     p->dst_h = sh;
 }
 
-/* Alt+Enter, the convention every DirectDraw-era game used — which is what a
- * Win9x machine expects, and this port had no way to do at all.
- *
- * The display mode is switched to the framebuffer size when the card offers
- * it, so the blit stays 1:1 and no scaler sits in the way; if that is refused
- * the window still goes borderless over the whole desktop and the blit
- * stretches, which is the better of the two failure modes. */
+/* Alt+Enter fullscreen. Switches the display mode to the framebuffer size
+ * when available so the blit stays 1:1; otherwise goes borderless and
+ * stretches. */
 static void set_fullscreen(platform_t *p, bool on) {
     if (!p || !p->hwnd || p->fullscreen == on) return;
 
@@ -152,8 +140,6 @@ static void set_fullscreen(platform_t *p, bool on) {
         p->fullscreen = false;
     }
 
-    /* The old contents are the wrong size now, and nothing repaints the parts
-     * the next blit does not cover. */
     InvalidateRect(p->hwnd, NULL, TRUE);
 }
 
@@ -179,8 +165,7 @@ static void update_mouse_pos(platform_t *p, LPARAM lParam) {
     int rw = p->render_width;
     int rh = p->render_height;
 
-    /* Through the same rectangle the frame is drawn into, so the pointer lands
-     * where the picture is and not where the window is. */
+    /* Map through the picture rect, not the window. */
     compute_dest_rect(p);
     if (p->dst_w <= 0 || p->dst_h <= 0) return;
 
@@ -205,9 +190,7 @@ static LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
         case WM_KEYDOWN:
         case WM_SYSKEYDOWN: {
             int sc;
-            /* Bit 29 of lParam is the Alt state. Swallowed here rather than
-             * passed on: the engine has no use for Alt+Enter, and letting it
-             * through would also feed Enter to whatever menu is open. */
+            /* Bit 29 is Alt. Swallowed, so Enter does not reach an open menu. */
             if (msg == WM_SYSKEYDOWN && wParam == VK_RETURN && (lParam & (1 << 29))) {
                 set_fullscreen(p, !p->fullscreen);
                 return 0;
@@ -293,8 +276,7 @@ platform_t *platform_init(const char *title, int fb_width, int fb_height, int sc
     int win_w = fb_width * scale;
     int win_h = fb_height * scale;
 
-    /* Assigned rather than initialised: win_w/win_h are runtime values, and
-     * Open Watcom only accepts constant aggregate initialisers. */
+    /* Assigned: Open Watcom only accepts constant aggregate initialisers. */
     RECT rc;
     DWORD style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX;
     rc.left = 0; rc.top = 0; rc.right = win_w; rc.bottom = win_h;
@@ -326,9 +308,7 @@ bool platform_hires_supported(platform_t *p) {
     return true;
 }
 
-/* The window owns its own aspect ratio, so there is no fit mode to choose —
- * only PSP and Vita, with a fixed panel wider than the game's picture, offer
- * this. */
+/* The window owns its aspect ratio; only PSP and Vita offer fit modes. */
 bool platform_scale_mode_supported(platform_t *p) {
     (void)p;
     return false;
@@ -358,8 +338,7 @@ static void present(platform_t *p) {
 
     compute_dest_rect(p);
 
-    /* Only the bars, and only when there are any: repainting the whole client
-     * area every frame would flicker. */
+    /* Only the bars, only when present: a full repaint flickers. */
     if (p->dst_x > 0 || p->dst_y > 0) {
         RECT rc;
         HBRUSH black = (HBRUSH)GetStockObject(BLACK_BRUSH);
@@ -420,9 +399,8 @@ bool platform_gfx_create(platform_t *p) {
         return false;
     }
 
-    /* The two-step every WGL program does: a legacy context is the only way to
-     * resolve wglCreateContextAttribsARB, which is the only way to ask for a
-     * core profile. A 1.1 context would never compile #version 330. */
+    /* A legacy context is needed to resolve wglCreateContextAttribsARB, the
+     * only way to get a core profile. */
     HGLRC legacy = wglCreateContext(dc);
     if (!legacy) { ReleaseDC(p->hwnd, dc); return false; }
     wglMakeCurrent(dc, legacy);
@@ -455,9 +433,8 @@ bool platform_gfx_create(platform_t *p) {
         (PFN_wglSwapIntervalEXT)wglGetProcAddress("wglSwapIntervalEXT");
     if (swap_interval) swap_interval(1);
 
-    /* opengl32.dll exports only the 1.1 entry points; everything above it comes
-     * from wglGetProcAddress, and a handful of drivers answer only one of the
-     * two. platform_gl_proc tries both. */
+    /* opengl32.dll exports only 1.1; some drivers answer only one of the two
+     * lookups, so platform_gl_proc tries both. */
     p->gl_lib = LoadLibraryA("opengl32.dll");
     p->gl_dc  = dc;
     p->gl_rc  = core;
@@ -472,8 +449,7 @@ void platform_gfx_set_active(platform_t *p, bool active) {
     if (active) {
         wglMakeCurrent(p->gl_dc, p->gl_rc);
     } else {
-        /* GDI and GL share the window DC, so releasing the context from the
-         * thread is what lets StretchDIBits own it again. */
+        /* GDI and GL share the DC; release it for StretchDIBits. */
         wglMakeCurrent(NULL, NULL);
         if (p->hwnd) InvalidateRect(p->hwnd, NULL, TRUE);
     }
@@ -632,8 +608,7 @@ void platform_delay(uint32_t ms) {
 
 void platform_shutdown(platform_t *p) {
     if (!p) return;
-    /* Leaving the desktop at 640x480 because the game exited from fullscreen
-     * is the classic way to rearrange somebody's icons for them. */
+    /* Restore the desktop mode after fullscreen. */
     if (p->mode_changed) {
         ChangeDisplaySettingsA(NULL, 0);
         p->mode_changed = false;
@@ -659,16 +634,14 @@ void platform_set_title(platform_t *p, const char *title) {
 
 #ifdef __WATCOMC__
 
-/* Flip an axis to positive-up. -(-32768) does not fit an int16, so a stick
- * held fully forward would wrap round to fully back. */
+/* To positive-up. -(-32768) does not fit an int16. */
 static int16_t neg_axis(int v) {
     v = -v;
     return (int16_t)(v > 32767 ? 32767 : (v < -32767 ? -32767 : v));
 }
 
-/* Win9x path. joyGetPosEx reports axes over a driver-declared range, so each
- * one is normalised against the caps rather than assumed to be 0..65535, and
- * Y is inverted to match XInput's up-is-positive convention. */
+/* Win9x: joyGetPosEx axes are normalised against the driver's declared range,
+ * and Y is inverted to match XInput. */
 void platform_gamepad_poll(platform_t *p, platform_gamepad_state_t *state) {
     JOYCAPS  caps;
     JOYINFOEX ji;
@@ -927,9 +900,7 @@ void platform_audio_shutdown(void) {
     s_audio_ready = false;
 }
 
-/* ================================================================
- *  MIDI playback -- mciSendString for SMF files
- * ================================================================ */
+/* ── MIDI via mciSendString (needs an SMF file on disk) ───────── */
 
 static bool s_midi_active = false;
 static char s_midi_temp_path[MAX_PATH];
@@ -940,7 +911,6 @@ int platform_midi_play(const void *smf_data, int length, bool loop) {
 
     platform_midi_stop();
 
-    /* Write SMF data to a temp file -- mciSendString needs a file path */
     char temp_dir[MAX_PATH];
     GetTempPathA(MAX_PATH, temp_dir);
     GetTempFileNameA(temp_dir, "ecs", 0, s_midi_temp_path);

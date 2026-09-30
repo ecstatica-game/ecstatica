@@ -3,7 +3,6 @@
  *
  * Music and sound playback system: MIDI-like tune playback,
  * ambient sounds, sound effect management, volume control.
- * 46 functions prefixed with music_ in the original ASM.
  */
 
 #include "music.h"
@@ -20,9 +19,8 @@ bool music_on = false;
 bool sound_fx_on = false;
 bool subtitles_on = true;
 
-/* Port addition, for the "Match voice" subtitle hold. Every sample goes
- * through start_playing_sample and plays non-looping, so its finish time is
- * known the moment it starts. In game_time units. */
+/* Port addition for the "Match voice" subtitle hold: when the audio in
+ * flight finishes (see music.h). */
 int32_t sample_end_rt = 0;
 bool tune_playing = false;
 char *sound_storage = NULL;
@@ -42,8 +40,7 @@ int32_t ambiant_last[20];
 
 int32_t tune_offset[10][96];
 
-/* E1 tune names — one per soundIndex, matched to MUSIC/<NAME>.<ext>.
- * Extracted from asm at 0x479F70 (75 entries, 8 bytes each, uppercase). */
+/* E1 tune names per sound index (0x479F70), matched to MUSIC/<NAME>.<ext>. */
 const char *tune_names_e1[75] = {
     "EEVILEND", "EBKGRD1",  "EBKGRD1A", "EBKGRD1B", "EBKGRD1C",
     "EBKGRD2",  "EBKGRD2A", "EBKGRD2B", "EBKGRD2C", "EBKGRD2A",
@@ -62,24 +59,18 @@ const char *tune_names_e1[75] = {
     "STNG48_8", "STNG4912", "STNG5015", "EDEMFLU2", "EDEMENTQ",
 };
 
-/* File-static variables */
 static int16_t tune_fade_target;
 static int16_t tune_fade_speed;
 static int16_t sound_volume = 230;
 static int16_t music_volume = 204;
 static int32_t find_distance(vector_t *a, vector_t *b);
 
-/* Forward declarations */
 void load_a_sound(int sound_index);
 void stop_speech(void);
 
 /* ── Sound Images MIDI Driver tune → Standard MIDI conversion ──
- * Ecstatica ships tunes as .SCC/.LAP/.GUS/.AWE/.SBL (Sound Images
- * MIDI Driver, Tony Williams 1992-94). Format decoded from ValleyBell's
- * Lem3DMid converter (same driver used by Lemmings 3D, MK2, Pyrotechnica).
- *
- * Output: SMF format-1, tempo/tpq from file footer. Fed to macOS
- * DLSMusicDevice / AVMIDIPlayer via platform_midi_play. */
+ * Tunes ship as .SCC/.LAP/.GUS/.AWE/.SBL (Sound Images MIDI Driver, Tony
+ * Williams 1992-94); format from ValleyBell's Lem3DMid converter. */
 
 static void smf_write_u32(uint8_t *buf, uint32_t v) {
     buf[0] = v >> 24; buf[1] = v >> 16; buf[2] = v >> 8; buf[3] = v;
@@ -98,10 +89,8 @@ static int smf_write_vlq(uint8_t *buf, uint32_t v) {
     return n;
 }
 
-/* Sound Images MIDI Driver (SIMD) tune format → Standard MIDI File.
- *
- * Format (decoded from ValleyBell's Lem3DMid converter and confirmed
- * against Ecstatica/Lemmings3D/MK2 .scc/.sbl files):
+/* SIMD tune → SMF format 1. Format confirmed against Ecstatica, Lemmings 3D
+ * and MK2 files.
  *
  *   Header:
  *     [0]      0x01 magic
@@ -131,10 +120,8 @@ static int smf_write_vlq(uint8_t *buf, uint32_t v) {
 static uint8_t *si_to_smf(const uint8_t *src, int src_len, int *out_len) {
     if (src_len < 4 || src[0] != 0x01) return NULL;
 
-    /* Detect pointer width.
-       16-bit (E1 / Lem3D): [01] [LE16 fp_ptr] — track data at offset 3.
-       32-bit (E2 Win95):   [01 00 00 00] [LE32 fp_ptr] — track data at offset 8.
-       Distinguish by checking if bytes 1-3 are all zero (32-bit header). */
+    /* 16-bit pointers (E1): [01] [LE16], tracks at 3. 32-bit (E2 Win95):
+     * [01 00 00 00] [LE32], tracks at 8. */
     int wide = (src[1] == 0 && src[2] == 0 && src[3] == 0);
     int fp_ptr, footer;
     uint32_t trk_off[64];
@@ -171,14 +158,11 @@ static uint8_t *si_to_smf(const uint8_t *src, int src_len, int *out_len) {
             trk_off[t] = src[footer+3+t*2] | (src[footer+3+t*2+1] << 8);
     }
 
-    /* Allocate generous output buffer. */
     int cap = 64 + src_len * 6 * max_trk;
-    /* Zeroed: the writer fills only as far as the converted data reaches, and
-     * the buffer is deliberately over-allocated. */
+    /* Zeroed: the buffer is over-allocated and only partly written. */
     uint8_t *out = (uint8_t *)calloc(1, (size_t)cap);
     if (!out) return NULL;
 
-    /* MThd — format 1, N tracks. */
     memcpy(out, "MThd", 4);
     smf_write_u32(out + 4, 6);
     smf_write_u16(out + 8,  1);            /* format 1 */
@@ -192,7 +176,6 @@ static uint8_t *si_to_smf(const uint8_t *src, int src_len, int *out_len) {
         op += 8;
         int trk_start = op;
 
-        /* First track: write tempo meta-event. */
         if (t == 0) {
             uint32_t uspq = 60000000 / tempo_bpm;
             out[op++] = 0x00;
@@ -215,9 +198,8 @@ static uint8_t *si_to_smf(const uint8_t *src, int src_len, int *out_len) {
         } while (0)
 
         while (!trk_end && ip < src_len && op < cap - 24) {
-            /* Read VLQ delta and accumulate. Events that produce no MIDI
-               output (channel select, loop markers) must carry their time
-               forward to the next real event rather than drop it. */
+            /* Events with no MIDI output (channel select, loop markers) carry
+             * their time forward to the next real event. */
             uint32_t delta = 0;
             while (ip < src_len && (src[ip] & 0x80)) {
                 delta = (delta << 7) | (src[ip++] & 0x7F);
@@ -229,7 +211,6 @@ static uint8_t *si_to_smf(const uint8_t *src, int src_len, int *out_len) {
             if (ip >= src_len) break;
 
             if (!(src[ip] & 0x80)) {
-                /* Note-on: note(1) velocity(1). */
                 if (ip + 1 >= src_len) break;
                 uint8_t note = src[ip];
                 uint8_t vel  = src[ip + 1];
@@ -248,8 +229,7 @@ static uint8_t *si_to_smf(const uint8_t *src, int src_len, int *out_len) {
                 out[op++] = note;
                 out[op++] = vel;
             } else if ((src[ip] & 0xF0) == 0x80) {
-                /* Channel select — recorded in sel_ch and applied to the
-                   status byte of every later event, so nothing is emitted. */
+                /* Applied to the status byte of later events; emits nothing. */
                 sel_ch = src[ip] & 0x0F;
                 ip++;
             } else {
@@ -340,12 +320,10 @@ static uint8_t *si_to_smf(const uint8_t *src, int src_len, int *out_len) {
             }
         }
 
-        /* End-of-track meta, preserving any trailing time. */
         EMIT_DELTA();
         out[op++] = 0xFF; out[op++] = 0x2F; out[op++] = 0x00;
 #undef EMIT_DELTA
 
-        /* Patch track length. */
         smf_write_u32(out + trk_size_pos, op - trk_start);
     }
 
@@ -410,10 +388,8 @@ void resume_tune(void) {
     }
 }
 
-/* music_process_tune_4307D0
- * Tune playback is handled by platform_midi_play (AVMIDIPlayer on macOS).
- * This function existed in the original to tick the Sound Images software
- * sequencer; the platform MIDI layer replaces that entirely. */
+/* music_process_tune_4307D0 — ticked the Sound Images sequencer; the platform
+ * MIDI player replaces it. */
 void process_tune(void) {
     if (!tune_playing || !tune_buffer) return;
 }
@@ -433,7 +409,6 @@ void play_sound_effect(int sound_index, int volume) {
 
     sound_t *sound = sound_tab[sound_index];
     if (!sound) {
-        /* Load on demand */
         load_a_sound(sound_index);
         sound = sound_tab[sound_index];
     }
@@ -475,7 +450,6 @@ void play_sound_3d(int sound_index, vector_t *position) {
     if (!sound_fx_on) return;
     if (!position) return;
 
-    /* Calculate distance-based volume */
     int32_t dist = find_distance(&actor_position[0], position);
     int volume = 255;
     if (dist > 0) {
@@ -518,12 +492,11 @@ void stop_speech(void) {
     }
 }
 
-/* Local helper: approximate 3D distance between two points */
+/* Approximate, no sqrt. */
 static int32_t find_distance(vector_t *a, vector_t *b) {
     int32_t dx = a->X - b->X;
     int32_t dy = a->Y - b->Y;
     int32_t dz = a->Z - b->Z;
-    /* Fast approximate distance (no sqrt) */
     if (dx < 0) dx = -dx;
     if (dy < 0) dy = -dy;
     if (dz < 0) dz = -dz;

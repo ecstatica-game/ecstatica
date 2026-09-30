@@ -1,9 +1,7 @@
 /**
  * render_priv.h
  *
- * Shared between render.c (which builds the draw lists) and the backend
- * (which consumes them). Not part of the engine-facing interface — nothing
- * outside those two files includes this.
+ * Shared by render.c and the backend only; not engine-facing.
  */
 
 #ifndef RENDER_PRIV_H
@@ -14,8 +12,7 @@
 #include "types.h"
 #include "platform.h"
 
-/* Matches view_transform's near-clip test (display.c:1048) and the int16 range
- * the engine's depth mask is stored in (mask_map cleared to 0x7FFF, map.c:62). */
+/* view_transform's near-clip test; depth fits the engine's int16 mask. */
 #define RENDER_NEAR_Z   128
 #define RENDER_FAR_Z    32767
 
@@ -26,12 +23,8 @@ enum {
     RENDER_ELL_BEAM
 };
 
-/**
- * One ellipsoid, entirely in view space:  p = centre + rot * diag(axes) * u.
- *
- * `rot` is part->matrix_2 converted out of 14-bit fixed point — it already
- * contains the view rotation, so no further transform is applied to it.
- */
+/* One ellipsoid in view space: p = centre + rot * diag(axes) * u. `rot` is
+ * matrix_2, which already includes the view rotation. */
 typedef struct {
     float   centre[3];
     float   rot[9];          /* row-major 3x3 */
@@ -42,11 +35,8 @@ typedef struct {
     int16_t colour_shade;    /* 14-bit fixed multiplier for the fog band */
 } render_ellipsoid_t;
 
-/**
- * One triangle corner. Position is world space — the backend applies view and
- * projection itself. `pal` is the final palette index from the CPU-side face
- * shading; `layer` is the texture array slot, or -1 for flat.
- */
+/* One triangle corner in world space. `pal` is the CPU-shaded palette index;
+ * `layer` the texture array slot, or -1 for flat. */
 typedef struct {
     float   pos[3];
     float   uv[2];           /* texel units; wrapped at 0x7F like asm_f.c:456 */
@@ -54,12 +44,8 @@ typedef struct {
     int16_t layer;
 } render_vertex_t;
 
-/**
- * One corner of the debug map mesh. Colour is carried as RGB rather than a
- * palette index: the map view is a diagnostic, not part of the game's look, and
- * its colour coding has to stay readable whatever palette the current view
- * happens to be using.
- */
+/* Debug map vertex. RGB, not a palette index, so the colour coding stays
+ * readable under any view palette. */
 typedef struct {
     float   pos[3];
     uint8_t rgb[3];
@@ -79,7 +65,6 @@ typedef struct {
     int                       tex_count;
     bool                      have_3d;
 
-    /* Debug map geometry, built once and reused until the map data changes. */
     const render_map_vertex_t *map_verts;
     int                        map_count;
 } render_frame_t;
@@ -99,11 +84,8 @@ void render_gl_frame_end(void);
 void render_gl_invalidate_background(void);
 void render_gl_invalidate_palette(void);
 
-/**
- * Texture array slot for a texture_tab index, uploading it on first use.
- * Returns -1 when the texture is not loaded, which makes the caller fall back
- * to a flat triangle rather than dropping the face.
- */
+/* Texture array slot, uploaded on first use. -1 when the texture is not loaded
+ * (the caller draws flat). */
 int  render_gl_texture_layer(int16_t texture_name_index);
 
 #endif /* ECS_ENABLE_GL */

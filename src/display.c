@@ -3,7 +3,6 @@
  *
  * Skeletal hierarchy, matrix/vector math, view pipeline,
  * actor preparation, part/ellipse/triangle rendering.
- * 61 functions prefixed with display_ in the original ASM.
  */
 
 #include "display.h"
@@ -111,17 +110,15 @@ int16_t max_fps = 30;
 int16_t fps = 0;
 
 bool making_background = false;
-/* Max detail: draw all triangles including detail LOD tiers (0x2/0x4).
- * The original sets this per-actor by distance in DrawDetail (0x47A6E8);
- * pending that, default to max so triangle geometry (e.g. dress meshes)
- * is never culled. Values >2 would drop ALL triangles — 2 is the ceiling. */
+/* The original sets this per actor by distance in DrawDetail (0x47A6E8); until
+ * that is ported, max detail keeps triangle geometry such as dress meshes.
+ * Values above 2 would drop every triangle. */
 int16_t level_of_detail = 2;
 int16_t set_palette_flag = 0;
 
 part_t *blocked_parts_list[2] = {0};
 int db_bpl = 0;
 
-/* Alias shortened names to the actual global variable names in vars.h */
 #define HeldByPart actor_held_by_part
 #define HeldByActor actor_held_by_actor
 
@@ -149,7 +146,6 @@ void initialise_parts(void) {
     memset(scene_name_flags, 0, sizeof(scene_name_flags));
     memset(thing_name_flags, 0, sizeof(thing_name_flags));
 
-    /* Default camera position */
     view_pos.X = 0;
     view_pos.Y = 0;
     view_pos.Z = 0x1000;
@@ -251,13 +247,11 @@ void initialise_actor(actor_t *actor) {
     actor->full_actor_hp = 100;
     actor->actor_hitpoints = actor->full_actor_hp;
 
-    /* Execute actor init code if present */
     if (actor->actor_init_code >= 0 && code_tab[actor->actor_init_code]) {
         execute_code(code_tab[actor->actor_init_code], actor);
     }
 }
 
-/* display_hold_thing_with_part  E1: 0x41D458 | E2: 0x420E94 */
 /* Env-gated: dump the geometry of a held actor once, so a malformed held item
  * can be read off without guessing. ECSTATICA_TRACE_HELD=1 */
 static void trace_held_actor(actor_t *actor) {
@@ -412,32 +406,18 @@ void prepare_an_actor(actor_t *actor) {
     actor->state_flags |= 0x80;
 }
 
-/* display_prepare_parts_4211C8 — main per-frame display prep.
- * Mirror of asm camera-maintenance block:
- *   if (!edit && !topography && !script_mode && !make_backgrounds):
- *     if (sel && sel->actor_act.act_action && act_action->action_flags & 2):
- *       if (sel->actor_scene): check_view(actor_scene->camera_index)
- *     else:
- *       if (!moving_camera) check_camera()
- *       check_hot_spots()
- *     check_hero_rep(); play_ambients();
- */
+/* display_prepare_parts_4211C8 — main per-frame display prep. */
 void prepare_parts(void) {
-    /* Drive per-frame palette interpolation independently of actor prepare.
-     * bug 15 tied check_fade to prepare_an_actor, but during intro (before
-     * any actor is visible) that call chain never fires and fade_in stalls
-     * — leaving view_cmap at all-zero from the FADE_TO_BLACK 0 that runs
-     * before intro. Call unconditionally at prepare_parts entry. */
+    /* Must not depend on prepare_an_actor: during the intro no actor is
+     * visible, and fade_in would stall with view_cmap still zeroed. */
     check_fade();
 
-    /* Camera-maintenance block — asm 4211C8 prologue.
-     * Skipped in editor/topography/script/make_backgrounds. */
+    /* Camera maintenance — asm 4211C8 prologue. */
     if (!editor_mode && !topography && !script_mode && !make_backgrounds) {
         actor_t *sel = selected_thing;
         action_t *act = sel ? sel->actor_act.act_action : NULL;
         if (sel && act && (act->action_flags & 2)) {
             if (sel->actor_scene) {
-                //     sel->actor_scene->scene_index, sel->actor_scene->camera_index);
                 check_view(sel->actor_scene->camera_index);
             }
         } else {
@@ -457,18 +437,14 @@ void prepare_parts(void) {
     if (active_camera)
         active_camera->time = my_time();
 
-    /* state_flags 0x80 — "already prepared" gate for prepare_an_actor.
-     *
-     * flags 0x0800 is NOT a per-frame bit: it means "this thing is currently
-     * painted into the background store", set once by draw_stuck_parts
-     * (0x41DF19) and cleared only by the un-stick pass below (0x41DA79).
-     * Resetting it every frame re-baked stuck things endlessly and, worse,
-     * lost the record that told the un-stick pass to erase them. */
+    /* state_flags 0x80 is the "already prepared" gate for prepare_an_actor.
+     * flags 0x0800 is not per-frame: it records that the thing is painted into
+     * the background store (set by draw_stuck_parts 0x41DF19, cleared only by
+     * the un-stick pass below 0x41DA79), so it must not be reset here. */
     for (actor_t *t = root_thing; t; t = t->next_in_display_list) {
         t->state_flags &= ~0x80;
     }
 
-    /* Prepare all actors not yet marked (prepare_an_actor sets 0x80) */
     for (actor_t *t = root_thing; t; t = t->next_in_display_list) {
         if (!(t->state_flags & 0x80)) {
             prepare_an_actor(t);
@@ -518,7 +494,6 @@ void prepare_parts(void) {
         t->flags &= ~0x0800;
     }
 
-    /* Clear previous frame's graphics */
     clear_db_mouse_cursor_win95();
 
     if (background_status) {
@@ -538,8 +513,6 @@ void prepare_parts(void) {
 
     clear_masking();
 
-    /* CT_SUBTITLE renderer. Delegates to req.c draw_subtitles
-     * which writes text to bitmap 2 at fixed offsets. */
     draw_subtitles();
 
 
@@ -552,10 +525,8 @@ void prepare_parts(void) {
     render_frame_begin();
 }
 
-/* display_clear_a_stuck_thing_421684 — Bug 55 pt.4: was strict `>` and
- * size w/o +1. Correct behavior: always assign area_to_clear = &bounding_box first,
- * use inclusive bounds, +1 sizes, and append slot to BOTH clear_tab[db] and
- * clear_tab[1-db] so both buffer sides get restored on next flip. */
+/* display_clear_a_stuck_thing_421684 — inclusive bounds, and the slot goes into
+ * both clear_tab sides so both buffers are restored on the next flip. */
 void clear_a_stuck_thing(actor_t *actor) {
     if (!actor) return;
 
@@ -597,11 +568,8 @@ void clear_a_subtitle(int index) {
     }
 }
 
-/* display_clear_masking_424B48 — Bug 55 pt.2: was reading clear_tab[db]
- * (current frame's slots, unpopulated), using strict `>`, and size = R-L
- * with no +1. Correct: read clear_tab[1-db] (prior frame slots — those are
- * the ones to erase), inclusive `<=`, size R-L+1. Old semantics never
- * cleared the actual dirty rects → mask stale. */
+/* display_clear_masking_424B48 — erases the previous frame's slots
+ * (clear_tab[1-db]), inclusive bounds. */
 void clear_masking(void) {
     for (int i = 0; i < number_to_clear[1 - db]; i++) {
         subarea_t *area = &clear_tab[1 - db][i];
@@ -614,8 +582,8 @@ void clear_masking(void) {
     }
 }
 
-/* display_clear_parts_424BD8 — Bug 55 pt.3: strict `>` + size w/o +1
- * meant last row/col of dirty rect never cleared, leaving 1-px trails. */
+/* display_clear_parts_424BD8 — inclusive bounds, or the last row and column
+ * of each dirty rect leave 1-pixel trails. */
 void clear_parts(void) {
     for (int i = 0; i < number_to_clear[db]; i++) {
         subarea_t *area = &clear_tab[db][i];
@@ -628,29 +596,16 @@ void clear_parts(void) {
     }
 }
 
-/* display_draw_stuck_parts_421A14 — Bug 55: assign area_to_clear pointer.
- * Was leaving actor->area_to_clear NULL, so ellipse renderer read garbage
- * and never wrote the dirty bbox back → clear_masking didn't clear old
- * ellipse pixels → static-actor render trails on screen. Also missing
- * clear_background + clip_mask + clear_tab append. */
+/* display_draw_stuck_parts_421A14 */
 void draw_stuck_parts(void) {
     if (editor_mode) return;
 
-    /* Baking is a software-renderer optimisation and does not survive a
-     * hardware frame. It paints an actor once into the persistent background
-     * store (bitmap[2]) and sets 0x0800, after which both this function and
-     * draw_parts skip it — correct when those pixels stay put, fatal when the
-     * scene target is cleared and rebuilt from the background texture every
-     * frame, because the actor is submitted once and then never again.
-     *
-     * check_view (map.c) sets 0x0400 on *every* actor at a camera change, so
-     * leaving this in place made the whole cast disappear one frame after any
-     * cut. Skipping the loop means 0x0800 is never set, and draw_parts — whose
-     * only skip condition is that bit — picks all of them up every frame,
-     * which is what a GPU wants anyway.
-     *
-     * make_backgrounds is the tool that authors the pre-rendered views; it
-     * genuinely needs the baked store, and it runs on the software renderer. */
+    /* Baking paints an actor once into bitmap[2] and sets 0x0800, after which
+     * nothing draws it again. The hardware renderer rebuilds the frame from the
+     * background texture every frame, so baked actors would vanish — and
+     * check_view sets 0x0400 on every actor at a camera cut. Skipping the bake
+     * leaves all of them to draw_parts. make_backgrounds needs the baked store
+     * and runs on the software renderer. */
     if (render_backend == RENDER_HARDWARE && !make_backgrounds) {
         if (need_clear_graphics) clear_graphics();
         if (need_draw_graphics) draw_graphics();
@@ -663,8 +618,7 @@ void draw_stuck_parts(void) {
         if (!(actor->flags & 0x08)) continue;      /* Not visible */
         if (make_backgrounds && actor == selected_thing) continue;
 
-        /* Point area_to_clear at struct-embedded bounding_box so ellipse
-         * renderer's per-part bbox extension writes to a real target. */
+        /* The ellipse renderer grows this bbox per part. */
         actor->area_to_clear = &actor->bounding_box;
         actor->flags |= 0x0800;
         actor->bounding_box.left   = 0x7FFF;
@@ -699,27 +653,14 @@ void draw_stuck_parts(void) {
         }
     }
 
-    /* DrawStuckParts fires DrawGraphics at end. Was missing —
-     * put_a_graphic set flag=NeedToDraw and need_draw_graphics=1 but nothing
-     * ever consumed them → intro title graphic, HUD icons, life/magic
-     * bars never appeared. */
     if (need_clear_graphics) clear_graphics();
     if (need_draw_graphics) draw_graphics();
 }
 
-/**
- * Discard every baked copy of an actor and the background store holding them.
- *
- * The software renderer paints "stuck" actors once into bitmap[2] and marks
- * them 0x0800 so nothing redraws them. Switching renderers invalidates that on
- * both sides: the hardware path rebuilds the frame from scratch each time and
- * would never draw them again, and the pixels already baked into bitmap[2]
- * would ghost through the 2D composite on top of the live geometry.
- *
- * Restoring the background store from the pristine copy and clearing the mark
- * puts every actor back in the hands of draw_parts, which is where a renderer
- * switch has to leave things.
- */
+/* Discard every baked copy of an actor and restore the background store.
+ * Switching renderers invalidates baking both ways: the hardware path would
+ * never draw baked actors again, and their pixels in bitmap[2] would ghost
+ * through the 2D composite. */
 void unbake_stuck_actors(void) {
     for (actor_t *a = root_thing; a; a = a->next_in_display_list)
         a->flags &= (uint16_t)~0x0800;
@@ -730,28 +671,20 @@ void unbake_stuck_actors(void) {
 
 /* display_add_polygons  E1: 0x41E3A0 | E2: 0x421EE0 */
 void add_polygons(void) {
-    /* No-op: empty loop iterating actor polygon lists but performing no
-       action.  Zero callers. */
 }
 
 /* display_add_a_triangle  E1: ? | E2: 0x421F20 */
 void add_a_triangle(void) {
-    /* E2 stub — just returns */
 }
 
 /* display_add_actor_polys  E1: 0x41E3CC | E2: 0x421F0C */
 void add_actor_polys(actor_t *actor) {
-    /* No-op: empty loop iterating actor->polygone_tri_list but performing
-       no action.  Zero callers. */
     (void)actor;
 }
 
 /* display_draw_parts  E1: 0x41E3E4 | E2: 0x421F24 */
 void draw_parts(void) {
-    /* Bug 48: asm at 0x421F62 gates actor visibility on view-transform Z
-     * during moving_camera. If transformed Z > 0x2000 → clear Visible bit;
-     * else set Visible. Was missing — actors past far-plane got drawn
-     * during cam interpolation. */
+    /* 0x421F62: during camera moves, actors past view Z 0x2000 are hidden. */
     if (moving_camera) {
         for (actor_t *a = root_thing; a; a = a->next_in_display_list) {
             vector_t out;
@@ -762,12 +695,6 @@ void draw_parts(void) {
                 a->flags |= 0x8;
         }
     }
-
-    /* Bug 55: assign area_to_clear per actor + split rendering into 4
-     * passes in DrawParts. Was allocating a temp
-     * ClearTab slot without ever storing its address in actor->area_to_clear,
-     * so ellipse renderer read NULL and never wrote the bbox back.
-     * Result: dirty rect always empty → no clear next frame → trails. */
 
     /* Pass 1: assign area_to_clear + init bbox + find_view_positions. */
     for (actor_t *actor = root_thing; actor; actor = actor->next_in_display_list) {
@@ -844,7 +771,6 @@ void show_parts(void) {
         }
     }
 
-    /* Flip double buffer */
     db = 1 - db;
     draw_debug_overlay();
     flip_win95();
@@ -859,10 +785,8 @@ void make_identity(matrix3x3_t *mtx) {
     mtx->_33 = 0x4000;
 }
 
-/* display_rotate_about_x_422368 — POST-multiply: mtx = mtx * Rx.
- * Distinct from pre_rotate_about_x (which does Rx*mtx). asm inlines the
- * post-multiply; previously translated as pre-multiply, validated wrong
- * by diff_unicorn harness and corrected here. */
+/* display_rotate_about_x_422368 — post-multiply: mtx = mtx * Rx
+ * (pre_rotate_about_x does Rx * mtx). */
 void rotate_about_x(matrix3x3_t *mtx, int16_t angle) {
     int16_t s = sine_table[(unsigned short)angle];
     int16_t c = cosn_table[(unsigned short)angle];
@@ -875,7 +799,7 @@ void rotate_about_x(matrix3x3_t *mtx, int16_t angle) {
     rot._33 = c;
 
     matrix3x3_t tmp;
-    matrix_mult(&tmp, mtx, &rot);  /* post-multiply: tmp = mtx * Rx */
+    matrix_mult(&tmp, mtx, &rot);
     *mtx = tmp;
 }
 
@@ -892,7 +816,7 @@ void rotate_about_y(matrix3x3_t *mtx, int16_t angle) {
     rot._33 = c;
 
     matrix3x3_t tmp;
-    matrix_mult(&tmp, mtx, &rot);  /* post-multiply: tmp = mtx * Ry */
+    matrix_mult(&tmp, mtx, &rot);
     *mtx = tmp;
 }
 
@@ -909,7 +833,7 @@ void rotate_about_z(matrix3x3_t *mtx, int16_t angle) {
     rot._22 = c;
 
     matrix3x3_t tmp;
-    matrix_mult(&tmp, mtx, &rot);  /* post-multiply: tmp = mtx * Rz */
+    matrix_mult(&tmp, mtx, &rot);
     *mtx = tmp;
 }
 
@@ -1028,12 +952,10 @@ void copy_vector(vector_t *dst, vector_t *src) {
     dst->Z = src->Z;
 }
 
-/* helper: copy_matrix */
 void copy_matrix(matrix3x3_t *dst, matrix3x3_t *src) {
     memcpy(dst, src, sizeof(matrix3x3_t));
 }
 
-/* helper: div_vector */
 void div_vector(vector_t *v, int16_t divisor) {
     if (divisor == 0) return;
     v->X /= divisor;
@@ -1041,31 +963,21 @@ void div_vector(vector_t *v, int16_t divisor) {
     v->Z /= divisor;
 }
 
-/* helper: sum_vector */
 void sum_vector(vector_t *out, vector_t *a, vector_t *b) {
     out->X = a->X + b->X;
     out->Y = a->Y + b->Y;
     out->Z = a->Z + b->Z;
 }
 
-/* helper: sub_vector */
 void sub_vector(vector_t *out, vector_t *a, vector_t *b) {
     out->X = a->X - b->X;
     out->Y = a->Y - b->Y;
     out->Z = a->Z - b->Z;
 }
 
-/* display_calculate_view_matrices_422ABC.
- * asm non-editor path: identity, then post-mult Rx(view_rot.X), then
- * post-mult Ry(view_rot.Y). Z component of view_rot is NEVER applied
- * (asm reads `view_pos+0` for the Z slot which is uninitialized pad =
- * always zero). Previous C order Z→X→Y was wrong.
- */
+/* display_calculate_view_matrices_422ABC — post-multiply Z, X, Y:
+ * M = Rz * Rx * Ry. Camera data writes view_rot.Z (roll), so Rz is applied. */
 void calculate_view_matrices(void) {
-    /* Bug 62: apply Rz first in CalculateViewMatrices.
-     * Order Z, X, Y post-mul → M = Rz * Rx * Ry. Prior port skipped Rz on
-     * belief asm reads pad byte for third rotation; camera data legitimately
-     * writes view_rot.Z (camera roll) so must apply. */
     make_identity(&view_matrix);
     if (view_rot.Z) rotate_about_z(&view_matrix, view_rot.Z);
     if (view_rot.X) rotate_about_x(&view_matrix, view_rot.X);
@@ -1080,13 +992,8 @@ void calculate_rot_matrix(matrix3x3_t *mtx, vector_t *rotation) {
     if (rotation->Z) rotate_about_z(mtx, rotation->Z);
 }
 
-/* display_view_transform_422FD8.
- * Near-clip threshold: asm sets Z=0 when post-view Z < 128, signaling
- * "near-clipped" to downstream rasterizers (which test Z==0 to skip).
- * Previous C just left Z at its raw post-rotation value (e.g. 106), so
- * very-close points rendered at tiny near-camera screen coords instead
- * of being culled.
- */
+/* display_view_transform_422FD8 — Z below 128 becomes 0, which the
+ * rasterizers treat as near-clipped. */
 void view_transform(vector_t *out, vector_t *world_pos) {
     vector_t rel;
     rel.X = world_pos->X - view_pos.X;
@@ -1179,12 +1086,12 @@ void perspec_trans_no_overflow_chk(vector_t *point) {
 
 /* display_print_matrix  E1: 0x41F9F4 | E2: 0x4235D4 */
 void print_matrix(matrix3x3_t *mtx) {
-    (void)mtx; /* Debug only */
+    (void)mtx;
 }
 
 /* display_print_vector  E1: 0x41FA40 | E2: 0x423620 */
 void print_vector(vector_t *vec) {
-    (void)vec; /* Debug only */
+    (void)vec;
 }
 
 /* display_find_position_of_extremity  E1: 0x41FA64 | E2: 0x423644 */
@@ -1222,23 +1129,12 @@ void find_position_of_extremity(part_t *part) {
     add_vector(&part->ellipse_center, &part->joint_position);
 }
 
-/* display_find_positions_423858 — core recursive skeleton solver
+/* display_find_positions_423858 — recursive skeleton solver: computes joint
+ * positions and ellipse centres for every limb under `first_part`.
  *
- * Walks the part tree rooted at 'parent', computing world‑space joint
- * positions (joint_position) and ellipse centres (ellipse_center) for every limb.
- *
- * The original 32‑bit code cast a part_t* to actor_t* for the
- * recursive call, relying on the first 80 bytes being layout‑compatible.
- * On 64‑bit the pointer sizes differ so we pass the parent context
- * explicitly instead.
- *
- * parent_joint_position  – parent's joint world position
- * parent_matrix    – parent's accumulated rotation matrix
- * parent_offset    – actor->root_offset (root) or part->VECTOR_RelCentre (sub‑limb)
- * parent_type      – actor->type (root) or part->type (sub‑limb)
- * first_part       – first part (limb) to process
- * skip_first       – if true, start from first_part->next (a2 flag in original)
- */
+ * The original cast part_t* to actor_t* for the recursive call, relying on a
+ * shared 80-byte prefix; pointer sizes differ on 64-bit, so the parent context
+ * is passed explicitly. skip_first is the original's a2 flag. */
 static void find_positions_recursive(
     vector_t *parent_joint_position,
     matrix3x3_t *parent_matrix,
@@ -1285,13 +1181,9 @@ static void find_positions_recursive(
             copy_matrix(&part->matrix_1, parent_matrix);
         }
 
-        /* 5. Bug 58: TwoPartsLimb 2-part IK.
-         * Flag 0x20 (TwoPartsLimb): part is upper limb, part->actor_parts_list
-         * = middle (elbow/knee), middle->actor_parts_list = extremity
-         * (hand/foot). Extremity target position drives IK: upper Y+X face
-         * extremity, then arcsin joint solve chooses upper/middle X rotations
-         * so joint chain reaches extremity. Was missing → arms/legs held at
-         * default keyframe pose, no IK bending. */
+        /* 5. Two-part limb IK (flag 0x20): part is the upper limb, its child the
+         * middle joint, the grandchild the extremity whose position drives the
+         * solve. */
         if ((part->flags & 0x20) && part->actor_parts_list &&
                 part->actor_parts_list->actor_parts_list) {
             part_t *second = part->actor_parts_list;
@@ -1397,12 +1289,8 @@ static void find_positions_recursive(
             /* Position second part relative to solved upper. */
             find_a_position((actor_t *)part, second);
 
-            /* Bug 64: FindPositions(core, is_sub_part) also sets PositionFound
-             * flag and transforms points on the core BEFORE recursing. Prior
-             * port only did this on `part` and skipped `second` /
-             * `extremity` — their points rendered with stale world coords
-             * and their PositionFound flag never got set (breaks downstream
-             * blocked_parts_list constraint checks). */
+            /* Like the original FindPositions, flag and transform the points of
+             * `second` and `extremity` before recursing. */
             if (second->type == 4) {
                 second->flags |= 0x8000;
                 for (point_t *pt = second->points_list; pt; pt = pt->next) {
@@ -1514,7 +1402,7 @@ static void find_positions_recursive(
         /* 7. Mark this part's positions as solved */
         part->flags |= 0x8000;
 
-        /* 7b. Bug 57: transform this part's points into world space. */
+        /* 7b. Transform this part's points into world space. */
         for (point_t *pt = part->points_list; pt; pt = pt->next) {
             matrix_vector(&pt->offset_point, &pt->world_position, &part->matrix_1);
             add_vector(&pt->world_position, &part->ellipse_center);
@@ -1539,7 +1427,6 @@ static void find_positions_recursive(
 void find_positions(actor_t *actor, int skip_first) {
     if (!actor) return;
 
-    /* Set actor solved flag for non-type-7 actors */
     if (actor->type != 7) {
         actor->flags |= 0x8000;
         /* Transform repertoire vectors from local to world space */
@@ -1561,12 +1448,9 @@ void find_positions(actor_t *actor, int skip_first) {
         skip_first);
 }
 
-/* display_find_a_position_424164 — Bug 63: was reading actor
- * `position_vector` (offset 0x84 in actor, but 0x84 in part is ellipse_center.Z)
- * and using wrong parent matrix. FindAPosition
- * takes a `part_core*` (actor or part-typed root) and reads shared-prefix
- * fields (matrix_1, joint_position, type). When core is Part (type != Actor),
- * offset also includes core->VECTOR_RelCentre. Rewrites to match. */
+/* display_find_a_position_424164 — `core` is an actor or a part; only the
+ * shared prefix (matrix_1, joint_position, type) is read. A part core also
+ * adds its VECTOR_RelCentre. */
 void find_a_position(actor_t *core, part_t *part) {
     if (!core || !part) return;
 
@@ -1767,8 +1651,7 @@ void find_rotations_on_path(actor_t *actor) {
 
 /* display_adjust_for_anchored_part  E1: 0x420D20 | E2: 0x424900 */
 void adjust_for_anchored_part(actor_t *actor) {
-    /* No-op: adjusts part positions for anchored parts.
-       Zero callers.  May need implementing if anchored-part rendering is added. */
+    /* No callers. */
     if (!actor) return;
 }
 
@@ -1776,12 +1659,10 @@ void adjust_for_anchored_part(actor_t *actor) {
 void find_view_positions(actor_t *actor) {
     if (!actor) return;
 
-    /* Transform all parts to view space (recursive tree traversal) */
     part_t *part = actor->actor_parts_list;
     while (part) {
         view_transform_ellipse(part);
 
-        /* Transform all points to view space */
         point_t *point = part->points_list;
         while (point) {
             view_transform(&point->screen_coord, &point->world_position);
@@ -1825,7 +1706,7 @@ void put_shadows(actor_t *actor) {
 
     part_t *part = actor->actor_parts_list;
     while (part) {
-        /* Bug 50: asm at 0x424D61 skips parts with flags & 0x400 (dirty/bg) */
+        /* 0x424D61 */
         if (!(part->flags & 0x400) && (part->flags & 0x42) && part->color == 0) {
             put_an_ellipse(part);
         }
@@ -1852,9 +1733,8 @@ void put_smoke(actor_t *actor) {
 void put_triangles(actor_t *actor) {
     if (!actor) return;
 
-    /* Bug 51: asm at 0x424DFA gates on flags & 0x400 (dirty) AND
-     * per-LOD masks: LOD 0 → skip if flags & 6, LOD 1 → skip if flags & 4,
-     * LOD 2 → always draw. Was `tri_use_flag <= level_of_detail`, wrong. */
+    /* 0x424DFA: skip flags & 0x400; LOD 0 skips flags & 6, LOD 1 skips
+     * flags & 4, LOD 2 draws everything. */
     tri_t *tri = actor->polygone_tri_list;
     while (tri) {
         uint16_t f = tri->tri_use_flag;
@@ -1874,10 +1754,8 @@ void put_triangles(actor_t *actor) {
     }
 }
 
-/* display_put_a_triangle_424E44 — Bug 59: was doing back-face cull
- * here + passing NULL shade. Correct: delegate cull to draw_polygon and
- * fetch the shade-target triangle via
- * parent_actor->_TriangleTab->field_0[tri_shade_name] when tri_shade_name>=0. */
+/* display_put_a_triangle_424E44 — back-face culling is left to draw_polygon;
+ * the shade comes from _TriangleTab[tri_shade_name] when it is >= 0. */
 void put_a_triangle(tri_t *tri) {
     if (!tri || !tri->parent_actor) return;
 
@@ -1906,7 +1784,6 @@ void view_transform_ellipse(part_t *part) {
         vte_log++;
     }
 
-    /* Transform center to view space */
     vector_t rel;
     rel.X = part->ellipse_center.X - view_pos.X;
     rel.Y = part->ellipse_center.Y - view_pos.Y;
@@ -1914,7 +1791,6 @@ void view_transform_ellipse(part_t *part) {
 
     matrix_vector(&rel, &part->vector_persp, &view_matrix);
 
-    /* Clamp Z */
     if (part->vector_persp.Z < 128) {
         part->vector_persp.Z = 0;
     }
@@ -1979,7 +1855,6 @@ void put_a_cuboid(part_t *part) {
     if (!sx || !sy || !sz)
         return;
 
-    /* 8 corner vertices */
     point_t points[8];
     memset(points, 0, sizeof(points));
 
@@ -2001,7 +1876,6 @@ void put_a_cuboid(part_t *part) {
         view_transform(&points[i].screen_coord, &points[i].world_position);
     }
 
-    /* Set up triangle descriptor */
     tri_t draw_tri;
     memset(&draw_tri, 0, sizeof(draw_tri));
     draw_tri.parent_actor = part->parent_actor;
@@ -2122,7 +1996,6 @@ void put_an_ellipse(part_t *part) {
         return;
     }
 
-    /* Compute ellipse on screen and shade */
     find_ellipse(part);
     {
         int px, py;
@@ -2191,7 +2064,6 @@ void put_a_line(part_t *part) {
     int16_t x1 = (int16_t)(part->vector_persp.X >> 4) + hw;
     int16_t y1 = (int16_t)(part->vector_persp.Y >> 4) + hh;
 
-    /* Clip to screen edges */
     if (x0 < left_edge) {
         if (x1 < left_edge) return;
         if (x1 != x0)
@@ -2252,7 +2124,6 @@ void put_a_line(part_t *part) {
         draw(plane, x1 + 1, y1);
     }
 
-    /* Update parent actor's area_to_clear bounding box */
     actor_t *actor = part->parent_actor;
     if (actor && actor->area_to_clear) {
         subarea_t *area = actor->area_to_clear;
@@ -2271,7 +2142,6 @@ void put_a_line(part_t *part) {
 void xxx_stick_to_background(actor_t *actor) {
     if (!actor) return;
 
-    /* Remove from display list */
     if (actor == root_thing) {
         root_thing = actor->next_in_display_list;
     } else {
@@ -2285,7 +2155,6 @@ void xxx_stick_to_background(actor_t *actor) {
         }
     }
 
-    /* Add to stuck_thing_list */
     actor->next_stuck = stuck_thing_list;
     stuck_thing_list = actor;
 

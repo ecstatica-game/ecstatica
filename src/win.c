@@ -1,11 +1,8 @@
 /**
  * win.c
  *
- * Platform / window management:
- *   Original Win32/DirectDraw code replaced with cross-platform stubs
- *   that delegate to the platform.h abstraction layer.
- *
- * 8 functions prefixed win_ in the original ASM.
+ * Window glue: page flip, event pump and input mapping onto the game's key
+ * globals. The original's Win32/DirectDraw code is replaced by platform.h.
  */
 
 #include "win.h"
@@ -39,13 +36,9 @@ void win_set_scale_mode(int mode) {
         platform_set_scale_mode(g_platform, mode);
 }
 
-/* E1's speed mode (sneak/walk/run), driven by simulating the F-key groups the
- * game's own script reads — see the L3 handler in window_proc() for why it
- * has to go through the keyboard rather than movement_speed_mode directly.
- * Shared state so the Settings menu's Speed Mode row (menu.c) and a gamepad's
- * L3 click land on the same counter: L3 does not exist on PSP or on a
- * handheld Vita (it is real hardware only on a PS TV pad), so the menu row is
- * the only way to reach this on those platforms. */
+/* E1 speed mode (sneak/walk/run), driven by simulating the F-key groups the
+ * game's script reads (see the L3 handler in window_proc()). Shared by the
+ * Settings menu row and the pad's L3, which PSP and handheld Vita lack. */
 static const int e1_speed_fkey[3] = { 0x70, 0x74, 0x78 };  /* F1, F5, F9 */
 static int e1_speed_step = 1;                              /* game starts in walk */
 
@@ -58,10 +51,7 @@ int e1_speed_mode_step(void) {
     return e1_speed_step;
 }
 
-/* win_flip_win95_458094
- * Page flip — present the back buffer.
- * Original used DirectDraw IDirectDrawSurface::Flip().
- */
+/* win_flip_win95_458094 */
 void flip_win95(void) {
     int pitch;
     char *plane_data = (char *)dd_lock(db, &pitch);
@@ -125,26 +115,18 @@ void present_delay(int ms) {
     }
 }
 
-/* win_window_proc_458110
- * Original Win32 WndProc — keyboard/mouse event handler.
- * Now handled by platform_pump_events() in the platform layer.
- */
+/* win_window_proc_458110 */
 void window_proc(void) {
     if (!platform_pump_events(g_platform)) {
         ecs_exit_now(0);
     }
 
-    /* Map platform key states (PKEY scancodes) to game globals.
-     * Bug 11 fix: previously called platform_key_* with Win32 VK codes
-     * (0x1B, 0x20, 0x41 etc.) but platform stores at PKEY indices (0x01,
-     * 0x39, 0x1E etc.) from `macos_vk_to_pkey()` — mismatch meant NO key
-     * ever registered. game_t arrays `keys_were_pressed_codes[]` keep VK
-     * indexing for compat; translate PKEY→VK at storage. */
+    /* Game key arrays keep the original VK indexing; the platform layer
+     * reports PKEY scancodes, so translate here. */
     space_pressed       = platform_key_down(g_platform, PKEY_SPACE);
     enter_pressed       = platform_key_down(g_platform, PKEY_RETURN);
-    /* Edge-triggered variants (latched, consumer clears). Scripts checking
-     * CT_ANY_KEY_PRESSED / CT_SPACE_PRESSED must use these so a held key
-     * doesn't fire the token multiple frames → cascading scene skips. */
+    /* Latched edges: a held key must not fire CT_ANY_KEY_PRESSED /
+     * CT_SPACE_PRESSED on several frames and cascade scene skips. */
     if (platform_key_pressed(g_platform, PKEY_SPACE))  space_was_pressed = true;
     if (platform_key_pressed(g_platform, PKEY_RETURN)) enter_was_pressed = true;
     key_esc_was_pressed = platform_key_pressed(g_platform, PKEY_ESCAPE);
@@ -153,10 +135,8 @@ void window_proc(void) {
     ctrl_pressed        = platform_key_down(g_platform, PKEY_LCTRL);
     alt_pressed         = platform_key_down(g_platform, PKEY_LALT);
 
-    /* Set, never cleared — the consumer clears its own entry, the way the
-     * F-key block below already works. Plain assignment would wipe a press
-     * that nothing has read yet whenever window_proc runs twice before the
-     * consumer does, which it does through present_delay and the menus. */
+    /* Set, never cleared — the consumer clears its own entry. window_proc can
+     * run twice before the consumer reads it (present_delay, menus). */
     static const struct { int pk, vk; } edge_keys[] = {
         { PKEY_1, 0x31 }, { PKEY_2, 0x32 }, { PKEY_3, 0x33 },
         { PKEY_A, 0x41 }, { PKEY_C, 0x43 }, { PKEY_D, 0x44 },
@@ -183,10 +163,8 @@ void window_proc(void) {
     key6_pressed = platform_key_down(g_platform, PKEY_NUM6) || (arrow_right && !arrow_up && !arrow_down);
     key5_pressed = platform_key_down(g_platform, PKEY_NUM5);
 
-    /* BH_JOYSTICK reads extra_keys_pressed at DOS scancodes for movement,
-     * and keys_pressed[42] for Left Shift jump. Accept arrow keys OR numpad
-     * for movement. Scancodes: 72=NUM8/up, 75=NUM4/left, 77=NUM6/right,
-     * 80=NUM2/down. Alt at scancode 56, space at 57. */
+    /* BH_JOYSTICK reads DOS scancodes: 72 up, 75 left, 77 right, 80 down,
+     * 56 Alt, 57 space, and keys_pressed[42] for Left Shift. */
     extra_keys_pressed[72] = platform_key_down(g_platform, PKEY_UP)    || platform_key_down(g_platform, PKEY_NUM8) || platform_key_down(g_platform, PKEY_W);
     extra_keys_pressed[75] = platform_key_down(g_platform, PKEY_LEFT)  || platform_key_down(g_platform, PKEY_NUM4) || platform_key_down(g_platform, PKEY_A);
     extra_keys_pressed[77] = platform_key_down(g_platform, PKEY_RIGHT) || platform_key_down(g_platform, PKEY_NUM6) || platform_key_down(g_platform, PKEY_D);
@@ -209,25 +187,17 @@ void window_proc(void) {
         if (platform_key_pressed(g_platform, fn_pk[i]))
             extra_keys_were_pressed[fn_vk[i]] = 1;
 
-    /* Cmd+D: toggle debug overlay */
     if (platform_key_down(g_platform, PKEY_LCMD) &&
         platform_key_pressed(g_platform, PKEY_D))
         debug_overlay_active ^= 1;
 
-    /* G: switch between the original and enhanced graphics sets.
-     * Only while a game is actually running — set_enhanced_graphics rebuilds
-     * icons and parts, which have no meaning on the title screen or mid-intro.
-     * A no-op when there is no hi-res data to switch to. */
-    /* platform_key_hit consumes one latched press. It survives a tap whose
-     * down and up land in the same pump — on the title screen and during the
-     * intro, pumps are 50ms apart (present_delay), so a level or prev/now
-     * comparison drops most presses. Consuming the latch before the call also
-     * stops set_enhanced_graphics, which re-enters window_proc through
-     * make_game_screen, from seeing the same press again. */
+    /* G: original / enhanced graphics, only in a running game. The latch
+     * survives taps within one 50ms present_delay pump, and consuming it first
+     * stops set_enhanced_graphics, which re-enters window_proc, from seeing
+     * the press again. */
     if (platform_key_hit(g_platform, PKEY_G))
         graphics_mode_cycle(1);
 
-    /* mouse */
     int mx, my;
     int mb = platform_mouse_state(g_platform, &mx, &my);
     mouse_x = mx;
@@ -235,12 +205,8 @@ void window_proc(void) {
     if (mb & 1) mouse = 2;  /* left down */
     if (mb & 2) mouse = 8;  /* right down */
 
-    /* Gamepad — OR into existing key globals.
-     *
-     * The pad is laid out the way both games model the body: the left stick
-     * is the legs, and the shoulder row is the arms, left side for the left
-     * hand and right side for the right. The face buttons carry what is not
-     * limb-shaped — reach out, use, inventory, back.
+    /* Gamepad, ORed into the key globals. Left stick is the legs, the shoulder
+     * row the arms (left side, left hand); face buttons do the rest.
      *
      * Shared (matches controls.md):
      *   Left stick / D-pad    → legs: walk and turn, eight ways
@@ -265,27 +231,21 @@ void window_proc(void) {
      *   LT / L2               → magic / special with the stick, and with
      *                           RB held, an aimed attack
      *
-     * LT under E2 raises alt_pressed WITHOUT scancode 56. BH_JOYSTICK tests
-     * that scancode before it tests alt_pressed, so a control that raises both
-     * — X here, Left Alt on the keyboard — always lands on use-item/roll and
-     * can never reach the magic (196..199) or aimed-attack (204..211) actions
-     * behind the later branches. Splitting them across two pad controls is what
-     * makes those actions reachable at all.
+     * E2's LT raises alt_pressed without scancode 56: BH_JOYSTICK tests 56
+     * first, so a control raising both could never reach the magic (196..199)
+     * or aimed-attack (204..211) actions.
      */
     platform_gamepad_state_t gp;
     platform_gamepad_poll(g_platform, &gp);
 
-    /* ECSTATICA_GAMEPAD_DEBUG=2: dump the decoded pad state whenever it
-     * changes, so a mis-assigned control can be traced back to the slot it
-     * came from rather than guessed at from what the character did. */
+    /* ECSTATICA_GAMEPAD_DEBUG=2: dump the decoded pad state when it changes. */
     static int pad_debug = -1;
     if (pad_debug < 0) {
         const char *e = getenv("ECSTATICA_GAMEPAD_DEBUG");
         pad_debug = e ? atoi(e) : 0;
     }
     if (pad_debug >= 2) {
-        /* Sticks are snapped to a coarse step so analog jitter alone does not
-         * reprint the line every frame. */
+        /* Coarse steps, so analog jitter does not reprint every frame. */
         int lx = gp.left_x / 4096, ly = gp.left_y / 4096;
         int rx = gp.right_x / 4096, ry = gp.right_y / 4096;
         int buttons =
@@ -312,9 +272,8 @@ void window_proc(void) {
         prev_lx = lx; prev_ly = ly; prev_rx = rx; prev_ry = ry;
     }
 
-    /* Edge latches live outside the connected test so unplugging a pad with a
-     * button held does not leave a latch stuck set, swallowing the first press
-     * after it comes back. */
+    /* Outside the connected test, so unplugging with a button held cannot
+     * leave a latch stuck. */
     static bool btn_south_was_pressed = false;
     static bool btn_east_was_pressed = false;
     static bool btn_start_was_pressed = false;
@@ -328,14 +287,10 @@ void window_proc(void) {
             btn_north_was_pressed = btn_select_was_pressed =
             rstick_was_pressed = lstick_was_pressed = false;
     } else {
-        /* Resolve the stick radially, not one axis at a time. Thresholding
-         * each axis on its own makes the corners of the square the only place
-         * a diagonal lives and hands out a diagonal for anything else past the
-         * deadzone on both — under E2 that turns "walk forward" into "walk
-         * forward while turning" for most of the stick's travel. Distance
-         * decides whether the stick is pushed at all, then the angle picks one
-         * of eight 45-degree sectors: a secondary axis under tan(22.5) of the
-         * primary is the player aiming straight. */
+        /* Resolve the stick radially: per-axis thresholds hand out a diagonal
+         * for most of the travel, which under E2 turns "walk forward" into
+         * "walk while turning". Distance decides whether it is pushed, then
+         * the angle picks one of eight 45-degree sectors. */
         int dz = GAMEPAD_STICK_DEADZONE;
         int ax = gp.left_x < 0 ? -gp.left_x : gp.left_x;
         int ay = gp.left_y < 0 ? -gp.left_y : gp.left_y;
@@ -361,7 +316,6 @@ void window_proc(void) {
             }
         }
 
-        /* Movement directions (same logic as keyboard arrows) */
         key8_pressed |= gp_up    && !gp_left && !gp_right;
         key2_pressed |= gp_down  && !gp_left && !gp_right;
         key4_pressed |= gp_left  && !gp_up   && !gp_down;
@@ -371,29 +325,24 @@ void window_proc(void) {
         key1_pressed |= gp_down  && gp_left;
         key3_pressed |= gp_down  && gp_right;
 
-        /* BH_JOYSTICK movement scancodes */
         extra_keys_pressed[72] |= gp_up;
         extra_keys_pressed[80] |= gp_down;
         extra_keys_pressed[75] |= gp_left;
         extra_keys_pressed[77] |= gp_right;
 
-        /* A → Space (interact / pick up) — level + edge */
         space_pressed |= gp.btn_south;
         if (gp.btn_south && !btn_south_was_pressed) space_was_pressed = true;
         btn_south_was_pressed = gp.btn_south;
         extra_keys_pressed[57] |= gp.btn_south;
 
-        /* B / Start → Escape (menu) — edge-triggered */
         if (gp.btn_east && !btn_east_was_pressed) key_esc_was_pressed = true;
         if (gp.btn_start && !btn_start_was_pressed) key_esc_was_pressed = true;
         btn_east_was_pressed = gp.btn_east;
         btn_start_was_pressed = gp.btn_start;
 
-        /* X → Left Alt: use what is held (or flip / roll with empty hands) */
         alt_pressed |= gp.btn_west;
         extra_keys_pressed[56] |= gp.btn_west;
 
-        /* Y → Enter (inventory) — edge-triggered */
         enter_pressed |= gp.btn_north;
         if (gp.btn_north && !btn_north_was_pressed) {
             enter_was_pressed = true;
@@ -401,40 +350,30 @@ void window_proc(void) {
         }
         btn_north_was_pressed = gp.btn_north;
 
-        /* LB → Left Shift (jump) */
         keys_pressed[42] |= gp.btn_lb;
 
-        /* RB → Left Ctrl: run under E2, attack with a direction under both.
-         * RT joins it under E2, where the right trigger has no hand to drive;
-         * under E1 the triggers are the hands and RT must not double as Ctrl,
-         * or every right-hand pick-up would come out as an attack. */
+        /* RB → Left Ctrl. RT joins it under E2 only: under E1 the triggers are
+         * the hands, and every right-hand pick-up would become an attack. */
         ctrl_pressed |= gp.btn_rb || (gp.btn_rt && game_version != GAME_VERSION_E1);
 
-        /* Select → I (toggle HUD) — edge-triggered */
         if (gp.btn_select && !btn_select_was_pressed) key_i_was_pressed = true;
         btn_select_was_pressed = gp.btn_select;
 
         if (game_version == GAME_VERSION_E1) {
-            /* The hands, on the side of the pad they are on the body: each
-             * trigger picks up with that hand, or puts down what it holds. */
+            /* Each trigger picks up with, or puts down from, its own hand. */
             extra_keys_pressed[79] |= gp.btn_lt;   /* Num1 / Z — left hand  */
             extra_keys_pressed[81] |= gp.btn_rt;   /* Num3 / C — right hand */
 
-            /* Quick swings, without letting go of the movement stick. Only
-             * the horizontal axis: these scancodes suppress BH_JOYSTICK's
-             * diagonals, and the vertical axis used to sit on the hand keys,
-             * where a stick nudged while turning dropped whatever was held. */
+            /* Quick swings. Horizontal axis only: these scancodes suppress
+             * BH_JOYSTICK's diagonals. */
             int rs_dz = GAMEPAD_STICK_DEADZONE;
             extra_keys_pressed[71] |= gp.right_x < -rs_dz;  /* Num7 / Q left swing  */
             extra_keys_pressed[73] |= gp.right_x >  rs_dz;  /* Num9 / E right swing */
         } else {
-            /* E2 has no per-hand keys; the left trigger is the magic and
-             * aimed-attack modifier instead. Deliberately not scancode 56 —
-             * see the header comment. */
+            /* Not scancode 56 — see the gamepad comment above. */
             alt_pressed |= gp.btn_lt;
         }
 
-        /* Right stick click: graphics set toggle (same as G) */
         bool rstick_edge = gp.btn_rstick && !rstick_was_pressed;
         rstick_was_pressed = gp.btn_rstick;   /* latch before the call */
         if (rstick_edge) {
@@ -446,16 +385,9 @@ void window_proc(void) {
                 fprintf(stderr, "[PAD] R3: now mode_svga=%d\n", (int)mode_svga);
         }
 
-        /* Left stick click: the legs again — speed mode under E1, where the
-         * F-key groups it drives are read, and the HUD toggle under E2, which
-         * has no speed modes and would otherwise leave the button dead.
-         *
-         * The step is counted here rather than read back from
-         * movement_speed_mode: get_joystick only writes that variable when the
-         * game data has no Key_F1_4 / Key_F5_8 / Key_F9_12 script code, and
-         * when it does — E1's data does — it runs the script and leaves the
-         * variable at its startup value. Deriving the next step from it sent
-         * the same F-key on every click. */
+        /* Left stick click: speed mode under E1, HUD toggle under E2. The step
+         * is counted here because get_joystick leaves movement_speed_mode
+         * untouched when E1's Key_F* script codes exist. */
         if (gp.btn_lstick && !lstick_was_pressed) {
             if (game_version == GAME_VERSION_E1) {
                 e1_cycle_speed_mode(1);
@@ -473,8 +405,7 @@ void window_proc(void) {
         lstick_was_pressed = gp.btn_lstick;
 
         if (pad_debug >= 2) {
-            /* The game keys the mapping actually produced — the other half of
-             * tracing a control that lands on the wrong action. */
+            /* The game keys the mapping produced. */
             static int prev_keys = -1;
             int keys =
                 (space_pressed << 0) | (ctrl_pressed << 1) | (alt_pressed << 2) |
@@ -496,10 +427,7 @@ void window_proc(void) {
     }
 }
 
-/* win_do_init_458714
- * Original created Win32 window + DirectDraw surfaces.
- * Now delegates to platform_init().
- */
+/* win_do_init_458714 */
 void do_init(void) {
     const char *title = (game_version == GAME_VERSION_E2) ? "Ecstatica II" : "Ečstatica";
     g_platform = platform_init(title, 640, 480, 1);
@@ -518,32 +446,21 @@ void win_set_render_size(int w, int h) {
 
 /* win_change_screen_mode_win95  E1: 0x44A7C0 | E2: 0x458770 */
 void change_screen_mode_win95(void) {
-    /* display_mode switching between VGA/SVGA handled by set_vga/svga_constants.
-     * No hardware mode change needed in modern platform layer. */
 }
 
-/* win_win_main_game_458B84
- * Original WinMain entry point. Now called from main.c.
- */
+/* win_win_main_game_458B84 — the original WinMain body. */
 void win_main_game(void) {
     /* Resolve the version before do_init(), which picks the window title.
      * init() detects again later; the probe is idempotent. */
     detect_game_version();
     do_init();
-    // if_editor_show_cursor();
     setup();
 }
 
-/* win_make_code_writable_458000
- * Original patched PE section flags for self-modifying code.
- * Not needed in the C port.
- */
+/* win_make_code_writable_458000 — patched PE section flags; not needed. */
 void make_code_writable(void) {
-    /* No-op in C port */
 }
 
 /* win_get_windows_directory_win95  E1: 0x44A9E8 | E2: 0x458998 */
 void get_windows_directory_win95(void) {
-    /* Original called GetWindowsDirectory() for path resolution.
-     * Now handled by setup_directory_paths() using relative paths. */
 }

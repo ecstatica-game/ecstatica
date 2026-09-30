@@ -3,7 +3,6 @@
  *
  * Entity management: add/remove things, parts, keys, events.
  * Core game loop (make_thing), entity defaults, scene/action management.
- * 28 functions prefixed with edit_ in the original ASM.
  */
 
 #include "edit.h"
@@ -244,10 +243,8 @@ rephead_t *add_repertoire(void) {
     return rep;
 }
 
-/* edit_add_part_4265AC — Add a new part as child of parent (actor or part).
- * parent_core is either an actor_t* or part_t* — both share the
- * same core layout (name_index, flags, type, …, actor_parts_list, parent_actor)
- * at matching offsets.  We use actor_t* and rely on layout compatibility. */
+/* edit_add_part_4265AC — parent_core is an actor_t* or a part_t*; both share
+ * the core layout at matching offsets. */
 part_t *add_part(actor_t *parent_core) {
     if (!parent_core) return NULL;
 
@@ -259,9 +256,8 @@ part_t *add_part(actor_t *parent_core) {
     /* If parent IS the actor itself (type == 7), parent_actor is itself */
     if (parent_core->type == 7)
         part->parent_actor = parent_core;
-    part->type = 4;  /* Part type */
+    part->type = 4;
 
-    /* Zero out squash vector */
     part->VECTOR_Squash.X = 0;
     part->VECTOR_Squash.Y = 0;
     part->VECTOR_Squash.Z = 0;
@@ -270,7 +266,6 @@ part_t *add_part(actor_t *parent_core) {
     part->def_pos_flags = 0;
     part->position_flags = 0;
 
-    /* Append to end of parent's part list */
     if (parent_core->actor_parts_list) {
         part_t *last = parent_core->actor_parts_list;
         while (last->next)
@@ -285,12 +280,10 @@ part_t *add_part(actor_t *parent_core) {
     part->holding_actor = parent_core;
 
     if (parent_core->type == 7) {
-        /* Parent is an actor — 0x4229FB writes field_BC (0xBC), not
-         * next_in_path (0x48). The port was clobbering the path head. */
+        /* 0x4229FB writes field_BC here, not next_in_path. */
         parent_core->anchored_part = part;
         part->next_in_display_list = part->next;
     } else {
-        /* Parent is a part — link into display list */
         part_t *parent_part = (part_t *)parent_core;
         part->next_in_display_list = parent_part->next_in_display_list;
         parent_part->next_in_display_list = part;
@@ -299,7 +292,6 @@ part_t *add_part(actor_t *parent_core) {
     part->color = 1;
     part->color_shade = 0x4000;
 
-    /* Copy current values to defaults */
     copy_vector(&part->def_rotate, &part->Rotate);
     copy_vector(&part->def_offset, &part->Offset);
     copy_vector(&part->def_position, &part->AbsPosition);
@@ -317,13 +309,11 @@ part_t *add_part(actor_t *parent_core) {
     return part;
 }
 
-/* edit_add_triangle_426798 — Add a triangle to an actor using 4 point pointers
- * points[0..2] are the triangle vertices, points[3] is the optional quad point */
+/* edit_add_triangle_426798 — points[3] is the optional quad point. */
 tri_t *add_triangle(actor_t *actor, point_t **points) {
     tri_t *tri = find_free_tri();
     if (!tri) return NULL;
 
-    /* Append to end of actor's triangle list */
     if (actor->polygone_tri_list) {
         tri_t *last = actor->polygone_tri_list;
         while (last->next)
@@ -356,7 +346,6 @@ point_t *add_point(part_t *part) {
     point_t *pt = find_free_point();
     if (!pt) return NULL;
 
-    /* Append to end of part's point list */
     if (part->points_list) {
         point_t *last = part->points_list;
         while (last->next)
@@ -478,13 +467,11 @@ void add_event_to_key(event_t *event, key_state_t *key) {
     else key->key_event_list = event;
 }
 
-/* edit_add_ellipse_to_key_41FA2C — defined in anim.c */
-
 /* edit_make_thing_4200E8 — the main game loop */
 void make_thing(void) {
     program_up_and_running = true;
 
-    /* Set up screen edges and centre (matching assembly) */
+    /* Screen edges and centre, as the original sets them here. */
     right_edge = screen_width;
     bottom_edge = screen_height;
     left_edge = 0;
@@ -495,25 +482,21 @@ void make_thing(void) {
     script_mode = 0;
 
     for (;;) {
-        /* Pump events + read input (assembly: get_mouse handles msg pump) */
+        /* get_mouse pumps the platform events, as in the original. */
         get_mouse();
         get_joystick();
 
-        /* Execute game logic (includes rendering via Phase 3) */
         do_movement();
 
-        /* Check for quit */
         if (quit_flag || !program_up_and_running) break;
     }
 }
 
-/* edit_free_all_heaps_420490 — game_free_all_heaps_452D3C
- * Marks every entry in every static heap array as "free" by setting
- * the appropriate flag field, then resets all list pointers. */
+/* edit_free_all_heaps_420490 — game_free_all_heaps_452D3C: marks every pool
+ * entry free via its use-flag field. */
 void free_all_heaps(void) {
     for (int i = 0; i < SOUND_POOL_SIZE; i++) {
         if (!(sound_heap_arr[i].use_flag & 0x8000)) {
-            /* release_sound_buffer(&sound_heap_arr[i]); — stubbed */
         }
     }
 
@@ -570,11 +553,8 @@ void free_all_heaps(void) {
     for (int i = 0; i < TACTION_POOL_SIZE; i++)
         taction_heap_arr[i].taction_index = -1;
 
-    /* NOTE: The assembly game_free_all_heaps_452D3C does NOT clear list
-     * pointers (root_thing, code_list, etc.) or call clear_ptr_tabs().
-     * Those are handled separately by initialise_parts() during initial
-     * setup, or by new_game()/initialise_game() during game resets.
-     * Code and map_area lists persist across game resets. */
+    /* The original does not reset the list pointers here; initialise_parts,
+     * new_game and initialise_game do. Code and map_area lists persist. */
 }
 
 /* edit_add_code_4268A4 — allocate a code_t and prepend to code_list */
@@ -614,7 +594,6 @@ line_of_code_t *add_line_of_code(line_of_code_t *prev) {
 void delete_code(code_t *code) {
     if (!code) return;
 
-    /* Unlink from code_list */
     if (code_list == code) {
         code_list = code->next_code;
     } else {
@@ -626,11 +605,9 @@ void delete_code(code_t *code) {
         }
     }
 
-    /* Clear code_tab entry */
     if (code->index_code >= 0 && code->index_code < CODE_TAB_SIZE)
         code_tab[code->index_code] = NULL;
 
-    /* Free text lines */
     line_of_code_t *loc = code->text_line_of_code;
     while (loc) {
         line_of_code_t *next = loc->next_line_code;
@@ -658,7 +635,6 @@ void write_parts(actor_t *actor, FILE *f) {
 
     part_t *part = actor->actor_parts_list;
     while (part) {
-        /* Write part data */
         putw_be(part->Offset.X, f);
         putw_be(part->Offset.Y, f);
         putw_be(part->Offset.Z, f);
@@ -732,11 +708,8 @@ void advance_part(event_t *event, int16_t blend, actor_t *actor, action_t *actio
     part_t *work_part = NULL;
     point_t *work_point = NULL;
 
-    /* Resolve target part/point based on event type flags */
     if (event_type_flags[event_type] & 0x10) {
-        /* Part-targeted event */
         if (event_type_flags[event_type] & 0x200) {
-            /* Look in held actors */
             for (part_t *p = actor->actor_parts_list; p; p = p->next_in_display_list) {
                 if (p->actor_2_held && p->actor_2_held->_PartTab) {
                     work_part = p->actor_2_held->_PartTab->field_0[event->event_index];
@@ -748,8 +721,7 @@ void advance_part(event_t *event, int16_t blend, actor_t *actor, action_t *actio
         } else {
             if (actor->_PartTab)
                 work_part = actor->_PartTab->field_0[event->event_index];
-            /* 0x425D99: E1 drops the event here; the redirect below is a port
-             * addition. See the matching note in modify_part. */
+            /* 0x425D99: E1 drops the event here; see the matching note in modify_part. */
             if (game_version == GAME_VERSION_E1 && !work_part) return;
             if (!work_part) {
                 if (!actor->part_heap_link) {
@@ -771,20 +743,14 @@ void advance_part(event_t *event, int16_t blend, actor_t *actor, action_t *actio
             }
         }
     } else if (event_type_flags[event_type] & 0x40) {
-        /* Point-targeted event */
         if (actor->_PointTab)
             work_point = actor->_PointTab->field_0[event->event_index];
         if (!work_point) return;
     }
 
-    /* Bug 56: use int-intermediate for translations/scales, short for
-     * rotations. Two helpers — `mulInt` casts delta to int (32-bit),
-     * `mulShort` casts to short first. Was using short-cast for ALL cases →
-     * for translations where |param - value| exceeds 32767 the delta wrapped
-     * and animation stepped wrong direction or wrong magnitude. Rotations
-     * legitimately want short-cast (angles wrap at 16-bit).
-     * mulInt: RotateThing/MoveThing/ScriptMove/Offset/Vector1/Vector2/
-     * Position/AbsPos/OffsetPoint. mulShort: ScriptTurn/Rotate/AbsoluteRot. */
+    /* Translations and scales take the delta as int (MULINT), rotations as
+     * int16 so angles wrap (MULSHORT). An int16 delta for translations wraps
+     * when |param - value| exceeds 32767. */
 #define MULINT_X()   ((int16_t)((int)blend * (int)(event->param1 - target.X) >> 14))
 #define MULINT_Y()   ((int16_t)((int)blend * (int)(event->param2 - target.Y) >> 14))
 #define MULINT_Z()   ((int16_t)((int)blend * (int)(event->param3 - target.Z) >> 14))
@@ -959,9 +925,7 @@ void advance_part(event_t *event, int16_t blend, actor_t *actor, action_t *actio
 /* edit_advance_act  E1: ? | E2P: 0x420198 */
 void advance_act(act_t *act, actor_t *actor, int game_time) {
     if (!act->act_action) {
-        /* Bug 45: asm at 0x42AFEE gates flags |= 0x400 on `moving_camera == 0`.
-         * When moving_camera set (cam interpolating between two views), don't
-         * mark actor as finished-frame. */
+        /* 0x42AFEE: not while the camera is moving between views. */
         if (!moving_camera)
             actor->flags |= 0x400;
         return;
@@ -1161,11 +1125,10 @@ void update_act(act_t *act, actor_t *actor, int some_time) {
     }
 
     int progress = (some_time << 16) / act->duration + act->key_progress;
-    /* Non-scene loop-through — asm move_update_act_42AD60 +42ADFA..+42AE51.
-     * Three-way branch on act->loop_count (int16 loop remaining):
-     *   > 1: complete_act, dec loop_count, progress -= 0x10000, loop while progress > 0xFFFF
+    /* move_update_act_42AD60 +42ADFA..+42AE51, on the remaining loop_count:
+     *   > 1: complete_act, decrement, progress -= 0x10000, keep looping
      *   ==1: complete_act, key_progress = 0xFFFF, flags |= 0x400, exit
-     *   ==0: complete_act, progress -= 0x10000, loop */
+     *   ==0: complete_act, progress -= 0x10000, keep looping */
     while (progress > 0xFFFF) {
         int16_t loops = act->loop_count;
         if (loops > 1) {

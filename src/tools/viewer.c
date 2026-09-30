@@ -1,15 +1,10 @@
 /**
  * viewer.c
  *
- * Model and animation browser, built on the game's own pipeline.
- *
- * Not part of the original binary. Everything it draws goes through
- * prepare_parts / draw_parts / show_parts exactly as gameplay does, so a
- * model looks here the way it looks in the game — the viewer only replaces
- * what the world normally supplies: the camera, the background, and the
- * decision about which thing and which action are live.
- *
- * Entered with --viewer, from setup(), after the archives are open.
+ * Model and animation browser (--viewer), not in the original. Everything is
+ * drawn through prepare_parts / draw_parts / show_parts as in gameplay; the
+ * viewer only supplies the camera, the background and which thing and action
+ * are live.
  */
 
 #include "viewer.h"
@@ -35,11 +30,9 @@
 int viewer_mode = 0;
 
 /* ── Reserved palette slots ──────────────────────────────────────
- * Same convention as debug_overlay.c: the top of the scene palette is
- * black/unused in both games' view palettes, so the HUD claims a few
- * entries rather than hunting for readable colours in scene art. Injected
- * into view_cmap AND colour_map because E1's show_parts re-applies
- * colour_map on every flip while E2 uses view_cmap directly. */
+ * As debug_overlay.c: the top palette entries are unused by the view palettes.
+ * Written into both view_cmap and colour_map, because E1's show_parts
+ * re-applies colour_map on every flip. */
 #define COL_TEXT     255  /* white       */
 #define COL_HILITE   254  /* yellow      */
 #define COL_DIM      253  /* grey        */
@@ -83,12 +76,9 @@ static int      pane = PANE_MODELS;
 static int      tool_mode = TOOL_MODELS;
 
 /* ── Scene mode ──────────────────────────────────────────────────
- * A scene is a set of scripts, one per actor, each an action with
- * action_flags & 2 — so update_act() runs them in absolute time to
- * act->duration and stops, rather than looping a fraction like a
- * repertoire action. Playback goes through the original editor's own
- * preview path, advance_selected_scene_or_action(), which walks
- * selected_scene's scripts when script_mode is set. */
+ * One script per actor, each an action with action_flags & 2, run in absolute
+ * time to act->duration. Playback uses the original editor's preview path,
+ * advance_selected_scene_or_action(), with script_mode set. */
 static int16_t *scene_ids;
 static int      scene_count;
 static int      scene_sel;
@@ -100,9 +90,8 @@ static scene_t *cur_scene;
 static int16_t  cur_scene_idx = -1;
 static int      scene_phase;      /* ticks into the scene */
 static int      scene_len = 1;    /* longest script action, in ticks */
-/* Scenes are framed by an authored camera with a painted background.
- * Detaching swaps in the model viewer's orbit camera over a flat backdrop,
- * which is the only way to see staging the scene's own shot hides. */
+/* Detached: the orbit camera over a flat backdrop, to see what the scene's
+ * own shot hides. */
 static bool     cam_attached = true;
 
 static actor_t *cur_actor;
@@ -110,28 +99,22 @@ static int16_t  cur_thing = -1;
 static action_t *cur_action;
 static int16_t   cur_action_idx = -1;
 
-/* Phase through the running action. Units follow the action's own
- * convention, which position_act() switches on: scene actions (flags & 2)
- * are positioned in absolute time up to act->duration, everything else in
- * a 0..0xFFFF fraction of it. */
+/* Scene actions (flags & 2) are positioned in absolute time up to
+ * act->duration, others by a 0..0xFFFF fraction (see position_act()). */
 static int      phase;
 static int      phase_max = 0xFFFF;
 static bool     playing = true;
 static bool     looping = true;
 static int      speed_pct = 100;
-/* Shortest a looping action is allowed to take on screen. See
- * effective_duration(). F toggles it off for true game rate. */
+/* See effective_duration(). F toggles it. */
 static bool     stretch_short = true;
 static int      min_loop_ms = 600;
 
 static int      cam_mode = CAM_ORBIT;
 static vector_t focus;
-/* Centre of the model measured relative to its own origin, so the orbit
- * target tracks an actor that an action walks across the world. */
+/* Relative to the actor's origin, so the camera tracks a walking actor. */
 static vector_t focus_offset;
-/* Actions carry root motion — a walk cycle travels, a jump arcs. Pinned
- * (the default) holds the actor over its origin so a cycle plays in place;
- * unpinned lets it move and the camera follows. */
+/* Holds root motion over the origin so a walk cycle plays in place. */
 static bool     pin_root = true;
 static int32_t  orbit_yaw, orbit_pitch, orbit_dist = 1200;
 static int      bg_choice;
@@ -140,18 +123,10 @@ static bool     show_help;
 static bool     auto_spin;
 static bool     panels_hidden;
 
-/* Archive scan.
- *
- * action_t carries a thing_name_index, but E2's data leaves it at -1 on every
- * record, so it is no use as a model→action map. What an action really binds
- * to is the set of parts its events name: modify_part() looks each one up in
- * the actor's _PartTab by event_index, and an action whose events name a part
- * the model does not have cannot have been authored for it. So the scan
- * records that set per action and the pane matches it against the model.
- *
- * SCAN_UNKNOWN marks "not looked at yet" so a resumed scan skips what it
- * already resolved, including entries filled in as a side effect of another
- * action's record being merged. */
+/* Archive scan. E2 leaves action_t.thing_name_index at -1, so an action is
+ * matched to a model by the parts its events name: modify_part() looks each
+ * one up in _PartTab, so an action naming a part the model lacks was not
+ * authored for it. SCAN_UNKNOWN marks entries not resolved yet. */
 #define SCAN_UNKNOWN (-2)
 #define SCAN_SKIP    (-1)
 #define PART_BITS    ((PART_TAB_SIZE + 7) / 8)
@@ -166,8 +141,7 @@ static uint8_t  model_parts[PART_BITS];
 static int      scan_pos = -1;      /* -1 = not scanning */
 static bool     scan_done;
 
-/* An action naming only one part is usually a one-off effect rather than a
- * pose, and matches almost any rig. Two is the floor for a useful hit. */
+/* One-part actions are usually effects that match almost any rig. */
 #define SCAN_MIN_REFS 2
 
 static int      last_tick;
@@ -226,9 +200,8 @@ static void inject_palette(void) {
     set_palette_flag = 1;
 }
 
-/* Rebuild the background store the dirty-rect machinery restores from.
- * bitmap[3] is the pristine view, bitmap[2] the working copy; the mask
- * planes go fully open so nothing in the scene occludes the model. */
+/* bitmap[3] is the pristine view, bitmap[2] the working copy; the mask planes
+ * are opened so nothing occludes the model. */
 static void rebuild_background(void) {
     int16_t save_pen = a_pen_colour;
     int16_t save_mode = draw_mode[3];
@@ -248,14 +221,9 @@ static void rebuild_background(void) {
     clip_mask(2, 0, 0, 0, screen_width, screen_height);
 }
 
-/* E2 keeps a palette per camera in the archive; E1 in this port has one
- * global palette (show_parts re-applies colour_map every frame), so the
- * cycle is a no-op there and the HUD says so.
- *
- * E2 model colours are indices into a scene palette, so without one loaded
- * the viewer renders them through whatever happened to be in view_cmap at
- * boot — the title screen's palette — and every model comes out washed out.
- * A real camera palette has to be picked before the first frame. */
+/* E2 keeps a palette per camera; E1 here has one global palette, so the cycle
+ * is a no-op there. E2 model colours index a scene palette, so one must be
+ * loaded before the first frame or models render through the title palette. */
 static void apply_scene_palette(int cam) {
     if (game_version != GAME_VERSION_E2) return;
     if (cam < 0) cam = 0;
@@ -265,9 +233,8 @@ static void apply_scene_palette(int cam) {
     inject_palette();
 }
 
-/* Cameras are sparse — most indices have no palette. Walking palette_offset
- * rather than find_highest_camera_num() also avoids the map, which the
- * viewer never loads (it would report no cameras at all). */
+/* Walks palette_offset: most cameras have no palette, and the map (which
+ * find_highest_camera_num() needs) is never loaded here. */
 static int step_scene_palette(int from, int dir) {
     for (int n = 0; n < PALETTES_MAX; n++) {
         from += dir;
@@ -313,8 +280,7 @@ static void build_anim_list(void) {
     anim_top = 0;
     if (!anim_list || !cur_actor) return;
 
-    /* The repertoire is what the game itself plays for this thing, so it
-     * leads the list even after a scan has found more. */
+    /* The repertoire leads the list, scanned or not. */
     int16_t ri = cur_actor->actor_rep_index;
     if (ri < 0) ri = cur_actor->default_repert;
     if (ri >= 0 && ri < REPERTOIRE_TAB_SIZE) {
@@ -353,8 +319,7 @@ static void build_anim_list(void) {
 /* ── Camera ──────────────────────────────────────────────────── */
 
 static void camera_basis(vector_t *right, vector_t *up, vector_t *fwd) {
-    /* view_matrix maps world → view, so the world vector that lands on a
-     * view-space axis is the matching ROW of the matrix. */
+    /* view_matrix maps world → view, so its rows are the view axes in world space. */
     if (right) set_vector(right, view_matrix._11, view_matrix._12, view_matrix._13);
     if (up)    set_vector(up,    view_matrix._21, view_matrix._22, view_matrix._23);
     if (fwd)   set_vector(fwd,   view_matrix._31, view_matrix._32, view_matrix._33);
@@ -377,11 +342,8 @@ static void update_camera(void) {
 
         vector_t fwd;
         camera_basis(NULL, NULL, &fwd);
-        /* Deliberately not clamped. view_transform() subtracts view_pos from
-         * the world point in int16, so what has to fit is the difference, not
-         * the camera position itself — and two's complement wrap gives the
-         * right difference either way. E1's map reaches ±32000, where a clamp
-         * here silently drags the camera off its own aim point. */
+        /* Not clamped: view_transform() takes the int16 difference, which wraps
+         * correctly. E1's map reaches ±32000. */
         view_pos.X = (int16_t)(focus.X - (int)((int32_t)fwd.X * orbit_dist >> 14));
         view_pos.Y = (int16_t)(focus.Y - (int)((int32_t)fwd.Y * orbit_dist >> 14));
         view_pos.Z = (int16_t)(focus.Z - (int)((int32_t)fwd.Z * orbit_dist >> 14));
@@ -394,8 +356,8 @@ static void update_camera(void) {
     zoom_factor = 0x400 << 12;
 }
 
-/* Frame the model: centre on the part bounding box, back off far enough
- * that the whole of it fits. Runs after a prepare, so AbsPosition is live. */
+/* Centre on the parts' bounding box and back off until it fits. Needs a prior
+ * prepare so AbsPosition is live. */
 static void fit_camera(void) {
     int minx = 32767, miny = 32767, minz = 32767;
     int maxx = -32768, maxy = -32768, maxz = -32768;
@@ -420,20 +382,15 @@ static void fit_camera(void) {
         set_vector(&focus_offset, 0, 0, 0);
         orbit_dist = 1200;
     } else {
-        /* part->AbsPosition is relative to the actor's own origin, which is
-         * exactly what focus_offset wants — recompute_focus() adds
-         * position_vector back each frame. */
+        /* AbsPosition is origin-relative, as focus_offset wants. */
         focus_offset.X = (int16_t)((minx + maxx) / 2);
         focus_offset.Y = (int16_t)((miny + maxy) / 2);
         focus_offset.Z = (int16_t)((minz + maxz) / 2);
 
         int ex = maxx - minx, ey = maxy - miny, ez = maxz - minz;
 
-        /* Aim above the model's centre so it sits low in frame rather than
-         * dead centre. World up is -Y here, so a smaller Y is higher. The
-         * clear space this buys at the top is where the status lines run,
-         * and it is the tall models — whose heads land right in them — that
-         * need it. Scaled by height so short props are barely moved. */
+        /* Aim above centre (world up is -Y) so tall models clear the status
+         * lines at the top. */
         focus_offset.Y = (int16_t)(focus_offset.Y - ey / 5);
 
         int extent = ex > ey ? ex : ey;
@@ -442,10 +399,8 @@ static void fit_camera(void) {
         orbit_dist = clampi(extent * 5 / 2, 120, 24000);
     }
 
-    /* Angles are 16-bit turns, so 0x8000 is half a revolution. A model's
-     * rest facing puts its front away from the camera at yaw 0, hence the
-     * half turn; the extra 0x2000 is a three-quarter view rather than a
-     * dead-on one, which reads better for limbs. */
+    /* Half a turn (0x8000) to face the camera, plus 0x2000 for a
+     * three-quarter view. */
     orbit_yaw = 0x8000 + 0x2000;
     orbit_pitch = 0x0C00;    /* ~17 degrees above, looking down */
     recompute_focus();
@@ -467,11 +422,9 @@ static void stop_animation(void) {
     phase_max = 0xFFFF;
 }
 
-/* Browsing loads a new action per selection and never plays a scene, so
- * nothing retires them the way gameplay does. Left alone the 400-entry pool
- * fills and find_free_action() falls into try_to_remove_scene_or_action(),
- * which picks its victim without knowing the viewer still points at it. The
- * viewer therefore retires its own, oldest first. */
+/* The viewer never plays scenes, so nothing retires the actions it loads.
+ * Once the 400-entry pool fills, try_to_remove_scene_or_action() could evict
+ * one the viewer still points at, so it retires its own, oldest first. */
 #define PLAYED_CACHE 64
 static int16_t played_ring[PLAYED_CACHE];
 static int     played_n;
@@ -507,9 +460,7 @@ static void play_action(int16_t index) {
     act_t *act = &cur_actor->actor_act;
     act->act_action = a;
     act->duration = a->act_duration > 0 ? a->act_duration : 1;
-    /* Same scaling behaviour() applies. E2-only, and only ever non-100 for an
-     * actor whose script has run CT_SPEED_FACTOR — which the viewer does not
-     * do, so in practice this is a no-op that keeps the path faithful. */
+    /* As behaviour() does; only differs from 100 after CT_SPEED_FACTOR. */
     if (game_version != GAME_VERSION_E1 && cur_actor->actor_Speed_factor > 0 &&
         cur_actor->actor_Speed_factor != 100)
         act->duration = (int16_t)(100 * act->duration / cur_actor->actor_Speed_factor);
@@ -546,9 +497,7 @@ static void load_model(int list_index) {
         return;
     }
 
-    /* Actor init code can pull scenes and other things in behind us. The
-     * viewer shows one thing at a time, so the display list is rebuilt to
-     * hold exactly this actor and the scene list dropped. */
+    /* Init code can pull in scenes; keep only this actor on display. */
     initialise_actor(a);
     root_scene = NULL;
     root_thing = a;
@@ -600,8 +549,7 @@ static int scene_cast_count(const scene_t *s) {
     return n;
 }
 
-/* nth playable script, skipping the 0x20 "not part of this run" ones that
- * start_scene() also passes over. */
+/* nth playable script, skipping 0x20 ones as start_scene() does. */
 static script_t *scene_cast_at(const scene_t *s, int n) {
     if (!s) return NULL;
     for (script_t *sc = s->scene_script_list; sc; sc = sc->next_script) {
@@ -611,8 +559,6 @@ static script_t *scene_cast_at(const scene_t *s, int n) {
     return NULL;
 }
 
-/* Scripts run in parallel and finish independently, so the scene is over
- * when the longest one is. */
 static int scene_length(const scene_t *s) {
     int longest = 1;
     for (script_t *sc = s ? s->scene_script_list : NULL; sc; sc = sc->next_script) {
@@ -623,15 +569,12 @@ static int scene_length(const scene_t *s) {
     return longest;
 }
 
-/* Point the camera the way the scene was shot: check_view() pulls the
- * painted background into the plane the dirty-rect restore reads from, the
- * matching depth mask, the scene palette, and the camera position itself. */
+/* check_view() loads the scene's painted background, depth mask, palette and
+ * camera position. */
 static void detach_scene_camera(void);
 
-/* Camera 0 is check_view's "no view" case: it blanks the plate and opens the
- * mask instead of loading a shot, and its camera_data is never authored. A
- * scene on it has no framing to be faithful to, so the orbit camera is the
- * only thing that can show it. */
+/* Camera 0 is check_view's "no view" case with no authored framing, so only
+ * the orbit camera can show such a scene. */
 static bool scene_has_shot(const scene_t *s) {
     return s && s->camera_index > 0;
 }
@@ -639,21 +582,16 @@ static bool scene_has_shot(const scene_t *s) {
 static void attach_scene_camera(void) {
     if (!cur_scene) return;
     if (!scene_has_shot(cur_scene)) { detach_scene_camera(); return; }
-    /* check_view() early-outs when the camera is already active, which would
-     * skip the background reload after a detour through the flat backdrop. */
+    /* check_view() early-outs when the camera is already active. */
     active_camera = NULL;
     check_view(cur_scene->camera_index);
     pal_cam = cur_scene->camera_index;
     inject_palette();
 }
 
-/* Frame the cast member the CAST pane has selected, in world space.
- *
- * Not the whole cast: a scene's cast routinely mixes a character with a piece
- * of set dressing parked hundreds of units away — E1's Start_sc pairs the hero
- * with `bridge` — and a box around both leaves everyone a few pixels tall.
- * Selecting in the CAST pane re-frames, so each one can be looked at in turn
- * and E dollies out to take in the rest. */
+/* Frame the cast member selected in the CAST pane. Not the whole cast: set
+ * dressing can sit hundreds of units away (E1's Start_sc pairs the hero with
+ * `bridge`). */
 static void fit_camera_cast(void) {
     int minx = 32767, miny = 32767, minz = 32767;
     int maxx = -32768, maxy = -32768, maxz = -32768;
@@ -666,9 +604,7 @@ static void fit_camera_cast(void) {
     if (!subject) subject = root_thing;
     if (!subject) return;
 
-    /* Making the subject cur_actor is what puts scene mode on the same
-     * footing as model mode: recompute_focus() then tracks it every frame,
-     * so the camera follows an actor the scene walks across the set. */
+    /* As cur_actor, recompute_focus() follows it across the set. */
     cur_actor = subject;
 
     for (actor_t *a = subject; a; a = NULL) {
@@ -691,10 +627,8 @@ static void fit_camera_cast(void) {
         set_vector(&focus_offset, 0, 0, 0);
         orbit_dist = 1200;
     } else {
-        /* Centred, unlike the model fit: that one drops the subject low to
-         * clear the status lines, which only reads well on a standing
-         * humanoid. A scene subject can be a horse or a bridge, and the bias
-         * pushes those out of frame. Extra distance for the same reason. */
+        /* Centred, unlike the model fit: a scene subject can be a horse or a
+         * bridge, which the low bias pushes out of frame. */
         int ex = maxx - minx, ey = maxy - miny, ez = maxz - minz;
         focus_offset.X = (int16_t)((minx + maxx) / 2);
         focus_offset.Y = (int16_t)((miny + maxy) / 2);
@@ -773,9 +707,8 @@ static void load_scene(int list_index) {
 
     check_actors_in_scene_loaded(s);
 
-    /* Actors carry state from whatever was shown before — a half-finished
-     * act, a repertoire, a world position. start_scene() sets up the act but
-     * not the rest, and in game these come up fresh from the world. */
+    /* start_scene() sets up the act but not the leftover repertoire and
+     * position from whatever was shown before. */
     for (script_t *sc = s->scene_script_list; sc; sc = sc->next_script) {
         int16_t ai = sc->script_actor_index;
         if (ai < 0 || ai >= THING_TAB_SIZE) continue;
@@ -802,10 +735,8 @@ static void load_scene(int list_index) {
     else                                   detach_scene_camera();
 }
 
-/* Playback. advance_selected_scene_or_action() steps every script by the same
- * delta, which is what do_movement() does for a scene in game. Seeking back
- * has to replay from the start: a script's progress lives in its act's
- * key_progress, and the only way to unwind it is to run it again. */
+/* Every script steps by the same delta, as do_movement() does. Seeking back
+ * replays from the start: progress lives in each act's key_progress. */
 static void scene_seek(int to) {
     if (!cur_scene) return;
     if (to < 0) to = 0;
@@ -836,18 +767,15 @@ static void advance_scene(int dt) {
         if (playing) scene_seek(scene_phase + step);
     }
 
-    /* Same reason as the model path: 0x400 parks an actor into the
-     * background store, which in a viewer freezes it there. */
+    /* 0x400 would park actors in the background store. */
     for (actor_t *a = root_thing; a; a = a->next_in_display_list)
         a->flags &= ~0x0400u;
 }
 
 /* ── Archive scan ────────────────────────────────────────────── */
 
-/* The part indices an action's events name. Part-targeted event types are
- * flagged in event_type_flags[]; 0x200 marks the ones modify_part redirects
- * to a held object rather than the actor's own rig, so they say nothing
- * about which model the action belongs to. */
+/* The part indices an action's events name. 0x200 events go to a held object,
+ * not the rig, so they are ignored. */
 static void record_action_parts(int index, const action_t *a) {
     uint8_t *bits = action_parts + (size_t)index * PART_BITS;
     memset(bits, 0, PART_BITS);
@@ -887,11 +815,8 @@ static void scan_begin(void) {
     scan_done = false;
 }
 
-/* Record every action the table now holds and drop the ones this scan
- * brought in — a single archive record can carry several actions, so the
- * sweep is over the whole table rather than just the index we asked for.
- * Dropping them keeps the 400-entry action pool from filling up halfway
- * through a 2000-entry archive. */
+/* One archive record can carry several actions, so sweep the whole table, and
+ * drop what the scan loaded so the 400-entry pool does not fill. */
 static void scan_sweep(void) {
     int limit = action_limit();
     for (int j = 0; j < limit; j++) {
@@ -1065,8 +990,7 @@ static void draw_hud(void) {
     int cols = screen_width / tx_w;
     int rows_total = screen_height / tx_h;
 
-    /* Status line, always on — it is the only thing that fits at 320x200
-     * once the panels are hidden. */
+    /* Always on: the only thing that fits at 320x200 with panels hidden. */
     const char *gv = (game_version == GAME_VERSION_E1) ? "E1" : "E2";
 
     if (tool_mode == TOOL_SCENES) {
@@ -1159,7 +1083,6 @@ static void draw_hud(void) {
         }
     }
 
-    /* Bottom line: camera and render state. */
     int by = screen_height - tx_h - 2;
     int parts = 0, tris = 0;
     for (actor_t *a = root_thing; a; a = a->next_in_display_list) {
@@ -1188,9 +1111,7 @@ static void move_selection(int delta) {
             if (!cast) return;
             int was = cast_sel;
             cast_sel = clampi(cast_sel + delta, 0, cast - 1);
-            /* The detached camera follows whoever is selected, so moving
-             * through the cast has to re-aim it as you go — waiting for
-             * RETURN made the pane look inert. */
+            /* The detached camera follows the selection. */
             if (cast_sel != was && !cam_attached) fit_camera_cast();
         }
         return;
@@ -1210,9 +1131,7 @@ static void activate_selection(void) {
             load_scene(scene_sel);
             playing = true;
         } else {
-            /* Picking a cast member means "show me this one", which the
-             * authored shot cannot do — it is a fixed frame. So RETURN here
-             * detaches onto that actor; O puts the shot back. */
+            /* RETURN detaches onto this actor; O restores the shot. */
             cam_attached = false;
             detach_scene_camera();
         }
@@ -1248,8 +1167,7 @@ static void handle_input(int dt) {
             if (!cur_scene && scene_count) { load_scene(scene_sel); playing = true; }
             else if (cam_attached) attach_scene_camera();
         } else {
-            /* Scene actors and the scene camera both have to go, or the
-             * model shows up in someone else's shot with the cast in it. */
+            /* Or the model shows up in the scene's shot with its cast. */
             script_mode = 0;
             unload_scene();
             rebuild_background();
@@ -1261,8 +1179,7 @@ static void handle_input(int dt) {
     if (tool_mode == TOOL_MODELS &&
         platform_key_hit(plat, PKEY_TAB) && scan_pos < 0) scan_begin();
 
-    /* Headless check: no key events reach a window that never gets focus,
-     * so the scan needs a way in for a scripted run. */
+    /* Lets a headless scripted run start the scan without key events. */
     { static int nf = 0;
       if (getenv("ECSTATICA_VIEWER_AUTOSCAN") && ++nf == 60 && scan_pos < 0)
           scan_begin(); }
@@ -1322,10 +1239,7 @@ static void handle_input(int dt) {
         if (platform_key_hit(plat, PKEY_M)) apply_scene_palette(step_scene_palette(pal_cam, +1));
     }
 
-    /* Continuous camera controls, scaled by frame time so a fast machine
-     * does not spin the model twice as quickly. Skipped while a scene's own
-     * camera is attached: it is fixed by the shot, and the painted
-     * background would not move with it anyway. */
+    /* Scaled by frame time. Not while a scene's own camera is attached. */
     if (tool_mode == TOOL_SCENES && cam_attached) return;
 
     int step = dt > 0 ? dt : 1;
@@ -1362,12 +1276,8 @@ static void handle_input(int dt) {
         view_pos.Z = (int16_t)clampi(view_pos.Z + dz, -32000, 32000);
     }
 
-    /* Mouse: left drag orbits, right drag dollies.
-     *
-     * Yaw is inverted so the drag grabs the MODEL rather than the camera —
-     * pull left and the model turns left. Pitch is not: dragging down to
-     * look down at the model is what the hand expects, and matches every
-     * other orbit control. */
+    /* Left drag orbits, right drag dollies. Yaw is inverted so the drag grabs
+     * the model; pitch is not. */
     static int prev_mx, prev_my, prev_mb;
     int mx, my;
     int mb = platform_mouse_state(plat, &mx, &my);
@@ -1390,20 +1300,14 @@ static void handle_input(int dt) {
 
 /* ── Animation stepping ──────────────────────────────────────── */
 
-/* my_time() ticks at 60Hz under E1 and 70Hz under E2 — the unit an action's
- * duration is counted in. */
+/* my_time() rate: 60Hz for E1, 70Hz for E2, the unit of action durations. */
 static int tick_rate(void) {
     return (game_version == GAME_VERSION_E1) ? 60 : 70;
 }
 
-/* How long a loop actually takes on screen, in ticks.
- *
- * Playback itself is at the engine's rate: advance_act() steps a non-scene
- * action by (elapsed << 16) / duration, which is what this does. But plenty
- * of actions are far too short to read on repeat — E2's herojump is 16 ticks,
- * under a quarter second — and in play they are seen once, in context, not
- * looped. So anything under min_loop_ms is stretched to it. The HUD says SLOW
- * whenever that is in effect, and F turns it off for true game rate. */
+/* Ticks one loop takes on screen. Actions shorter than min_loop_ms (E2's
+ * herojump is 16 ticks) are stretched to it; the HUD shows SLOW, and F
+ * restores game rate. */
 static int effective_duration(void) {
     int d = cur_actor->actor_act.duration;
     if (d < 1) d = 1;
@@ -1423,8 +1327,7 @@ static void advance_animation(int dt) {
     if (playing && scaled > 0) {
         int adv;
         if (cur_action->action_flags & 2) {
-            /* Scene actions are positioned in absolute time, so the stretch
-             * has to scale the step rather than the divisor. */
+            /* Scene actions are absolute time, so scale the step instead. */
             adv = (int)(((int64_t)scaled * real) / eff);
         } else {
             adv = (int)(((int64_t)scaled << 16) / eff);
@@ -1447,8 +1350,7 @@ static void advance_animation(int dt) {
     position_act(act, (uint16_t)phase, cur_actor);
 
     if (pin_root) {
-        /* Horizontal travel only. Y carries jumps and crouches, which are
-         * part of the pose and worth seeing. */
+        /* Horizontal only: Y carries jumps and crouches. */
         cur_actor->position_vector.X = 0;
         cur_actor->position_vector.Z = 0;
         set_vector(&cur_actor->actor_velocity, 0, 0, 0);
@@ -1458,19 +1360,15 @@ static void advance_animation(int dt) {
 /* ── Frame ───────────────────────────────────────────────────── */
 
 static void render_frame(void) {
-    /* 0x400 marks a thing as "stuck" — drawn once into the background store
-     * instead of the frame. update_act sets it whenever an act runs dry,
-     * which in a viewer would freeze the actor into the backdrop. 0x800 is
-     * the per-frame "already drawn" gate. Scene mode has a whole cast, so
-     * the whole display list gets the same treatment. */
+    /* 0x400 ("stuck") would bake the actor into the background store when an
+     * act runs dry; 0x800 is the already-drawn gate. */
     for (actor_t *a = root_thing; a; a = a->next_in_display_list) {
         a->flags &= ~(uint16_t)(0x0400 | 0x0800);
         a->flags |= ACTOR_FLAG_VISIBLE;
         a->state_flags &= ~0x80;
     }
 
-    /* Full-screen restore from the background store, rather than the
-     * per-actor dirty rectangles: the HUD covers areas no actor claims. */
+    /* Full restore: the HUD covers areas no actor claims. */
     background_status = 1;
     prepare_parts();
     clip_mask(1, 0, 0, 0, screen_width, screen_height);
@@ -1486,9 +1384,8 @@ void viewer_main(void) {
     plat = win_platform();
     if (!plat) quit("Viewer: no platform");
 
-    /* Keeps prepare_parts out of the camera-maintenance block (check_camera,
-     * check_hot_spots, check_hero_rep) and draw_stuck_parts out of the frame
-     * entirely — all of which need a world the viewer does not load. */
+    /* Keeps prepare_parts out of the camera maintenance and draw_stuck_parts
+     * out entirely; both need a world. */
     editor_mode = 1;
     topography = 0;
     script_mode = 0;
@@ -1540,8 +1437,7 @@ void viewer_main(void) {
     for (;;) {
         if (!platform_pump_events(plat)) break;
 
-        /* One read: platform_key_hit consumes the latch, so ESC has to be
-         * dispatched here rather than tested again inside handle_input. */
+        /* platform_key_hit consumes the latch, so ESC is handled here only. */
         if (platform_key_hit(plat, PKEY_ESCAPE)) {
             if (show_help) show_help = false;
             else break;

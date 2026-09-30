@@ -1,17 +1,11 @@
 /**
  * gl_loader.h
  *
- * OpenGL 3.3 core entry points, loaded at runtime.
- *
- * No GL headers are included anywhere in this project. The three desktop
- * platforms disagree about which header ships, what it declares and whether the
- * symbols link directly (macOS) or have to come from wglGetProcAddress
- * (Windows), so the types and enums this port needs are spelled out here and
- * every function goes through a pointer. That also keeps the GL surface
- * documented in one place: the list below IS the feature set.
- *
- * Guarded whole-file, because pocket/Makefile and psp/Makefile both glob every
- * .c under src/ and would otherwise compile this for targets with no GL.
+ * OpenGL 3.3 core entry points, loaded at runtime. The desktop platforms
+ * disagree on GL headers and linkage (wglGetProcAddress on Windows), so the
+ * types and enums are spelled out here and every function goes through a
+ * pointer; this list is the feature set. Guarded whole-file because the
+ * Pocket and PSP builds compile every .c under src/.
  */
 
 #ifndef GL_LOADER_H
@@ -224,8 +218,7 @@ ECS_GL_FUNCTIONS
 ECS_GL_FUNCTIONS
 #undef GLF
 
-/* Call sites read as ordinary GL. The indirection is invisible above this
- * header, which keeps render_gl.c comparable with any GL reference material. */
+/* Call sites read as ordinary GL. */
 #define GLF(ret, name, params)
 ECS_GL_FUNCTIONS
 #undef GLF
@@ -300,11 +293,8 @@ ECS_GL_FUNCTIONS
 #define glReadBuffer              ecs_glReadBuffer
 #define glBlitFramebuffer         ecs_glBlitFramebuffer
 
-/**
- * Resolve every entry point above through the platform's GL proc lookup.
- * Returns false and logs the first missing name if the driver is short of
- * 3.3 — the caller then falls back to the software renderer.
- */
+/* Returns false and logs the first missing name when the driver lacks 3.3;
+ * the caller falls back to the software renderer. */
 bool gl_load(void *(*get_proc)(const char *));
 
 #endif /* ECS_ENABLE_GL */

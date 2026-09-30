@@ -43,7 +43,7 @@ int file_dir_has_database(const char *dir);
  * swapped underneath a running game. */
 void file_flush_path_cache(void);
 
-/* VGA plane control (no-op in SDL port) */
+/* VGA plane control (no-op) */
 void set_read_plane(int plane);
 
 #endif /* ASM_F_H */

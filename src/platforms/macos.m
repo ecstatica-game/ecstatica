@@ -1,11 +1,8 @@
 /**
- * Ecstatica Platform Implementation — macOS (Cocoa / AppKit)
+ * platforms/macos.m
  *
- * Uses an NSWindow + NSView to blit the game's software-rendered
- * framebuffer to screen. No OpenGL, no Metal — just
- * CGBitmapContext → NSBitmapImageRep → drawInRect.
- *
- * Compile with:  clang -ObjC -framework Cocoa -framework QuartzCore
+ * macOS backend (Cocoa). The software framebuffer is drawn through
+ * CGBitmapContext into an NSView; the optional GL renderer uses a sibling view.
  */
 
 #import <Cocoa/Cocoa.h>
@@ -31,14 +28,11 @@ struct platform_t {
     uint32_t *rgba_buffer;     /* fb_width * fb_height * 4 bytes (RGBA8888) */
     bool      quit_requested;
 
-    /* hardware renderer — the context is attached to the same ECView the
-     * software path draws into, so switching renderers changes nothing about
-     * the window, the responder chain or event handling. */
+    /* GL context on its own sibling view (ECGLView); see there. */
     NSOpenGLContext *gl_ctx;
     ECGLView        *gl_view;
     bool             gl_active;
 
-    /* input */
     bool key_state[MAX_KEYS];
     bool key_prev[MAX_KEYS];
     bool key_hit[MAX_KEYS];
@@ -46,30 +40,20 @@ struct platform_t {
     int  mouse_y;
     int  mouse_buttons;
 
-    /* timing */
     uint64_t start_mach;
     mach_timebase_info_data_t timebase;
 
-    /* Cocoa objects */
     NSWindow *window;
     ECView   *view;
     NSApplication *app;
     id app_delegate;  /* strong ref — NSApp/NSWindow hold delegate weakly */
 };
 
-/* A view that exists only to own the GL surface.
- *
- * The context must not be attached to ECView: once an NSOpenGLContext has been
- * given an NSView, AppKit backs that view with a GL surface and Quartz drawing
- * into it stops being composited — permanently, and clearDrawable does not undo
- * it. Merely creating the context to probe for GL 3.3 was therefore enough to
- * leave the software renderer painting into a window that showed nothing.
- *
- * So GL gets its own sibling on top, hidden while the software renderer runs.
- * hitTest: returns nil so mouse events fall straight through to ECView, and the
- * view never becomes first responder, which leaves the whole input path — keys,
- * mouse mapping, responder chain — exactly as it was. Same shape as the child
- * window the GLX backend uses, and for the same reason. */
+/* Owns the GL surface. Once an NSOpenGLContext is given an NSView, Quartz
+ * drawing into that view stops compositing for good, so the context cannot go
+ * on ECView. This sibling sits on top, hidden under the software renderer;
+ * hitTest: returns nil and it never becomes first responder, so input is
+ * untouched. Same idea as the GLX child window. */
 @interface ECGLView : NSView
 @end
 
@@ -93,8 +77,7 @@ struct platform_t {
 - (void)drawRect:(NSRect)dirtyRect {
     platform_t *p = self.platform;
     if (!p || !p->rgba_buffer) return;
-    /* GL owns the surface while the hardware renderer is up; letting Quartz
-     * also paint here would race it and flicker. */
+    /* GL owns the surface while hardware rendering is up. */
     if (p->gl_active) return;
 
     CGColorSpaceRef cs = CGColorSpaceCreateDeviceRGB();
@@ -227,8 +210,8 @@ static int macos_vk_to_pkey(unsigned short vk) {
     self.platform->key_state[PKEY_LALT]   = (flags & NSEventModifierFlagOption)  != 0;
     self.platform->key_state[PKEY_LSHIFT] = (flags & NSEventModifierFlagShift)   != 0;
     self.platform->key_state[PKEY_LCMD]   = cmd_now;
-    /* macOS swallows keyUp events for keys released while Cmd is held.
-       Clear all non-modifier keys when Cmd is released to prevent stuck keys. */
+    /* macOS drops keyUp for keys released while Cmd is held; clear them on
+     * Cmd release. */
     if (cmd_was && !cmd_now) {
         for (int i = 0; i < MAX_KEYS; i++) {
             if (i == PKEY_LCTRL || i == PKEY_LALT || i == PKEY_LSHIFT || i == PKEY_LCMD)
@@ -318,7 +301,6 @@ platform_t *platform_init(const char *title, int fb_width, int fb_height, int sc
     mach_timebase_info(&p->timebase);
     p->start_mach = mach_absolute_time();
 
-    /* Initialize Cocoa application */
     @autoreleasepool {
         p->app = [NSApplication sharedApplication];
         [p->app setActivationPolicy:NSApplicationActivationPolicyRegular];
@@ -328,7 +310,6 @@ platform_t *platform_init(const char *title, int fb_width, int fb_height, int sc
         p->app_delegate = delegate;
         [p->app setDelegate:delegate];
 
-        /* Create window */
         NSRect frame = NSMakeRect(100, 100, fb_width * scale, fb_height * scale);
         NSWindowStyleMask style = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable |
                                   NSWindowStyleMaskMiniaturizable;
@@ -340,7 +321,6 @@ platform_t *platform_init(const char *title, int fb_width, int fb_height, int sc
         [p->window setAcceptsMouseMovedEvents:YES];
         [p->window setDelegate:delegate];
 
-        /* Create custom view */
         ECView *view = [[ECView alloc] initWithFrame:frame];
         view.platform = p;
         p->view = view;
@@ -369,9 +349,7 @@ bool platform_hires_supported(platform_t *p) {
     return true;
 }
 
-/* The window owns its own aspect ratio, so there is no fit mode to choose —
- * only PSP and Vita, with a fixed panel wider than the game's picture, offer
- * this. */
+/* The window owns its aspect ratio; only PSP and Vita offer fit modes. */
 bool platform_scale_mode_supported(platform_t *p) {
     (void)p;
     return false;
@@ -401,9 +379,7 @@ bool platform_gfx_create(platform_t *p) {
     if (p->gl_ctx) return true;
 
     @autoreleasepool {
-        /* macOS has no 3.3 profile constant. NSOpenGLProfileVersion3_2Core
-         * caps GLSL at 150; 330 needs the 4.1 core profile, which is a strict
-         * superset of 3.3 and the smallest one that will compile the shaders. */
+        /* 3.2 core caps GLSL at 150; 4.1 core is the smallest with 330. */
         NSOpenGLPixelFormatAttribute attrs[] = {
             NSOpenGLPFAOpenGLProfile, NSOpenGLProfileVersion4_1Core,
             NSOpenGLPFADoubleBuffer,
@@ -425,8 +401,7 @@ bool platform_gfx_create(platform_t *p) {
         [glv setHidden:YES];
         [p->view addSubview:glv];
 
-        /* GL_SILENCE_DEPRECATION covers the OpenGL symbols but not these two,
-         * which AppKit deprecates in favour of NSOpenGLView. */
+        /* Not covered by GL_SILENCE_DEPRECATION. */
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
         [glv setWantsBestResolutionOpenGLSurface:YES];
@@ -438,21 +413,13 @@ bool platform_gfx_create(platform_t *p) {
 
         p->gl_ctx  = ctx;
         p->gl_view = glv;
-        /* The context holds a drawable so render_gl_init can compile and upload
-         * against it, but the view is hidden, so ECView is still what the window
-         * shows. gl_active tracks the latter. */
+        /* The view stays hidden until platform_gfx_set_active. */
         p->gl_active = false;
     }
     return true;
 }
 
-/**
- * Show or hide the GL surface.
- *
- * The context keeps its drawable throughout — it is attached to a view of its
- * own, so it is not competing with Quartz for ECView's surface and there is
- * nothing to hand back. Visibility is the whole of it.
- */
+/* The context keeps its own view's drawable; only visibility changes. */
 void platform_gfx_set_active(platform_t *p, bool active) {
     if (!p || !p->gl_ctx || !p->gl_view) { if (p) p->gl_active = false; return; }
     if (p->gl_active == active) return;
@@ -504,8 +471,7 @@ void platform_gfx_drawable_size(platform_t *p, int *w, int *h) {
 }
 
 void *platform_gl_proc(const char *name) {
-    /* OpenGL.framework exports every 4.1 symbol directly, so there is no
-     * loader dance here the way there is on Windows. */
+    /* OpenGL.framework exports every 4.1 symbol directly. */
     return dlsym(RTLD_DEFAULT, name);
 }
 
@@ -558,7 +524,6 @@ void platform_blit_rgba(platform_t *p, const uint8_t *framebuffer) {
 bool platform_pump_events(platform_t *p) {
     if (!p) return false;
 
-    /* Save previous key state for edge detection */
     memcpy(p->key_prev, p->key_state, sizeof(p->key_prev));
 
     @autoreleasepool {
@@ -570,10 +535,8 @@ bool platform_pump_events(platform_t *p) {
             [p->app sendEvent:event];
         }
 
-        /* Force display update — but only while Quartz owns the surface.
-         * Driving the parent view's drawing cycle while the GL child is
-         * presenting makes AppKit composite the two on its own schedule
-         * instead of ours, which shows up as a stale or half-updated frame. */
+        /* Only while Quartz owns the surface, or AppKit composites the GL
+         * view on its own schedule and shows stale frames. */
         if (!p->gl_active)
             [p->view displayIfNeeded];
     }
@@ -624,7 +587,6 @@ uint32_t platform_ticks(platform_t *p) {
         tb = &s_timebase;
     }
     uint64_t elapsed = mach_absolute_time() - ref_start;
-    /* Convert to milliseconds */
     return (uint32_t)((elapsed * tb->numer) / (tb->denom * 1000000ULL));
 }
 
@@ -776,7 +738,6 @@ static OSStatus audio_render_cb(void *inRefCon,
     }
     pthread_mutex_unlock(&s_audio_mutex);
 
-    /* Simple clip */
     for (UInt32 i = 0; i < inNumberFrames * AUDIO_OUT_CH; ++i) {
         if (out[i] >  1.0f) out[i] =  1.0f;
         if (out[i] < -1.0f) out[i] = -1.0f;
@@ -872,7 +833,6 @@ static bool s_midi_loop = false;
 int platform_midi_play(const void *smf_data, int length, bool loop) {
     if (!smf_data || length <= 0) return -1;
 
-    /* Stop any previous tune first. */
     platform_midi_stop();
 
     NSData *data = [NSData dataWithBytes:smf_data length:length];
