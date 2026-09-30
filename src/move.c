@@ -1084,7 +1084,11 @@ have_target:
         break;
 
     case BH_ATTACK:
-        if (abs(rel_angle) >= 2048) {
+        if (abs(rel_angle) >= 2048 && game_version == GAME_VERSION_E1) {
+            /* asm anim_behaviour_428914+B2A: E1 only turns on the spot here;
+             * the walk-and-turn band below 4096 is E2's. */
+            next_move = (rel_angle > 0) ? 3 : 5;
+        } else if (abs(rel_angle) >= 2048) {
             if (abs(rel_angle) < 4096) {
                 next_move = 1;
                 if (actor->actor_reperture && actor->actor_reperture->action_slots[1] >= 0) {
@@ -1127,6 +1131,12 @@ have_target:
                         else if (random_value > 0x3000u) next_move = 11;
                         else                             next_move = 1000;
                     }
+                    /* asm anim_behaviour_428914+A17: an actor whose repertoire
+                     * has no action for the chosen attack uses a hand action
+                     * instead — how a non-fighter like the penitent begs. */
+                    if (next_move >= 9 && next_move <= 11 && actor->actor_reperture
+                        && actor->actor_reperture->action_slots[next_move] < 0)
+                        next_move = look_for_pick_up_e1(actor->_PartTab->field_0[0]) + 41;
                 } else {
                     /* E2: three tiers with ranged attacks */
                     int melee_only = 1;
@@ -1510,9 +1520,14 @@ center_function:
             if (!(actor->flags & 0x40)) {
                 if (1000 == actor->move_type)
                     goto label_917;
-                if (actor != selected_thing
+                /* asm anim_behaviour_428914+D8B: E1 keeps the running action only
+                 * when it is marked uninterruptible (0x40). The wider mask held
+                 * every turn action (flags 0x204) to its end, so an NPC facing
+                 * the hero overshot on each turn and never reached its action. */
+                int keep_mask = (game_version == GAME_VERSION_E1) ? 0x40 : (0x40 | 0x20FF);
+                if ((game_version == GAME_VERSION_E1 || actor != selected_thing)
                     && actor->actor_act.act_action
-                    && (actor->actor_act.flags & (0x40 | 0x20FF)))
+                    && (actor->actor_act.flags & keep_mask))
                     goto label_917;
             }
 
