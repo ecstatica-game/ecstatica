@@ -283,6 +283,11 @@ void init(void) {
     load_anti_alias();
     init_gadgets();
     init_event_type_flags();
+    /* Bit 4 makes a material impassable in find_height_now_material. Left
+     * zeroed, the player walks through the scenery that fences off camera-0
+     * ground, and check_camera then plays scene 7 with its first actor as
+     * the new player. */
+    init_material_flags();
 
     /* Clear all-black colour map */
     memset(all_black_cmap, 0, sizeof(all_black_cmap));
