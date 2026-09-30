@@ -132,12 +132,19 @@ def monogram_icon(game, w, h):
 
 
 # ---------------------------------------------------------------- Vita ----
+def quantize_for_vita(img):
+    """Real Vita firmware's LiveArea processor rejects truecolor sce_sys
+    PNGs (VitaShell install error 0x8010113D) — it needs 8-bit indexed
+    color, same as running the art through pngquant."""
+    return img.convert("P", palette=Image.ADAPTIVE, colors=256)
+
+
 def build_vita():
     for game, focus_hero in (("e1", (0.5, 0.55)), ("e2", (0.5, 0.40))):
         d = f"{ROOT}/vita/sce_sys/{game}"
-        save(key_art(game, 840, 500, focus_hero), f"{d}/livearea/contents/bg.png")
-        save(key_art(game, 280, 158, focus_hero), f"{d}/livearea/contents/startup.png")
-        save(monogram_icon(game, 128, 128), f"{d}/icon0.png")
+        save(quantize_for_vita(key_art(game, 840, 500, focus_hero)), f"{d}/livearea/contents/bg.png")
+        save(quantize_for_vita(key_art(game, 280, 158, focus_hero)), f"{d}/livearea/contents/startup.png")
+        save(quantize_for_vita(monogram_icon(game, 128, 128)), f"{d}/icon0.png")
 
 
 # ----------------------------------------------------------------- PSP ----

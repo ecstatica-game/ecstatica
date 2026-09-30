@@ -6,6 +6,14 @@ All notable changes to this project are documented in this file.
 
 Nothing yet.
 
+## [0.8.1] - 2026-09-30
+
+### Fixed
+- Vita VPKs failed to install on real hardware (error 0x8010113D): the
+  LiveArea `icon0.png`/`bg.png`/`startup.png` were truecolor PNGs, which
+  Vita3K accepts but real firmware's LiveArea installer rejects. They are
+  now generated as 8-bit indexed PNGs.
+
 ## [0.8.0] - 2026-09-30
 
 ### Added
