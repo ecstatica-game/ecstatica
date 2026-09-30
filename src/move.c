@@ -2503,49 +2503,10 @@ void modify_part(event_t *event, actor_t *actor, int some_time, action_t *action
             }
             break;
         case 5:
+            /* asm move_modify_part_424FEC+BB0: no gender test. Male and female
+             * lines sit on parts only one hero model has, so the part lookup
+             * above already picks the right one. */
             if (sound_fx_on && sound_is_on) {
-                if (game_version == GAME_VERSION_E1 && event->param2 >= 0 && event->param2 < E1_SOUND_TAB_SIZE) {
-                    const char *sname = sound_names[event->param2].field_0;
-                    bool is_female_sound = false;
-                    bool is_male_sound = false;
-                    if (sname[0] == 'f' || sname[0] == 'F') {
-                        if (sname[1] == '_' || sname[1] == 'f' || sname[1] == 'F')
-                            is_female_sound = true;
-                        else if ((sname[1] == 'h' || sname[1] == 'H') && (sname[2] == 'h' || sname[2] == 'H' || sname[2] == 'o' || sname[2] == 'O'))
-                            is_female_sound = true;
-                        else if (strncasecmp(sname, "fgethit", 7) == 0 || strncasecmp(sname, "femscrm", 7) == 0 || strncasecmp(sname, "female", 6) == 0)
-                            is_female_sound = true;
-                        if (!is_female_sound) {
-                            for (int si = 0; si < E1_SOUND_TAB_SIZE; si++) {
-                                if (si != event->param2 && sound_names[si].field_0[0]
-                                    && strcasecmp(sound_names[si].field_0, sname + 1) == 0) {
-                                    is_female_sound = true;
-                                    break;
-                                }
-                            }
-                        }
-                    } else if (sname[0]) {
-                        if ((sname[0] == 'h' || sname[0] == 'H') && (strncasecmp(sname, "hh", 2) == 0 || strncasecmp(sname, "hotel", 5) == 0))
-                            is_male_sound = true;
-                        else if (strncasecmp(sname, "male", 4) == 0)
-                            is_male_sound = true;
-                        if (!is_male_sound) {
-                            char fbuf[28];
-                            fbuf[0] = 'f';
-                            strncpy(fbuf + 1, sname, sizeof(fbuf) - 2);
-                            fbuf[sizeof(fbuf) - 1] = '\0';
-                            for (int si = 0; si < E1_SOUND_TAB_SIZE; si++) {
-                                if (si != event->param2 && sound_names[si].field_0[0]
-                                    && strcasecmp(sound_names[si].field_0, fbuf) == 0) {
-                                    is_male_sound = true;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                    if ((is_female_sound && !female) || (is_male_sound && female))
-                        break;
-                }
                 play_sound_ecstatica(actor, event->param2, action ? (action->action_flags & 2) : 0, 0);
             }
             break;
@@ -2785,9 +2746,20 @@ void play_sound_ecstatica(actor_t *actor, int sound_index, int volume_flags, int
         find_direction_and_distance(&direction, &distance,
             actor->position_vector.X - selected_thing->position_vector.X,
             actor->position_vector.Z - selected_thing->position_vector.Z);
-        distance += (int16_t)abs(actor->position_vector.Y - selected_thing->position_vector.Y);
-        if (volume_flags)
-            distance -= 1024;
+        if (game_version == GAME_VERSION_E1) {
+            /* asm move_play_sound_427DF4: ground distance only, and the demon
+             * is heard at full volume in its scenes. */
+            if (volume_flags) {
+                if (strcmp(thing_names[actor->name_index].field_0, "demon") == 0)
+                    distance = 0;
+                else
+                    distance -= 1024;
+            }
+        } else {
+            distance += (int16_t)abs(actor->position_vector.Y - selected_thing->position_vector.Y);
+            if (volume_flags)
+                distance -= 1024;
+        }
         if (distance < 0)
             distance = 0;
         dist_volume = (0x2000 - distance) >> 6;
