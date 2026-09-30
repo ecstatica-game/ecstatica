@@ -46,6 +46,14 @@ soundfont; searched in order: `$ECSTATICA_SOUNDFONT`, game data dir,
 `~/.local/share/soundfonts`, `/usr/share/soundfonts`, `/usr/share/sounds/sf2`.
 On Arch/SteamOS: `pacman -S fluidsynth soundfont-fluid`.
 
+**Steam Deck:** just the Linux build above, no packaging step. `steamdeck/`
+holds Steam library art (grid/hero/logo/icon) for adding it as a non-Steam
+game; see `steamdeck/README.md`.
+
+**Packaging art:** `assets/` holds the two real screenshots the Vita, PSP,
+Pocket and Steam Deck packaging art is generated from, plus the script that
+builds it; see `assets/README.md`.
+
 ## Code Style
 
 - C99 strict, snake_case, 4-space indent
