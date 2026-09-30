@@ -17,7 +17,40 @@ permissions:
   contents: write
 
 jobs:
+  # Single source of truth for the version string every build job stamps
+  # into its artifact filename, and that the release step later uses to
+  # find those same files. A tag push uses the tag itself; a push to main
+  # uses the same vX.Y.Z-edge scheme as the rolling pre-release below;
+  # anything else (workflow_dispatch) falls back to the commit sha, since
+  # those runs never publish a release.
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.compute.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute version
+        id: compute
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            version="${GITHUB_REF#refs/tags/}"
+          else
+            latest=$(git tag -l 'v*' | { grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' || true; } | sort -V | tail -1)
+            latest=${latest:-v0.0.0}
+            IFS='.' read -r major minor patch <<< "${latest#v}"
+            if [[ "$GITHUB_EVENT_NAME" == "push" && "$GITHUB_REF" == "refs/heads/main" ]]; then
+              version="v${major}.${minor}.$((patch + 1))-edge"
+            else
+              version="dev-${GITHUB_SHA::7}"
+            fi
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
   build-macos:
+    needs: version
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -31,14 +64,15 @@ jobs:
       - name: Package
         run: |
           cd build/bin
-          zip ecstatica-macos-universal.zip ecstatica
+          zip ecstatica-macos-universal-${{ needs.version.outputs.version }}.zip ecstatica
 
       - uses: actions/upload-artifact@v4
         with:
           name: macos-build
-          path: build/bin/ecstatica-macos-universal.zip
+          path: build/bin/ecstatica-macos-universal-${{ needs.version.outputs.version }}.zip
 
   build-linux-x86_64:
+    needs: version
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -84,14 +118,15 @@ jobs:
           APPRUN
           chmod +x AppDir/AppRun
 
-          ./appimagetool-x86_64.AppImage --appimage-extract-and-run AppDir ecstatica-linux-x86_64.AppImage
+          ./appimagetool-x86_64.AppImage --appimage-extract-and-run AppDir ecstatica-linux-x86_64-${{ needs.version.outputs.version }}.AppImage
 
       - uses: actions/upload-artifact@v4
         with:
           name: linux-x86_64-build
-          path: ecstatica-linux-x86_64.AppImage
+          path: ecstatica-linux-x86_64-${{ needs.version.outputs.version }}.AppImage
 
   build-linux-arm64:
+    needs: version
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
@@ -137,14 +172,15 @@ jobs:
           APPRUN
           chmod +x AppDir/AppRun
 
-          ./appimagetool-aarch64.AppImage --appimage-extract-and-run AppDir ecstatica-linux-arm64.AppImage
+          ./appimagetool-aarch64.AppImage --appimage-extract-and-run AppDir ecstatica-linux-arm64-${{ needs.version.outputs.version }}.AppImage
 
       - uses: actions/upload-artifact@v4
         with:
           name: linux-arm64-build
-          path: ecstatica-linux-arm64.AppImage
+          path: ecstatica-linux-arm64-${{ needs.version.outputs.version }}.AppImage
 
   build-windows-x86_64:
+    needs: version
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -159,14 +195,15 @@ jobs:
         shell: pwsh
         run: |
           $exe = Get-ChildItem -Path build/bin -Recurse -Filter ecstatica.exe | Select-Object -First 1
-          Compress-Archive -Path $exe.FullName -DestinationPath ecstatica-windows-x86_64.zip
+          Compress-Archive -Path $exe.FullName -DestinationPath ecstatica-windows-x86_64-${{ needs.version.outputs.version }}.zip
 
       - uses: actions/upload-artifact@v4
         with:
           name: windows-x86_64-build
-          path: ecstatica-windows-x86_64.zip
+          path: ecstatica-windows-x86_64-${{ needs.version.outputs.version }}.zip
 
   build-windows-arm64:
+    needs: version
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -181,14 +218,15 @@ jobs:
         shell: pwsh
         run: |
           $exe = Get-ChildItem -Path build/bin -Recurse -Filter ecstatica.exe | Select-Object -First 1
-          Compress-Archive -Path $exe.FullName -DestinationPath ecstatica-windows-arm64.zip
+          Compress-Archive -Path $exe.FullName -DestinationPath ecstatica-windows-arm64-${{ needs.version.outputs.version }}.zip
 
       - uses: actions/upload-artifact@v4
         with:
           name: windows-arm64-build
-          path: ecstatica-windows-arm64.zip
+          path: ecstatica-windows-arm64-${{ needs.version.outputs.version }}.zip
 
   build-dos:
+    needs: version
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -223,14 +261,15 @@ jobs:
           Sound Blaster output is located from the BLASTER environment variable;
           without it the game runs silent. MIDI music is not implemented.
           EOF
-          cd dist && zip -r ../ecstatica-dos.zip ecstatica-dos
+          cd dist && zip -r ../ecstatica-dos-${{ needs.version.outputs.version }}.zip ecstatica-dos
 
       - uses: actions/upload-artifact@v4
         with:
           name: dos-build
-          path: ecstatica-dos.zip
+          path: ecstatica-dos-${{ needs.version.outputs.version }}.zip
 
   build-win9x:
+    needs: version
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -257,17 +296,18 @@ jobs:
           Built with Open Watcom against the Win32 API only, so it also runs on
           modern Windows and under Wine. Gamepads use the winmm joystick API.
           EOF
-          cd dist && zip -r ../ecstatica-win9x.zip ecstatica-win9x
+          cd dist && zip -r ../ecstatica-win9x-${{ needs.version.outputs.version }}.zip ecstatica-win9x
 
       - uses: actions/upload-artifact@v4
         with:
           name: win9x-build
-          path: ecstatica-win9x.zip
+          path: ecstatica-win9x-${{ needs.version.outputs.version }}.zip
 
   # The SDK images are the upstream toolchains. The jobs run them with
   # `docker run` rather than as job containers: pspdev/pspdev is Alpine, and
   # JavaScript actions such as checkout do not run inside musl containers.
   build-psp:
+    needs: version
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -295,14 +335,15 @@ jobs:
           Needs custom firmware or a homebrew launcher, or runs in PPSSPP. Sound
           effects and speech play; music is silent.
           EOF
-          cd dist && zip -r ../ecstatica-psp.zip PSP README.TXT
+          cd dist && zip -r ../ecstatica-psp-${{ needs.version.outputs.version }}.zip PSP README.TXT
 
       - uses: actions/upload-artifact@v4
         with:
           name: psp-build
-          path: ecstatica-psp.zip
+          path: ecstatica-psp-${{ needs.version.outputs.version }}.zip
 
   build-vita:
+    needs: version
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -312,19 +353,20 @@ jobs:
           docker run --rm -v "$PWD:/src" -w /src vitasdk/vitasdk:latest \
             sh -c 'make vita'
           # One VPK per game; each is its own LiveArea bubble.
-          cp vita/build/ecstatica-e1.vpk ecstatica-vita-e1.vpk
-          cp vita/build/ecstatica-e2.vpk ecstatica-vita-e2.vpk
+          cp vita/build/ecstatica-e1.vpk ecstatica-vita-e1-${{ needs.version.outputs.version }}.vpk
+          cp vita/build/ecstatica-e2.vpk ecstatica-vita-e2-${{ needs.version.outputs.version }}.vpk
 
       - uses: actions/upload-artifact@v4
         with:
           name: vita-build
           path: |
-            ecstatica-vita-e1.vpk
-            ecstatica-vita-e2.vpk
+            ecstatica-vita-e1-${{ needs.version.outputs.version }}.vpk
+            ecstatica-vita-e2-${{ needs.version.outputs.version }}.vpk
 
   # The openfpgaOS SDK artifacts are committed under pocket/vendor/, so this
   # builds against exactly the runtime that was tested on hardware.
   build-pocket:
+    needs: version
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -368,15 +410,15 @@ jobs:
           silent. Sound effects and speech play. To get music, put your own
           bank.ofsf in Assets/ecstatica/common/.
           EOF
-          cd dist && zip -r ../ecstatica-pocket.zip Cores Platforms Assets tools README.TXT
+          cd dist && zip -r ../ecstatica-pocket-${{ needs.version.outputs.version }}.zip Cores Platforms Assets tools README.TXT
 
       - uses: actions/upload-artifact@v4
         with:
           name: pocket-build
-          path: ecstatica-pocket.zip
+          path: ecstatica-pocket-${{ needs.version.outputs.version }}.zip
 
   release:
-    needs: [build-macos, build-linux-x86_64, build-linux-arm64, build-windows-x86_64, build-windows-arm64, build-dos, build-win9x, build-psp, build-vita, build-pocket]
+    needs: [version, build-macos, build-linux-x86_64, build-linux-arm64, build-windows-x86_64, build-windows-arm64, build-dos, build-win9x, build-psp, build-vita, build-pocket]
     runs-on: ubuntu-latest
     steps:
       # Full history and tags: the edge-release steps below need both to
@@ -394,32 +436,31 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: &release_files |
-            artifacts/macos-build/ecstatica-macos-universal.zip
-            artifacts/linux-x86_64-build/ecstatica-linux-x86_64.AppImage
-            artifacts/linux-arm64-build/ecstatica-linux-arm64.AppImage
-            artifacts/windows-x86_64-build/ecstatica-windows-x86_64.zip
-            artifacts/windows-arm64-build/ecstatica-windows-arm64.zip
-            artifacts/dos-build/ecstatica-dos.zip
-            artifacts/win9x-build/ecstatica-win9x.zip
-            artifacts/psp-build/ecstatica-psp.zip
-            artifacts/vita-build/ecstatica-vita-e1.vpk
-            artifacts/vita-build/ecstatica-vita-e2.vpk
-            artifacts/pocket-build/ecstatica-pocket.zip
+            artifacts/macos-build/ecstatica-macos-universal-${{ needs.version.outputs.version }}.zip
+            artifacts/linux-x86_64-build/ecstatica-linux-x86_64-${{ needs.version.outputs.version }}.AppImage
+            artifacts/linux-arm64-build/ecstatica-linux-arm64-${{ needs.version.outputs.version }}.AppImage
+            artifacts/windows-x86_64-build/ecstatica-windows-x86_64-${{ needs.version.outputs.version }}.zip
+            artifacts/windows-arm64-build/ecstatica-windows-arm64-${{ needs.version.outputs.version }}.zip
+            artifacts/dos-build/ecstatica-dos-${{ needs.version.outputs.version }}.zip
+            artifacts/win9x-build/ecstatica-win9x-${{ needs.version.outputs.version }}.zip
+            artifacts/psp-build/ecstatica-psp-${{ needs.version.outputs.version }}.zip
+            artifacts/vita-build/ecstatica-vita-e1-${{ needs.version.outputs.version }}.vpk
+            artifacts/vita-build/ecstatica-vita-e2-${{ needs.version.outputs.version }}.vpk
+            artifacts/pocket-build/ecstatica-pocket-${{ needs.version.outputs.version }}.zip
           generate_release_notes: true
 
       # Rolling pre-release built from every push to main: one tag/release,
       # force-moved each time, so main always has an installable build of
       # whatever hasn't been cut into a real version yet. Skipped on manual
       # workflow_dispatch runs, which are for shaking out the build jobs only.
-      - name: Compute edge version and notes
+      # The version itself comes from the `version` job above, which build
+      # jobs already stamped into their artifact filenames; this step only
+      # needs the notes.
+      - name: Compute edge notes
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        id: edge
         run: |
           latest=$(git tag -l 'v*' | { grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' || true; } | sort -V | tail -1)
           latest=${latest:-v0.0.0}
-          IFS='.' read -r major minor patch <<< "${latest#v}"
-          version="v${major}.${minor}.$((patch + 1))-edge"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
 
           {
             echo "Automated development build of \`main\` @ ${GITHUB_SHA::7}, on top of $latest."
@@ -436,15 +477,15 @@ jobs:
       - name: Move edge tag
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
-          git tag -f "${{ steps.edge.outputs.version }}"
-          git push -f origin "${{ steps.edge.outputs.version }}"
+          git tag -f "${{ needs.version.outputs.version }}"
+          git push -f origin "${{ needs.version.outputs.version }}"
 
       - name: Publish edge pre-release
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.edge.outputs.version }}
-          name: ${{ steps.edge.outputs.version }}
+          tag_name: ${{ needs.version.outputs.version }}
+          name: ${{ needs.version.outputs.version }}
           prerelease: true
           body_path: edge_notes.md
           files: *release_files
