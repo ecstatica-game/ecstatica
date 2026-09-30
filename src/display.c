@@ -209,6 +209,7 @@ void new_game(void) {
     memset(repertoire_tab, 0, sizeof(repertoire_tab));
     memset(sound_tab, 0, sizeof(sound_tab));
     memset(texture_tab, 0, sizeof(texture_tab));
+    reset_load_tried();
 
     for (int i = 0; i < ACTOR_POOL_SIZE; i++) {
         restore_actor_entries(i);

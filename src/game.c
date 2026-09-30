@@ -2351,6 +2351,18 @@ static bool rep_load_tried[REPERTOIRE_TAB_SIZE];
 static bool actor_load_tried[THING_TAB_SIZE];
 static bool actor_load_tried2[THING_TAB_SIZE];
 
+/* Called wherever the *_tab arrays are emptied. load_game empties them without
+ * going through initialise_game, and a latch left set then keeps an asset that
+ * was loaded earlier in the session (the intro scene an actor's last act points
+ * at, say) from ever loading again. */
+void reset_load_tried(void) {
+    memset(scene_load_tried, 0, sizeof(scene_load_tried));
+    memset(action_load_tried, 0, sizeof(action_load_tried));
+    memset(rep_load_tried, 0, sizeof(rep_load_tried));
+    memset(actor_load_tried, 0, sizeof(actor_load_tried));
+    memset(actor_load_tried2, 0, sizeof(actor_load_tried2));
+}
+
 /* The "already attempted" latch is what stops a failed load from being retried
  * every frame, so it survives do_delete_action(). Anything that deletes an
  * action it loaded itself has to clear the latch or the slot stays empty
@@ -2373,18 +2385,12 @@ void initialise_game(void) {
     game_timer_start = 0;
     game_timer = 0;
 
-    /* Clear scene name flags bits 1,2,3, scene_tab, and retry flags */
+    /* Clear scene name flags bits 1,2,3 and scene_tab */
     for (int i = 0; i < SCENE_TAB_SIZE; i++) {
         scene_name_flags[i] &= (int16_t)0xFFF1;
         scene_tab[i] = NULL;
-        scene_load_tried[i] = false;
     }
-
-    /* Reset all load-tried flags so assets reload on new game */
-    memset(action_load_tried, 0, sizeof(action_load_tried));
-    memset(rep_load_tried, 0, sizeof(rep_load_tried));
-    memset(actor_load_tried, 0, sizeof(actor_load_tried));
-    memset(actor_load_tried2, 0, sizeof(actor_load_tried2));
+    reset_load_tried();
 
     /* Clear per-actor arrays */
     for (int i = 0; i < THING_TAB_SIZE; i++) {

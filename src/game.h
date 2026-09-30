@@ -351,6 +351,7 @@ void remove_texture(texture_t *texture);
 void remove_rep(rephead_t *rep);
 void remove_action(action_t *action);
 void free_all_heaps(void);
+void reset_load_tried(void);
 void try_to_remove_scene(void);
 void try_to_remove_scene_or_action(void);
 void try_to_remove_action(void);
