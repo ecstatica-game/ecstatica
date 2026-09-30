@@ -1597,7 +1597,7 @@ void load_a_repertoire(int rep_index) {
  *    actor events (terminated by NO_EVENT), repertoire list (-1),
  *    scene list (-1), per-thing state (-1), per-actor arrays,
  *    map areas (-1), globals, cameras (150), ambients, settings,
- *    sentinel 0x1234.
+ *    sentinel 0x1234, then scene flags (v5+) and hero gender (v6+).
  * ══════════════════════════════════════════════════════════════ */
 
 /* ── Port-only settings ──
@@ -1657,7 +1657,7 @@ void save_port_settings(void) {
 
 /* Bump when appending to the save stream. Older files stay loadable as long
  * as new sections are appended after the sentinel and read version-gated. */
-#define SAVE_VERSION 5
+#define SAVE_VERSION 6
 #define SAVE_VERSION_MIN 4   /* oldest layout load_game can still read */
 #define SAVE_NAME_LEN 26
 #define THUMB_W 80
@@ -1937,6 +1937,10 @@ void save_game(int slot) {
     for (int i = 0; i < SCENE_TAB_SIZE; i++)
         putwLoHi(scene_name_flags[i], f);
 
+    /* 17. Hero gender (v6+), saved by the original too (game_save_game_448180).
+     * CT_FEMALE scripts and the E1 death scenes read it. */
+    putwLoHi(female ? 1 : 0, f);
+
     fclose(f);
 }
 
@@ -2174,6 +2178,14 @@ void load_game(int slot) {
             scene_name_flags[i] = getwLoHi(f);
     }
 
+    /* 17. Hero gender (v6+). Older saves did not store it, so the running
+     * session's value leaked in; recover it from the hero below instead. */
+    int have_female = 0;
+    if (version >= 6) {
+        female = getwLoHi(f) != 0;
+        have_female = 1;
+    }
+
     fclose(f);
 
     /* Post-load: apply positions from per-actor arrays to loaded actors */
@@ -2194,6 +2206,11 @@ void load_game(int slot) {
     }
     if (!selected_thing)
         selected_thing = thing_tab[0];
+    /* E1 heroes are thing 0 (male) and thing 1 (female): start_game_medium
+     * loads thing_names[female ? 1 : 0]. */
+    if (!have_female && game_version == GAME_VERSION_E1 && selected_thing
+        && (selected_thing->name_index == 0 || selected_thing->name_index == 1))
+        female = selected_thing->name_index == 1;
     no_wanderers = false;
     intro_flag = false;
     remove_all_graphics();
