@@ -449,8 +449,19 @@ int execute_boolean(int16_t **pp, actor_t *actor) {
         tp += 3;
     }
     else if (token == CT_CHECK_ACTOR) {
+        /* E1 0x443924 / E2 0x44ED65: an actor still held in thing_tab only
+         * counts as present while flagged or seen in the last 1400 ticks, and
+         * any displayed actor with flag 2 set vetoes the check. */
         int16_t actor_index = get_value_from_token(tp[1]);
-        result = (actor_index >= THING_TAB_SIZE || thing_tab[actor_index] == NULL);
+        result = true;
+        if (actor_index < THING_TAB_SIZE) {
+            actor_t *a = thing_tab[actor_index];
+            if (a && ((a->flags & 1) || game_time - a->time_actor < 1400))
+                result = false;
+        }
+        for (actor_t *a = root_thing; a; a = a->next_in_display_list)
+            if (a->flags & 2)
+                result = false;
         tp += 2;
     }
     else if (token == CT_ACTOR_IS_DEAD) {
@@ -1731,6 +1742,44 @@ void remove_actor_from_world(actor_t *actor) {
 /* game_check_encounter  E1: 0x442ED0 | E2: 0x44E2A4 */
 void check_encounter(void) {
     static int32_t prev_time = 0;
+
+    /* E1 0x442ED0 only retires far-off actors, every frame, and never spawns.
+     * It keys on the actor's own flags rather than thing_name_flags: an E1
+     * werewolf left behind by its scene carries actor flag 2 only, and if it is
+     * never retired CT_CHECK_ACTOR stays false everywhere, so every hot spot
+     * waiting for it to leave (the church altar, the were* ambushes) is dead. */
+    if (game_version == GAME_VERSION_E1) {
+        if (!selected_thing)
+            return;
+        actor_t *next;
+        for (actor_t *actor = root_thing; actor; actor = next) {
+            next = actor->next_in_display_list;
+            if (actor == selected_thing
+                || !(actor->flags & 0x4002)
+                || actor->part_heap_link
+                || (actor->flags & 8)
+                || actor->actor_behavior == BH_DEAD
+                || actor->actor_behavior == BH_DYING)
+                continue;
+            int16_t direction, distance;
+            find_direction_and_distance(
+                &direction, &distance,
+                actor->position_vector.X - selected_thing->position_vector.X,
+                actor->position_vector.Z - selected_thing->position_vector.Z);
+            if (distance <= 5120)
+                continue;
+            action_t *action = actor->actor_act.act_action;
+            if (action && (action->action_flags & 2))
+                continue;
+            int16_t ai = actor->name_index;
+            actor_position[ai] = actor->position_vector;
+            actor_orientation[ai] = actor->rotate_vector;
+            actor_rep_name[ai] = actor->actor_rep_index;
+            actor_hit_points[ai] = actor->actor_hitpoints;
+            remove_actor_from_world(actor);
+        }
+        return;
+    }
 
     if (!prev_time || game_time - prev_time >= 50) {
         prev_time = game_time;
