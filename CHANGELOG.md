@@ -6,6 +6,37 @@ All notable changes to this project are documented in this file.
 
 Nothing yet.
 
+## [0.8.0] - 2026-09-30
+
+### Added
+- Packaging art for Vita, PSP, Analogue Pocket and Steam Deck, generated
+  from two in-engine screenshots by `assets/generate_packaging_art.py`. The
+  PSP EBOOT now has an icon, and `steamdeck/` holds library art for adding
+  the games as a non-Steam shortcut.
+- Speed Mode row in Settings -> Enhanced, so E1's sneak/walk/run is
+  reachable on PSP and handheld Vita, which have no L3 click.
+- CI publishes a rolling `vX.Y.Z-edge` pre-release on every push to `main`.
+
+### Changed
+- Comments trimmed across `src/`: restated code and change-history notes
+  removed; original addresses and non-obvious reasons kept.
+
+### Fixed
+- Material walls (bushes and other scenery) did not block movement because
+  `init_material_flags` was never called. The player could reach camera-0
+  ground and be dropped into the dragon scene. Affected E1 and E2.
+- E1 altar scene did not fire: actor-presence checks now match the original.
+- E1 NPCs now finish turning toward the hero and use their hand actions.
+- E1 hero speech was muted in scenes by a port-only gender filter.
+- Assets loaded earlier in a session could fail to load again after a saved
+  game was loaded.
+- Saves now store the hero's gender (save version 6). Older E1 saves
+  recover it from the hero.
+- Subtitles stay inside the visible area under the crop scale mode on Vita
+  and PSP.
+- Analogue Pocket: Select + shoulder now gives LT/RT, so E1's hand
+  pick-up/drop and E2's magic modifier are reachable.
+
 ## [0.7.1] - 2026-09-29
 
 ### Fixed
@@ -171,7 +202,8 @@ Nothing yet.
 ### Added
 - Initial public release: C99 reimplementation of Ecstatica 1 & 2 with macOS, Linux, and Windows platform layers.
 
-[Unreleased]: https://github.com/ecstatica-game/ecstatica/compare/v0.7.1...HEAD
+[Unreleased]: https://github.com/ecstatica-game/ecstatica/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/ecstatica-game/ecstatica/compare/v0.7.1...v0.8.0
 [0.7.1]: https://github.com/ecstatica-game/ecstatica/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/ecstatica-game/ecstatica/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/ecstatica-game/ecstatica/compare/v0.6.0...v0.6.1
