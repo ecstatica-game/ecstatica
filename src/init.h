@@ -200,7 +200,7 @@ void set_up_sub_directories(void);
 void check_directories(void);
 void if_editor_show_cursor(void);
 
-/* SVGA stubs (bank-switched video, not used in SDL port) */
+/* SVGA bank-switched video stubs */
 void clear_background_svga(int plane, int x, int y, int sx, int sy);
 void rect_fill_svga(int plane, int x, int y, int w, int h);
 void text_svga(int plane, const char *text, int length);
@@ -212,7 +212,7 @@ void clear_mouse_cursor_svga(void);
 void clear_db_mouse_cursor_svga(void);
 void load_backmask(void);
 
-/* DD lock (platform-specific, now stubs) */
+/* DirectDraw lock stubs */
 char *dd_lock(int plane, int *pitch);
 void dd_unlock(int plane, char *data);
 

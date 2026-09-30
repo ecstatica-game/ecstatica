@@ -1,21 +1,19 @@
 /**
  * platforms/dos.c
  *
- * DOS backend (Open Watcom + DOS/4GW), for the hardware the games shipped on.
+ * DOS backend (Open Watcom + DOS/4GW).
  *
  *   Video     VGA mode 13h at 320x200; VESA 2.0 linear framebuffer above that,
  *             mapped into the flat address space through DPMI.
- *   Keyboard  INT 9 handler. The engine's PKEY_* values are already DOS
- *             scancodes, so the ISR indexes the key table directly.
+ *   Keyboard  INT 9 handler. PKEY_* values are DOS scancodes already.
  *   Mouse     INT 33h.
- *   Timing    PIT channel 0 reprogrammed to 1 kHz with an INT 08 handler
- *             counting milliseconds; chains to the old handler at 18.2 Hz.
+ *   Timing    PIT channel 0 at 1 kHz with an INT 08 millisecond counter,
+ *             chaining to the old handler at 18.2 Hz.
  *   Audio     Sound Blaster, 8-bit mono 22050 Hz, auto-init DMA with a
- *             software mixer in the IRQ handler. Music is still silent.
+ *             software mixer in the IRQ handler. Music is silent.
  *
- * The 8-bit indexed framebuffer the engine hands to platform_blit() is exactly
- * what the hardware wants, so the blit is a copy with no palette expansion and
- * no scaling — unlike every other backend here.
+ * The engine's 8-bit framebuffer goes to the hardware as is: no palette
+ * expansion, no scaling.
  */
 
 #ifdef __WATCOMC__
@@ -46,13 +44,9 @@ struct platform_t {
 
 static platform_t  s_plat;
 
-/* Written by the INT 9 handler, read by the game. Every backend but this one
- * has a queue the pump drains, so a key's down-transition happens inside the
- * pump, after the previous state has been copied aside. Here the ISR has
- * already set it, and a naive prev←current copy at pump time would swallow
- * that transition — the edge would be gone before anyone looked. So the ISR
- * latches the make code, and the pump turns latch + last frame's level into
- * the edge. */
+/* Other backends queue events and derive the edge inside the pump. Here the
+ * ISR has already set the level, so it latches the make code and the pump
+ * combines the latch with last frame's level into the edge. */
 static volatile bool s_keys[256];         /* live level, owned by the ISR */
 static volatile bool s_keys_made[256];    /* a make code arrived since the last pump */
 static volatile bool s_keys_latched[256]; /* sticky until platform_key_hit reads it */
@@ -124,14 +118,9 @@ typedef struct {
 } rminfo_t;
 #pragma pack(pop)
 
-/* Issue a real-mode interrupt through the DPMI host.
- *
- * int386x() cannot be used for the BIOS calls below: in the flat model its
- * SREGS carry protected-mode selectors, which real-mode BIOS code cannot
- * dereference — that is a general protection fault, not a wrong answer. DPMI
- * 0300h is the supported route, and takes a real-mode register image. INT 31h
- * itself is fine through int386x, because the DPMI host is not real-mode code
- * and ES:EDI there is an ordinary protected-mode pointer to the image. */
+/* Real-mode interrupt via DPMI 0300h. int386x() cannot do BIOS calls in the
+ * flat model: its SREGS hold protected-mode selectors, which fault in real
+ * mode. */
 static int rm_int(int intno, rminfo_t *rmi)
 {
     union REGS   r;
@@ -236,7 +225,6 @@ static int vesa_find_mode(int w, int h, uint32_t *phys_out, uint16_t *pitch_out)
     buf = (uint8_t *)dos_alloc_real(512 / 16 + 1, &sel, &seg);
     if (!buf) return 0;
 
-    /* VBE 2.0 controller info — ask for the VBE2 block so mode list is valid. */
     memset(buf, 0, 512);
     memcpy(buf, "VBE2", 4);
     memset(&rmi, 0, sizeof(rmi));
@@ -324,9 +312,7 @@ static bool apply_video_mode(platform_t *p, int w, int h)
         p->lfb_phys  = phys;
         p->fb_width  = w;
         p->fb_height = h;
-        /* Cards are free to pad scanlines, and several 640x480 modes do. The
-         * engine's buffer is always tightly packed, so a padded mode has to be
-         * copied row by row rather than in one block. */
+        /* Some 640x480 modes pad scanlines; the engine buffer is packed. */
         p->pitch     = pitch ? pitch : w;
         return true;
     }
@@ -338,11 +324,9 @@ platform_t *platform_init(const char *title, int fb_width, int fb_height, int sc
 
     memset(&s_plat, 0, sizeof(s_plat));
 
-    /* The engine always asks for 640x480 here, before it has looked at the
-     * game data — it settles on the real resolution in init(). A card with no
-     * VESA 2.0 linear framebuffer (plenty of period ones, and every plain VGA)
-     * cannot give that, but it can still run the whole 320x200 side of both
-     * games, so come up in mode 13h and let the engine know. */
+    /* The engine asks for 640x480 before it has looked at the data. A card
+     * without a VESA 2.0 linear framebuffer can still run the 320x200 side,
+     * so fall back to mode 13h. */
     if (!apply_video_mode(&s_plat, fb_width, fb_height)) {
         fprintf(stderr, "No %dx%d 8-bit video mode with a linear framebuffer; "
                         "falling back to 320x200.\n", fb_width, fb_height);
@@ -357,11 +341,8 @@ platform_t *platform_init(const char *title, int fb_width, int fb_height, int sc
         s_plat.hires_ok = true;
     }
 
-    /* From here the screen belongs to the game. Anything still writing to
-     * stderr — a stray trace, a library complaint — would go through the BIOS
-     * into the visible framebuffer, so send it nowhere; the debug log is the
-     * one that matters and it goes to a file. Done after the mode-selection
-     * messages above, which the player does need to see. */
+    /* From here stderr would print into the game's framebuffer through the
+     * BIOS; the debug log goes to a file anyway. */
     freopen("NUL", "w", stderr);
 
     kbd_install();
@@ -396,9 +377,7 @@ bool platform_hires_supported(platform_t *p)
     return p ? p->hires_ok : false;
 }
 
-/* The VGA mode set owns its own aspect ratio, so there is no fit mode to
- * choose — only PSP and Vita, with a fixed panel wider than the game's
- * picture, offer this. */
+/* Mode set owns the aspect ratio; only PSP and Vita offer fit modes. */
 bool platform_scale_mode_supported(platform_t *p)
 {
     (void)p;
@@ -418,13 +397,8 @@ int platform_crop_inset_y(platform_t *p, int render_h)
     return 0;
 }
 
-/* Wait for the start of vertical retrace.
- *
- * The original did this (init_wait_vert_blank) and the port turned it into a
- * no-op, on the reasoning that the platform layer handles vsync — true of a
- * compositing desktop, false here. Without it the loop runs as fast as the CPU
- * allows, which on a fast machine or an emulator set to max cycles is far
- * faster than the game was ever paced to run, and it tears. */
+/* Wait for vertical retrace, as init_wait_vert_blank did. Without it the loop
+ * runs unpaced on a fast machine or emulator, and tears. */
 static void wait_retrace(void)
 {
     int guard;
@@ -490,10 +464,8 @@ bool platform_pump_events(platform_t *p)
     int i;
     (void)p;
 
-    /* Interrupts off for the sweep: a make code arriving between the read of
-     * the latch and the clear would be dropped, and a lost keypress is exactly
-     * the bug this whole arrangement exists to avoid. 256 iterations is a few
-     * microseconds — the 1 kHz timer tick can wait that long. */
+    /* Interrupts off for the sweep, so a make code between reading and
+     * clearing the latch is not lost. A few microseconds. */
     _disable();
     for (i = 0; i < 256; i++) {
         bool made = s_keys_made[i];
@@ -502,9 +474,8 @@ bool platform_pump_events(platform_t *p)
         s_keys_made[i] = false;
         s_keys_down[i] = s_keys[i];
 
-        /* Gate on last frame's level, not this one: a tap whose make and break
-         * both land between two pumps still reads as a press, while typematic
-         * repeat on a held key does not — the key was already down. */
+        /* Last frame's level: a tap between two pumps is a press, typematic
+         * repeat is not. */
         s_keys_pressed[i] = made && !was_down;
     }
     _enable();
@@ -560,26 +531,11 @@ void platform_gamepad_poll(platform_t *p, platform_gamepad_state_t *state)
 }
 
 /* ── Timing ─────────────────────────────────────────────────────
- * PIT channel 0 reprogrammed to 1 kHz, with an INT 08 handler counting
- * milliseconds. platform_ticks() is then a single memory read.
- *
- * The previous version left the timer alone and derived the time by latching
- * channel 0's live count on every call. That reads correctly — measured
- * against the BIOS tick it was accurate to 0.1% — but it costs three port
- * accesses per call, and the engine's frame pacer (do_movement, move.c:125)
- * spins on my_time() until it changes. That is thousands of port triples per
- * frame, which is cheap on real hardware and very much not cheap on an
- * emulator, where every I/O access is trapped.
- *
- * Driving a counter from the timer interrupt instead is what the period
- * libraries do — Adeline's LIB386 reprograms channel 0 the same way for
- * exactly this reason — and it is what Ecstatica's own DOS build did, through
- * the asm_add_timer_int_handler entry point this port had stubbed out.
- *
- * Reprogramming channel 0 would normally break the BIOS tick and the DOS
- * time-of-day count, so the handler accumulates the divisor and chains to the
- * original INT 08 each time that wraps — which reproduces the old 18.2 Hz
- * exactly.
+ * PIT channel 0 at 1 kHz with an INT 08 handler counting milliseconds, as the
+ * original DOS build did (asm_add_timer_int_handler). Reading the PIT count on
+ * every call cost three port accesses, and the frame pacer spins on my_time():
+ * cheap on hardware, slow on an emulator that traps I/O. The handler chains to
+ * the original INT 08 whenever the accumulated divisor wraps, keeping 18.2 Hz.
  */
 
 #define PIT_HZ       1193182UL
@@ -645,13 +601,9 @@ void platform_delay(uint32_t ms)
 }
 
 /* ── Audio ──────────────────────────────────────────────────────
- * Sound Blaster, 8-bit mono at 22050 Hz, auto-initialise DMA over a
- * double buffer. The card interrupts at each half-buffer boundary and the
- * handler mixes the next half from the active voices.
- *
- * The engine's model — up to 16 concurrent 8-bit unsigned mono voices with
- * per-voice volume — has no hardware equivalent here, so the mixing is done in
- * software. Output is mono, so `pan` is accepted and ignored.
+ * Sound Blaster, 8-bit mono at 22050 Hz, auto-init DMA over a double buffer.
+ * The IRQ at each half-buffer mixes the next half in software. `pan` is
+ * ignored.
  */
 
 #define SB_VOICES     16
@@ -672,12 +624,9 @@ typedef struct {
 
 static sb_voice_t s_voices[SB_VOICES];
 
-/* Set while the interrupt handler is inside sb_mix. Mixing runs with
- * interrupts enabled — it is far too long to hold the PIC off for — so the
- * foreground must not rewrite a voice underneath it: sb_mix caches each
- * voice's data/pos/len in registers and writes pos back at the end, which
- * would both read through a stale pointer and clobber the new position.
- * platform_audio_play_pcm waits this out. */
+/* Set while the IRQ handler is in sb_mix, which runs with interrupts enabled
+ * and caches voice state in registers. platform_audio_play_pcm waits it out
+ * rather than rewrite a voice underneath it. */
 static volatile int s_in_mix;
 static int        s_sfx_vol = 255;       /* 0..255 master */
 
@@ -686,10 +635,8 @@ static int      s_sb_irq;
 static int      s_sb_dma;
 static bool     s_sb_ready;
 
-/* volatile: the card DMAs out of this buffer continuously, so stores into it
- * have an observer the compiler cannot see. Without that, a build with full
- * optimisation is free to discard the mixer's writes — which is exactly what
- * happened, and only in the interrupt path, where sb_mix gets inlined. */
+/* volatile: the card DMAs from it, so with full optimisation the inlined
+ * mixer's stores were discarded. */
 static volatile uint8_t *s_dma_buf;      /* conventional memory */
 static uint32_t s_dma_phys;
 static uint16_t s_dma_sel;
@@ -722,7 +669,6 @@ static int sb_reset(void)
     return 0;
 }
 
-/* DSP version, via command 0xE1: major then minor on the read port. */
 /* Wait for the DSP to have a byte ready, then take it. */
 static int sb_read_dsp(void)
 {
@@ -733,9 +679,8 @@ static int sb_read_dsp(void)
     return -1;
 }
 
-/* DSP version, via command 0xE1. It answers with *two* bytes, major then
- * minor, and both have to be taken: leaving the minor byte in the read FIFO
- * desynchronises every reply that follows. */
+/* DSP version, via command 0xE1. Both reply bytes must be read, or the FIFO
+ * desynchronises every later reply. */
 static int sb_dsp_major(void)
 {
     int major, minor;
@@ -747,9 +692,8 @@ static int sb_dsp_major(void)
     return major < 0 ? 0 : major;
 }
 
-/* BLASTER=A220 I7 D1 H5 T6 — the address, IRQ and 8-bit DMA channel are all
- * that matter here. Without the variable there is nothing safe to probe, so
- * audio simply stays off. */
+/* BLASTER=A220 I7 D1 H5 T6 — address, IRQ and 8-bit DMA are used. Without the
+ * variable nothing is probed and audio stays off. */
 static int sb_parse_blaster(void)
 {
     const char *e = getenv("BLASTER");
@@ -787,14 +731,11 @@ static int sb_parse_blaster(void)
 
 /* ── Mixer ──────────────────────────────────────────────────── */
 
-/* Signed accumulator, so voices sum at full precision and clip once at the end
- * rather than being clamped against each other one at a time. Static, not on
- * the stack — this runs in an interrupt handler. */
+/* Mix at full precision and clip once. Static: this runs in an ISR. */
 static int16_t s_mixbuf[SB_HALF];
 
-/* Mix one half-buffer. Runs from the IRQ handler, so it does no allocation and
- * touches nothing the foreground code can be halfway through modifying beyond
- * the voice table, whose writers disable interrupts. */
+/* Runs from the IRQ: no allocation, and only the voice table, whose writers
+ * disable interrupts, is shared. */
 static void sb_mix(volatile uint8_t *dst)
 {
     int i, v;
@@ -813,8 +754,7 @@ static void sb_mix(volatile uint8_t *dst)
         frac = vo->frac;
         step = vo->step;
         len  = vo->len;
-        /* 8.8 gain, so the inner loop shifts instead of dividing. A divide per
-         * sample per voice is far too much to spend inside an ISR. */
+        /* 8.8 gain: shift, not divide, inside the ISR. */
         scale = (vo->vol * s_sfx_vol * 256) / (127 * 255);
 
         for (i = 0; i < SB_HALF; i++) {
@@ -827,11 +767,8 @@ static void sb_mix(volatile uint8_t *dst)
             /* 8-bit unsigned, centred on 128. */
             s_mixbuf[i] += (int16_t)((((int)data[idx] - 128) * scale) >> 8);
 
-            /* Index and fraction are kept apart on purpose. Holding the
-             * position as a single 16.16 value in a uint32_t caps the
-             * addressable sample at 65535 bytes; past that it wraps to zero
-             * and the voice starts over, which is audible as a sample playing
-             * more than once. Speech lines comfortably exceed that. */
+            /* Index and fraction kept apart: a single 16.16 uint32_t caps a
+             * sample at 65535 bytes, and speech lines exceed that. */
             frac += step;
             idx  += frac >> 16;
             frac &= 0xFFFFu;
@@ -854,15 +791,11 @@ static void __interrupt __far sb_isr(void)
      * for 8-bit transfers. */
     (void)inp(s_sb_base + 0x0E);
 
-    /* EOI before mixing, not after. Mixing a half-buffer is thousands of
-     * samples; holding the PIC off for that long starves the timer, which both
-     * drags the game clock and shows up as audible blips. */
+    /* EOI before mixing: holding the PIC for a whole mix starves the timer. */
     if (s_sb_irq >= 8) outp(0xA0, 0x20);
     outp(0x20, 0x20);
 
-    /* Re-entrancy guard, because interrupts are enabled below: if a mix ever
-     * overruns its buffer interval, drop the late one rather than corrupt the
-     * half being written. */
+    /* Interrupts are enabled below; drop an overrunning mix. */
     if (s_in_mix) return;
     s_in_mix = 1;
 
@@ -910,9 +843,8 @@ void platform_audio_init(void)
     if (!sb_parse_blaster()) return;
     if (!sb_reset()) return;
 
-    /* The DMA buffer must be under 1 MB, physically contiguous, and must not
-     * straddle a 64 KB page — the controller only increments the low 16 bits.
-     * Allocating twice what is needed guarantees an aligned window inside it. */
+    /* The DMA buffer must be under 1 MB and must not cross a 64 KB page;
+     * allocating twice the size guarantees an aligned window. */
     {
         uint8_t *raw = (uint8_t *)dos_alloc_real((SB_BUFSZ * 2) / 16 + 1,
                                                  &s_dma_sel, &seg);
@@ -933,7 +865,6 @@ void platform_audio_init(void)
     s_old_irq = _dos_getvect(irq_vec);
     _dos_setvect(irq_vec, sb_isr);
 
-    /* Unmask the IRQ at the PIC. */
     if (s_sb_irq < 8) {
         outp(0x21, inp(0x21) & ~(1 << s_sb_irq));
     } else {
@@ -945,10 +876,8 @@ void platform_audio_init(void)
 
     sb_write_dsp(0xD1);                      /* speaker on */
 
-    /* DSP 4.xx (SB16) has its own transfer commands and an exact sample-rate
-     * register. Driving an SB16 through the SB Pro time-constant path works on
-     * some implementations and misbehaves on others, so ask the DSP what it is
-     * and use the matching sequence. */
+    /* SB16 (DSP 4.xx) has its own commands and an exact rate register; the SB
+     * Pro time-constant path misbehaves on some SB16s. */
     if (sb_dsp_major() >= 4) {
         sb_write_dsp(0x41);                  /* set output sample rate, exact */
         sb_write_dsp((uint8_t)(SB_RATE >> 8));
@@ -983,8 +912,7 @@ int platform_audio_play_pcm(const void *data, int length, int rate,
     }
     if (free_slot < 0) free_slot = 0;        /* steal slot 0, as documented */
 
-    /* Let any in-progress mix finish first — see s_in_mix. A mix is a couple
-     * of milliseconds and starting a sound is rare, so the wait is cheap. */
+    /* See s_in_mix. */
     while (s_in_mix)
         ;
 
@@ -1028,8 +956,7 @@ void platform_audio_shutdown(void)
 
     outp(0x0A, 0x04 | s_sb_dma);             /* mask the DMA channel */
 
-    /* Re-mask the IRQ before unhooking, so a late interrupt cannot land on a
-     * vector that no longer points anywhere useful. */
+    /* Re-mask the IRQ before unhooking the vector. */
     if (s_sb_irq < 8) outp(0x21, inp(0x21) | (1 << s_sb_irq));
     else              outp(0xA1, inp(0xA1) | (1 << (s_sb_irq - 8)));
 

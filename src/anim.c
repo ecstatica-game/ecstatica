@@ -1,10 +1,7 @@
 /**
  * anim.c
  *
- * Animation helpers:
- *   ellipse management for keyframes, choice box, action directory loading.
- *
- * 5 functions prefixed anim_ in the original ASM.
+ * Animation helpers: keyframe ellipses, choice box, action directory.
  */
 
 #include "anim.h"
@@ -17,9 +14,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* anim_add_ellipse_to_key_430568
- * Appends an ellipse_t to the end of a key's ellipse list.
- */
+/* anim_add_ellipse_to_key_430568 */
 void add_ellipse_to_key(ellipse_t *new_ellipse, key_state_t *key) {
     new_ellipse->next = NULL;
     ellipse_t *ellipse = key->ellipses_list;
@@ -33,14 +28,10 @@ void add_ellipse_to_key(ellipse_t *new_ellipse, key_state_t *key) {
     }
 }
 
-/* anim_add_ellipse_43059C
- * Allocates a new ellipse_t.
- */
+/* anim_add_ellipse_43059C */
 ellipse_t *add_ellipse(void) {
-    /* Zeroed, not raw: the ADD_ELLIPSE_EVT handler (file.c:3413) fills only
-     * field_0/2/4/C, and field_6/8/A arrive later with ADD_ELLIPSE_TO_KEY_EVT
-     * — which may never come. Every other pool in the engine hands out cleared
-     * storage; this one did not. */
+    /* Zeroed: ADD_ELLIPSE_EVT fills only some fields, and the rest arrive with
+     * ADD_ELLIPSE_TO_KEY_EVT, which may never come. */
     ellipse_t *new_ellipse = (ellipse_t *)calloc(1, sizeof(ellipse_t));
     if (!new_ellipse) {
         beep_message("Out of memory!");
@@ -49,8 +40,7 @@ ellipse_t *add_ellipse(void) {
     return new_ellipse;
 }
 
-/* anim_load_action_directory_430600 — loads action directory index from disk.
- * Not called at runtime; actions loaded via offset table or search functions. */
+/* anim_load_action_directory_430600 — not called at runtime. */
 void load_action_directory(void) {
 }
 

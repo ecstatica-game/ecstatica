@@ -3,7 +3,6 @@
  *
  * Script execution engine, actor spawning/removal, game state,
  * fade effects, collision, camera, combat, wanderer system.
- * 98 functions prefixed with game_ in the original ASM.
  */
 
 #include "game.h"
@@ -188,11 +187,7 @@ UNUSED_ATTR static bool check_token_second_value_exist(int16_t token) {
     return (token & 0xF000) == (int16_t)0xE000;
 }
 
-/* ── skip_to_matching_endif_44E74C ──
- * Skip tokens until CT_END_IF at the same nesting level.
- * Handles nested CT_IF..CT_END_IF blocks and embedded
- * string tokens (0xE000 marker).
- */
+/* skip_to_matching_endif_44E74C — honours nested IF blocks and 0xE000 string tokens. */
 void skip_to_matching_endif(int16_t **pp) {
     while (1) {
         int16_t token = **pp;
@@ -213,10 +208,7 @@ void skip_to_matching_endif(int16_t **pp) {
     }
 }
 
-/* ── skip_to_matching_if_type_44E7A4 ──
- * Skip tokens until CT_ELSE, CT_ELSE_IF, or CT_END_IF at the
- * same nesting level.
- */
+/* skip_to_matching_if_type_44E7A4 — stops at ELSE, ELSE_IF or END_IF of the same level. */
 void skip_to_matching_if_type(int16_t **pp) {
     while (1) {
         int16_t token = **pp;
@@ -237,10 +229,7 @@ void skip_to_matching_if_type(int16_t **pp) {
     }
 }
 
-/* _PartTab slots of the hero's hands. E1 is right=0 / left=1 — the port had
- * these two swapped, so InRightHand/InLeftHand and the two HandFree tests all
- * answered about the wrong hand and scene scripts called SwapHands when they
- * should not have. */
+/* _PartTab slots of the hero's hands: E1 is right=0 / left=1. */
 static int right_hand_part(void) {
     return (game_version == GAME_VERSION_E1) ? E1_RIGHT_HAND_PART : E2_RIGHT_HAND_PART;
 }
@@ -248,16 +237,12 @@ static int left_hand_part(void) {
     return (game_version == GAME_VERSION_E1) ? E1_LEFT_HAND_PART : E2_LEFT_HAND_PART;
 }
 
-/* ── execute_boolean_44E810 ──
- * Evaluate a single boolean condition in the token stream.
- * Advances *pp past all consumed tokens and returns the result.
- */
+/* execute_boolean_44E810 — advances *pp past the consumed tokens. */
 int execute_boolean(int16_t **pp, actor_t *actor) {
     bool result = false;
     bool inverted = false;
     int16_t *tp = *pp;
 
-    /* Handle CT_NOT prefix */
     if (*tp == CT_NOT) {
         inverted = true;
         tp++;
@@ -526,7 +511,6 @@ int execute_boolean(int16_t **pp, actor_t *actor) {
             result = g_execute_part->actor_2_held != NULL
                      && g_execute_part->actor_2_held->name_index == actor_index;
         } else if (selected_thing && selected_thing->_PartTab) {
-            /* Hotspot context: check both player hands */
             int rh = (game_version == GAME_VERSION_E1) ? 1 : 8;
             int lh = (game_version == GAME_VERSION_E1) ? 0 : 7;
             part_t *p;
@@ -589,26 +573,11 @@ int execute_boolean(int16_t **pp, actor_t *actor) {
     return result;
 }
 
-/* game_do_execute_code_4256B4 — script command interpreter
- *
- * The token stream is stored in the global token_store array.
- * code->token_store_index gives the offset into that array.
- * Each token is a CT_* command (see CODE_TOKENS enum in structs.h).
- * The interpreter reads commands sequentially; there is no operand
- * stack — conditions are evaluated inline via execute_boolean().
- */
-/* Forward declaration for check_actor_loaded_by_index */
 void check_actor_loaded_by_index(int16_t actor_index);
 
-/* Deliberate deviation from the original.
- *
- * A few one-shot event scenes were authored as CT_REPEAT_SCENE. That token
- * restarts a scene once it is marked finished (scene_name_flags bit 4), so
- * the event replays every time the player re-enters the zone. Listing a
- * scene here makes it honour the "already started" bit instead, matching
- * CT_PLAY_SCENE semantics.
- *
- * Scene ids are per-game — do not share this list between E1 and E2. */
+/* Deliberate deviation: these one-shot event scenes were authored as
+ * CT_REPEAT_SCENE, which replays them on every zone re-entry. Treat them as
+ * CT_PLAY_SCENE instead. Scene ids are per-game. */
 static int scene_is_play_once(int16_t scene_id) {
     static const int16_t e1_once[] = { 146 };   /* skinny1 / table6 / head_ski */
 
@@ -620,6 +589,8 @@ static int scene_is_play_once(int16_t scene_id) {
     return 0;
 }
 
+/* game_do_execute_code_4256B4 — no operand stack; conditions are evaluated
+ * inline by execute_boolean(). */
 void do_execute_code(code_t *code, actor_t *actor) {
     if (!code) return;
 
@@ -635,7 +606,6 @@ void do_execute_code(code_t *code, actor_t *actor) {
     for (int safety = 0; safety < 10000; safety++) {
         int16_t opcode = tokens[pc++];
 
-        /* 0 marks end of token stream */
         if (opcode == 0) {
             return;
         }
@@ -643,7 +613,6 @@ void do_execute_code(code_t *code, actor_t *actor) {
         switch (opcode) {
 
         case CT_IF: {
-            /* pc already past CT_IF; point tp at current position */
             int16_t *tp = &tokens[pc];
             bool cond_result = execute_boolean(&tp, actor);
             if (!cond_result) {
@@ -663,7 +632,6 @@ void do_execute_code(code_t *code, actor_t *actor) {
 
         case CT_ELSE:
         case CT_ELSE_IF: {
-            /* Reached from a true CT_IF/CT_ELSE_IF branch — skip to CT_END_IF */
             int16_t *tp = &tokens[pc];
             skip_to_matching_endif(&tp);
             tp++;  /* skip past CT_END_IF */
@@ -672,15 +640,12 @@ void do_execute_code(code_t *code, actor_t *actor) {
         }
 
         case CT_END_IF:
-            /* End of conditional block — nothing to do */
             break;
 
         case CT_NOT:
-            /* Negate the next boolean result */
             break;
 
         case CT_RANDOM:
-            /* Random condition: next token is probability */
             break;
 
         case CT_STARTED:
@@ -712,7 +677,6 @@ void do_execute_code(code_t *code, actor_t *actor) {
         case CT_RIGHT_HAND_FREE:
         case CT_ACTOR_IS_DEAD:
         case CT_TIMED_EXISTS:
-            /* Boolean condition tokens — evaluated by execute_boolean() */
             break;
 
         case CT_ACTIVATED_BELOW:
@@ -727,7 +691,6 @@ void do_execute_code(code_t *code, actor_t *actor) {
         case CT_IN_RIGHT_HAND:
         case CT_IN_LEFT_HAND:
         case CT_ACTOR_IS_NEAR:
-            /* Boolean conditions with parameter token(s) */
             pc++;  /* skip parameter */
             break;
 
@@ -881,7 +844,6 @@ void do_execute_code(code_t *code, actor_t *actor) {
                         thing_name_flags[ai] |= 2;
                     }
                     scene->scene_time = game_time - 1;
-                    /* Set started+finished flags */
                     scene_name_flags[scene_id] |= 6;
                 }
             }
@@ -898,10 +860,7 @@ void do_execute_code(code_t *code, actor_t *actor) {
             if (subtitles_on) {
                 int16_t volume = 127;
                 if (actor && actor != selected_thing && selected_thing) {
-                    /* 0x44484D: true horizontal distance over X and Z via
-                     * find_direction_and_distance, not a max() over all three
-                     * axes — Y never takes part, so a speaker directly above
-                     * or below counted as far away and got muted out. */
+                    /* 0x44484D: horizontal X/Z distance only — Y does not take part. */
                     int16_t dir, dist16;
                     find_direction_and_distance(&dir, &dist16,
                         (int16_t)(actor->position_vector.X - selected_thing->position_vector.X),
@@ -1142,7 +1101,6 @@ void do_execute_code(code_t *code, actor_t *actor) {
         }
 
         case CT_EXECUTE_CODE: {
-            /* Execute another code block — next token is code index */
             int16_t code_id = tokens[pc++] & 0x0FFF;
             if (code_id < CODE_TAB_SIZE && code_tab[code_id]) {
                 do_execute_code(code_tab[code_id], actor);
@@ -1227,15 +1185,12 @@ void do_execute_code(code_t *code, actor_t *actor) {
             break;
 
         case CT_LOAD_HERO: {
-            /* Load the hero/player actor and set as selected_thing */
             int16_t actor_index = get_value_from_token(tokens[pc++]);
             if (actor_index < THING_TAB_SIZE) {
-                /* Delete existing actor at this index if present */
                 actor_t *existing = thing_tab[actor_index];
                 if (existing) {
                     thing_tab[existing->name_index] = NULL;
                     remove_from_display_list(existing);
-                    /* Unlink from thing_list */
                     if (existing == thing_list) {
                         thing_list = thing_list->next_thing1;
                     } else {
@@ -1258,7 +1213,6 @@ void do_execute_code(code_t *code, actor_t *actor) {
         }
 
         case CT_LOAD_ACTOR: {
-            /* Load a non-player actor */
             int16_t actor_index = get_value_from_token(tokens[pc++]);
             if (actor_index < THING_TAB_SIZE) {
                 check_actor_loaded_by_index(actor_index);
@@ -1289,9 +1243,8 @@ void do_execute_code(code_t *code, actor_t *actor) {
             break;
 
         case CT_JUMP:
-            /* Ref: v = (arg3, -arg2, arg1); velocity = actor->matrix33_2 * v.
-             * Was using view_matrix — wrong: jump is actor-relative not
-             * view-relative. Directions should follow actor facing. */
+            /* v = (arg3, -arg2, arg1); velocity = actor->matrix33_2 * v, so the
+             * jump follows the actor's facing, not the view. */
             if (actor) {
                 vector_t input_vec, dst_vec;
                 set_vector(&input_vec,
@@ -1326,10 +1279,8 @@ void do_execute_code(code_t *code, actor_t *actor) {
             break;
 
         case CT_SPAWN_LIVE: {
-            /* reads (actor_index, action_index),
-             * dispatches SpawnActor(part1, ai, action, 1, 0). part1 = current
-             * execute_part_code context. If unset (called via ExecuteCode /
-             * ExecuteThingCode paths), no-op. */
+            /* SpawnActor(g_execute_part, ai, action, 1, 0); no-op outside
+             * execute_part_code. */
             int16_t actor_index = get_value_from_token(tokens[pc++]);
             int16_t action_index = get_value_from_token(tokens[pc++]);
             part_t *part1 = g_execute_part;
@@ -1371,13 +1322,11 @@ void do_execute_code(code_t *code, actor_t *actor) {
             if (actor_index < THING_TAB_SIZE) {
                 actor_t *target = thing_tab[actor_index];
                 if (target && taction_index < ACTION_TAB_SIZE) {
-                    /* Remove head entries matching taction_index */
                     while (target->tactions_list && taction_index == target->tactions_list->taction_index) {
                         taction_t *old = target->tactions_list;
                         target->tactions_list = old->next;
                         old->taction_index = -1;
                     }
-                    /* Remove interior entries matching taction_index */
                     int found;
                     do {
                         found = 0;
@@ -1446,12 +1395,9 @@ void do_execute_code(code_t *code, actor_t *actor) {
             else if (opcode == CT_FADE_IN && (fade_to_black || fade_to_white)) fade_in = 1;
             fade_start = my_time();
             last_fade_factor = -1;
-            /* Only FADE_IN with duration=0 dispatches immediately (snap palette
-             * back to fade_cmap). FADE_TO_BLACK/WHITE with duration=0 must
-             * leave the flag SET so the following FADE_IN sees an active
-             * fade-out and can enable fade_in. Otherwise immediate check_fade
-             * clears fade_to_black → subsequent FADE_IN never activates → view
-             * palette stays zeroed → all-black frames. */
+            /* Only FADE_IN with duration 0 applies at once. FADE_TO_BLACK/WHITE
+             * keep their flag set so the following FADE_IN sees an active
+             * fade-out; otherwise the view palette stays zeroed. */
             if (!fade_time && opcode == CT_FADE_IN)
                 check_fade();
             break;
@@ -1475,26 +1421,18 @@ void do_execute_code(code_t *code, actor_t *actor) {
     }
 }
 
-/* game_tokenize_code_42C7D0
- * Tokenize code text into bytecode tokens stored in token_store.
- * Editor-only: at runtime, tokens are loaded as binary from .FAN files.
- * Not called by any runtime code path.
- */
+/* game_tokenize_code_42C7D0 — editor-only; at runtime tokens come pre-built
+ * from the .FAN files. */
 void tokenize_code(code_t *code) {
     if (!code) return;
-    /* Record where this code's tokens begin */
     code->token_store_index = top_of_tokens;
 
-    /* Parse text lines and produce tokens */
     if (!code->text_line_of_code) {
-        /* No source text — just write an end marker */
         token_store[top_of_tokens++] = 0;
         return;
     }
 
-    /* Walk the lines of code and convert each keyword to a token */
     for (line_of_code_t *line = code->text_line_of_code; line; line = line->next_line_code) {
-        /* Skip blank / comment lines */
         int first = 0;
         while (first < 52 && line->field_0[first] == ' ')
             first++;
@@ -1506,7 +1444,6 @@ void tokenize_code(code_t *code) {
            This will be fleshed out when the token table is populated. */
     }
 
-    /* Write end-of-tokens marker */
     token_store[top_of_tokens++] = 0;
 }
 
@@ -1617,7 +1554,6 @@ void try_to_add_actor_to_world(void) {
 
     int16_t delta = new_wanderer->actor_box_size;
 
-    /* Bounding-box collision check against everything in display list. */
     for (actor_t *actor = root_thing; actor; actor = actor->next_in_display_list) {
         if (actor == new_wanderer) continue;
         int bounding_box = new_wanderer->actor_box_size + actor->actor_box_size;
@@ -1670,17 +1606,9 @@ void try_to_add_actor_to_world(void) {
     }
 }
 
-/* game_remove_actor_from_world_44E238
- * Properly unlinks actor from the world before deletion:
- *   1. Remove from display list (saves position/orientation/rep/hp/magic).
- *   2. Clear thing_name_flags loaded bit (bit 1 = 0x2).
- *   3. Refcount-clear actor_reperture: clear bit 1 of rep_use_flag, then
- *      re-set it if any other actor in root_thing still uses the same rep.
- *   4. Recursively remove held actors (via parts' actor_2_held chain).
- *   5. Detach from holder (part_heap_link).
- *   6. Clear actor_held_by_part/actor mapping.
- *   7. If actor was scene-bound and removing them empties the scene scripts,
- *      mark scene_name_flags |= 4 (scene finished). */
+/* game_remove_actor_from_world_44E238 — saves the actor's state, drops it from
+ * the display list, releases its rep and held actors, detaches it from its
+ * holder, and marks its scene finished if it was the last script actor. */
 void remove_actor_from_world(actor_t *actor) {
     if (!actor) return;
 
@@ -1703,13 +1631,11 @@ void remove_actor_from_world(actor_t *actor) {
         actor->actor_reperture = NULL;
     }
 
-    /* For each part, recursively remove held actor. */
     for (part_t *part = actor->actor_parts_list; part; part = part->next_in_display_list) {
         if (part->actor_2_held)
             remove_actor_from_world(part->actor_2_held);
     }
 
-    /* Detach from holder. */
     if (actor->part_heap_link) {
         actor->part_heap_link->actor_2_held = NULL;
         actor->part_heap_link = NULL;
@@ -1787,7 +1713,6 @@ void check_encounter(void) {
         if (poison_time)
             draw_life_bar();
         if (!no_wanderers) {
-            /* Remove distant wanderers */
             for (actor_t *actor = thing_list; actor; actor = actor->next_thing1) {
                 int16_t actor_flag = thing_name_flags[actor->name_index];
                 if ((actor_flag & 2)
@@ -1818,7 +1743,6 @@ void check_encounter(void) {
                 }
             }
 
-            /* Count live hostile actors and add more if needed */
             int count = 0;
             for (actor_t *actor = root_thing; actor; actor = actor->next_in_display_list) {
                 if ((thing_name_flags[actor->name_index] & 8) && actor->actor_behavior != BH_DEAD)
@@ -1830,17 +1754,8 @@ void check_encounter(void) {
     }
 }
 
-/* game_try_to_remove_actor  E1: 0x447988 | E2: 0x452FB4 */
-/* game_try_to_remove_actor_45311C
- * Mark-and-sweep: clear bit 0 of flags on every actor in thing_list, then
- * set it on actors currently in root_thing display list. Find the oldest
- * actor that is NOT in the display list AND not held by selected_thing.
- * Remove it. Returns 1 if removed, 0 if nothing eligible.
- *
- * Previous C impl removed `selected_thing` itself — broken; would always
- * try to evict the player. Caused "Can't remove Actor in active list"
- * when remove_actor saw the player still in display list.
- */
+/* game_try_to_remove_actor  E1: 0x447988 | E2: 0x452FB4
+ * Evicts the oldest actor that is neither displayed nor held by selected_thing. */
 void try_to_remove_actor(void) {
     /* asm uses bit 0 of flags as transient "in_display_list" mark, but C
      * has overloaded that bit as ACTOR_FLAG_ACTIVE. Use side-table to
@@ -1849,18 +1764,15 @@ void try_to_remove_actor(void) {
     actor_t *sel = selected_thing;
     int32_t now = game_time;
 
-    /* Reset marks for everything in thing_list */
     for (actor_t *a = thing_list; a; a = a->next_thing1) {
         if (a->name_index >= 0 && a->name_index < THING_TAB_SIZE)
             in_display_mark[a->name_index] = false;
     }
-    /* Mark actors currently in display list */
     for (actor_t *a = root_thing; a; a = a->next_in_display_list) {
         if (a->name_index >= 0 && a->name_index < THING_TAB_SIZE)
             in_display_mark[a->name_index] = true;
     }
 
-    /* Pick oldest eligible victim: not in display, not held by player */
     actor_t *victim = NULL;
     int32_t oldest = 0;
     for (actor_t *a = thing_list; a; a = a->next_thing1) {
@@ -1897,11 +1809,9 @@ void try_to_remove_scene(void) {
 void try_to_remove_action(void) {
     int32_t save_time = game_time;
 
-    /* Clear in-use flags on all actions */
     for (action_t *a = action_list; a; a = a->next)
         a->action_flags &= 0xF7FFu;
 
-    /* Mark actions currently being used by actors */
     for (actor_t *actor = thing_list; actor; actor = actor->next_thing1) {
         act_t *act = &actor->actor_act;
         if (act && !(act->flags & 2))
@@ -1926,7 +1836,6 @@ void try_to_remove_action(void) {
 void try_to_remove_scene_or_action(void) {
     int32_t save_time = game_time;
 
-    /* Find oldest unused scene */
     scene_t *oldest_scene = NULL;
     int32_t oldest_time = 0;
     for (scene_t *s = scene_list; s; s = s->scene_next) {
@@ -1936,11 +1845,9 @@ void try_to_remove_scene_or_action(void) {
         }
     }
 
-    /* Clear in-use flags on all actions */
     for (action_t *a = action_list; a; a = a->next)
         a->action_flags &= 0xF7FFu;
 
-    /* Mark actions in use by actors */
     for (actor_t *actor = thing_list; actor; actor = actor->next_thing1) {
         action_t *a = actor->actor_act.act_action;
         if (a && !(a->action_flags & 2))
@@ -1967,11 +1874,9 @@ void try_to_remove_rep(void) {
     int32_t save_time = game_time;
     int32_t oldest_time = -1;
 
-    /* Clear in-use flags */
     for (rephead_t *r = repertoire_list; r; r = r->next_rep)
         r->rep_use_flag &= 0xFFFDu;
 
-    /* Mark repertoires in use by actors */
     for (actor_t *actor = root_thing; actor; actor = actor->next_in_display_list) {
         if (actor->actor_reperture)
             actor->actor_reperture->rep_use_flag |= 2u;
@@ -2018,7 +1923,6 @@ void remove_texture(texture_t *texture_to_remove) {
         return;
     }
 
-    /* Unlink from texture_list */
     if (texture_to_remove == texture_list) {
         texture_list = texture_list->next;
     } else {
@@ -2032,9 +1936,8 @@ void remove_texture(texture_t *texture_to_remove) {
 
     texture_tab[texture_to_remove->textur_index] = NULL;
 
-    /* Original packed textures into a shared slab (texture_storage +
-     * top_of_texture_data) and compacted on remove; port uses per-texture
-     * calloc (file.c:819) so just free it. */
+    /* Each texture is its own allocation here, not a slab region, so there is
+     * nothing to compact. */
     if (texture_to_remove->texture_data) {
         free(texture_to_remove->texture_data);
         texture_to_remove->texture_data = NULL;
@@ -2060,10 +1963,8 @@ void try_to_remove_texture(void) {
         remove_texture(candidate);
 }
 
-/* game_load_wanderer_44DB80
- * Asm picks a random unused wanderer-name slot in [base_type, base_type+num_variations),
- * marks it visible, loads, returns thing_tab[idx]. Previous C cloned base_type
- * into a free actor heap slot — wrong: produced bogus name_index=0 clones. */
+/* game_load_wanderer_44DB80 — picks a random free wanderer slot in
+ * [base_type, base_type + num_variations). */
 actor_t *load_wanderer(int base_type, int num_variations) {
     if (num_variations <= 0) return NULL;
     int r = my_rand() % num_variations;
@@ -2171,14 +2072,11 @@ void do_fade_to_white(int fade_factor) {
 void do_fade_in(void) {
     fade_in = 1;
     fade_start = my_time();
-    fade_time = 1000;  /* 1 second fade */
+    fade_time = 1000;
 }
-
-/* game_switch_camera_426A80 — defined in map.c */
 
 /* game_get_camera_position  E1: ? | E2P: 0x426AF0 */
 void get_camera_position(void) {
-    /* When an active camera exists, apply its settings */
     if (active_camera) {
         copy_vector(&view_pos, &active_camera->view_pos);
         copy_vector(&view_rot, &active_camera->view_rot);
@@ -2189,7 +2087,6 @@ void get_camera_position(void) {
 
 /* game_chase_camera  E1: ? | E2P: 0x426B60 */
 void chase_camera(void) {
-    /* Follow hero actor smoothly */
     if (!(actor_flags[0] & ACTOR_FLAG_ACTIVE)) return;
 
     vector_t target;
@@ -2197,7 +2094,6 @@ void chase_camera(void) {
     target.Y = actor_position[0].Y - 200;  /* Above head */
     target.Z = actor_position[0].Z - 500;  /* Behind */
 
-    /* Smooth interpolation */
     view_pos.X += (target.X - view_pos.X) / 4;
     view_pos.Y += (target.Y - view_pos.Y) / 4;
     view_pos.Z += (target.Z - view_pos.Z) / 4;
@@ -2209,7 +2105,6 @@ void chase_camera(void) {
 int check_hit(actor_t *attacker, actor_t *target) {
     if (!attacker || !target) return 0;
 
-    /* Simple distance-based hit detection */
     int dx = attacker->position_vector.X - target->position_vector.X;
     int dy = attacker->position_vector.Y - target->position_vector.Y;
     int dz = attacker->position_vector.Z - target->position_vector.Z;
@@ -2225,7 +2120,6 @@ void inflict_damage(int actor_index, int damage) {
     actor_hit_points[actor_index] -= (int16_t)damage;
     if (actor_hit_points[actor_index] <= 0) {
         actor_hit_points[actor_index] = 0;
-        /* Trigger death if the actor's thing is loaded */
         if (thing_tab[actor_index])
             make_dead(thing_tab[actor_index]);
     }
@@ -2255,14 +2149,12 @@ void force_timed(int actor_index, int taction_index, int ticks) {
         return;
     }
 
-    /* Before first? */
     if (taction_time - list->taction_time <= 0) {
         new_ta->next = list;
         actor->tactions_list = new_ta;
         return;
     }
 
-    /* Find insertion point */
     taction_t *prev = list;
     while (prev->next) {
         if (taction_time - prev->next->taction_time <= 0) {
@@ -2272,7 +2164,6 @@ void force_timed(int actor_index, int taction_index, int ticks) {
         }
         prev = prev->next;
     }
-    /* Append at end */
     prev->next = new_ta;
 }
 
@@ -2280,16 +2171,13 @@ void force_timed(int actor_index, int taction_index, int ticks) {
 void do_timed(actor_t *actor) {
     if (!actor) return;
 
-    /* Process all timed actions whose time has arrived */
     while (actor->tactions_list) {
         taction_t *ta = actor->tactions_list;
         if (ta->taction_time > game_time)
             break;
 
-        /* Remove from list */
         actor->tactions_list = ta->next;
 
-        /* Execute the timed action's code */
         int16_t idx = ta->taction_index;
         if (idx >= 0 && idx < ACTION_TAB_SIZE) {
             action_t *action = action_tab[idx];
@@ -2297,7 +2185,6 @@ void do_timed(actor_t *actor) {
                 force_action(actor, action, 0);
         }
 
-        /* Free the taction */
         free_t_action(ta);
     }
 }
@@ -2380,7 +2267,6 @@ void initialise_game(void) {
     root_thing = NULL;
     stuck_thing_list = NULL;
     root_scene = NULL;
-    /* selectedscene = NULL; — not yet declared */
     selected_thing = NULL;
     game_timer_start = 0;
     game_timer = 0;
@@ -2392,7 +2278,6 @@ void initialise_game(void) {
     }
     reset_load_tried();
 
-    /* Clear per-actor arrays */
     for (int i = 0; i < THING_TAB_SIZE; i++) {
         actor_hit_points[i] = 0;
         thing_name_flags[i] &= (int16_t)0xFFF9;  /* clear bits 1,2 */
@@ -2409,11 +2294,9 @@ void initialise_game(void) {
         actor_held_by_actor[i] = -1;
     }
 
-    /* Initialise all actors in thing_list */
     for (actor_t *t = thing_list; t; t = t->next_thing1)
         initialise_actor(t);
 
-    /* Reset camera viewed flags */
     memset(cameras_viewed, 0, sizeof(cameras_viewed));
 }
 
@@ -2524,13 +2407,11 @@ void start_game_medium(int notUsed1, int notUsed2) {
 void put_a_graphic(const char *name, int pos_x, int pos_y, int intro_graphic) {
     int idx;
 
-    /* Search for an existing graphic with this name */
     for (idx = 0; idx < GRAPHICS_MAX; idx++) {
         if (strcmp(name, graphic_name_arr[idx].field_0) == 0)
             break;
     }
 
-    /* Not found: load from disk */
     if (idx == GRAPHICS_MAX) {
         char source[14];
         snprintf(source, sizeof(source), "%s.RAW", name);
@@ -2550,7 +2431,6 @@ void put_a_graphic(const char *name, int pos_x, int pos_y, int intro_graphic) {
                 pixels[i] = (char)-1;
         }
 
-        /* Find an empty slot */
         for (idx = 0; idx < GRAPHICS_MAX; idx++) {
             if (!graphic_name_arr[idx].field_0[0])
                 break;
@@ -2597,12 +2477,8 @@ void put_a_graphic(const char *name, int pos_x, int pos_y, int intro_graphic) {
     }
 }
 
-/* game_clear_a_graphic_455940 — ClearAGraphic.
- * If graphic was Drawn (flag 1), mark NeedToClear (3) + set
- * need_clear_graphics flag → clear_graphics next frame restores background
- * over the region. Else just wipe the name so the slot's reusable.
- * Prior port always fully cleared → drawn graphics never triggered
- * next-frame region restore → stale overlay pixels persisted. */
+/* game_clear_a_graphic_455940 — a drawn graphic (flag 1) becomes NeedToClear
+ * (3) so clear_graphics restores the background under it next frame. */
 int16_t need_clear_graphics;
 void clear_a_graphic(const char *name) {
     for (int idx = 0; idx < GRAPHICS_MAX; idx++) {
@@ -2810,10 +2686,7 @@ void draw_graphics(void) {
 
 /* game_load_a_graphic_4558C0 — pre-load a named graphic without displaying it */
 void load_a_graphic(const char *name) {
-    /* Calls put_a_graphic with off-screen position, then resets flag so it's
-       loaded into the graphic cache but not drawn yet. */
     put_a_graphic(name, 0, 0, 0);
-    /* Find the slot that was just loaded and clear its draw flag */
     for (int idx = 0; idx < GRAPHICS_MAX; idx++) {
         if (strcmp(name, graphic_name_arr[idx].field_0) == 0) {
             graphic_flag[idx] = 0;
@@ -3111,7 +2984,6 @@ void show_icon_page(void) {
 
     set_palette(icon_palette);
 
-    /* Wait for ESC or Enter */
     for (;;) {
         get_mouse();
         if (key_esc_was_pressed) {
@@ -3139,7 +3011,6 @@ void show_icon_page(void) {
             update_game_icons();
     }
 
-    /* Clear screen planes */
     a_pen_colour = 0;
     rect_fill(0, 0, 0, screen_width, screen_height);
     a_pen_colour = 0;
@@ -3161,7 +3032,6 @@ void adjust_magic(actor_t *actor, int amount) {
 
 /* game_beep_message  E1: ? | E2P: 0x42D988 */
 void beep_message(const char *msg) {
-    /* Display a text message on screen */
     if (!msg) return;
 
     int len = (int)strlen(msg);
@@ -3294,16 +3164,11 @@ void set_enhanced_graphics(int enabled) {
 
 /* game_init_gadgets  E1: ? | E2P: 0x42DB58 */
 void init_gadgets(void) {
-    /* No-op: initializes ~170 gadgets for the full requester UI system
-       (OK/Cancel/Yes/No buttons, file browser, language/difficulty selectors,
-       save/load slots, settings panel, etc.).  The asm2c port uses its own
-       simplified menu system.  Ref: req.c InitGadgets. */
+    /* The port has its own menu system instead of the original requesters. */
 }
 
 /* game_init_graphics  E1: 0x446F84 | E2: 0x452564 */
 void init_graphics(void) {
-    /* Clear all graphic name entries.
-       Ref: game.c InitGraphics — clears GraphicName[0..24]. */
     for (int i = 0; i < GRAPHICS_MAX; i++) {
         graphic_name_arr[i].field_0[0] = '\0';
     }
@@ -3335,7 +3200,6 @@ void release_sound_buffer_win95(sound_t *sound) {
 
 /* game_remove_sound_driver_win95  E1: ? | E2P: 0x42E3A8 */
 void remove_sound_driver_win95(void) {
-    /* Release all sound buffers */
     for (int i = 0; i < SOUND_POOL_SIZE; i++) {
         if (!(sound_heap_arr[i].use_flag & 0x8000))
             release_sound_buffer_win95(&sound_heap_arr[i]);
@@ -3346,7 +3210,6 @@ void remove_sound_driver_win95(void) {
 /* game_allocate_ds_buffer  E1: ? | E2P: 0x42E418 */
 void allocate_ds_buffer(sound_t *sound, FILE *f) {
     if (!sound || !f) return;
-    /* Read the sound data length from file and allocate buffer */
     if (sound->sound_length > 0) {
         sound->audio_ptr = calloc(1, sound->sound_length);
         if (sound->audio_ptr) {
@@ -3362,11 +3225,9 @@ void load_palette_and_set_background(const char *filename) {
     FILE *f = fopen_ci(filename, "rb");
     if (!f) return;
 
-    /* Read 32-byte header */
     char header[32];
     fread(header, 1, 32, f);
 
-    /* Read 768-byte palette */
     unsigned char pal[768];
     fread(pal, 1, 768, f);
     for (int i = 0; i < 256; i++) {
@@ -3375,15 +3236,12 @@ void load_palette_and_set_background(const char *filename) {
         colour_map[i].B = pal[i * 3 + 2] >> 2;
     }
 
-    /* Read pixel data into background bitmap */
     fread(bitmap[2], 1, screen_width * screen_height, f);
     fclose(f);
 
-    /* Copy to display bitmaps */
     clip_blit(2, 0, 0, 0, 0, 0, screen_width, screen_height, 0xC0);
     clip_blit(2, 0, 0, 1, 0, 0, screen_width, screen_height, 0xC0);
 
-    /* Set palette */
     memcpy(view_cmap, colour_map, 256 * sizeof(palette_entry_t));
     /* Update fade target so subsequent CT_FADE_IN fades to this background's palette */
     memcpy(fade_cmap, colour_map, 256 * sizeof(palette_entry_t));
@@ -3394,13 +3252,11 @@ void load_palette_and_set_background(const char *filename) {
 void add_to_display_list(actor_t *actor) {
     if (!actor) return;
 
-    /* Check if already in display list */
     for (actor_t *curr = root_thing; curr; curr = curr->next_in_display_list) {
         if (curr == actor)
-            return;  /* Already present */
+            return;
     }
 
-    /* Not in list — add to front */
     actor->actor_act.act_action = NULL;
     actor->actor_scene = NULL;
     actor->actor_reperture = NULL;
@@ -3410,8 +3266,6 @@ void add_to_display_list(actor_t *actor) {
     actor->time_actor = game_time;
     root_thing = actor;
 }
-
-/* game_add_to_display_list_held_42E8E8 — defined in map.c */
 
 /* game_turn_actor  E1: ? | E2P: 0x42E9C8 */
 UNUSED_ATTR static void game_turn_actor(actor_t *actor) {
@@ -3442,7 +3296,6 @@ void remove_scene(scene_t *scene) {
     if (scene != scene_tab[scene->scene_index]) { quit("Can't remove Scene not in SceneTab"); return; }
     if (game_time == scene->scene_time) { quit("Can't remove Scene with current Time"); return; }
 
-    /* Unlink from scene_list */
     if (scene == scene_list)
         scene_list = scene_list->scene_next;
     else {
@@ -3460,13 +3313,11 @@ void remove_action(action_t *action) {
     if (action->action_index < 0) { quit("Can't remove Action without name"); return; }
     if (action != action_tab[action->action_index]) { quit("Can't remove Action not in ActionTab"); return; }
 
-    /* Check not in use by any actor */
     for (actor_t *a = root_thing; a; a = a->next_in_display_list) {
         if (action == a->actor_act.act_action) { quit("Can't remove Action in use by actor"); return; }
     }
     if (game_time == action->action_time) { quit("Can't remove Action with current Time"); return; }
 
-    /* Unlink from action_list */
     if (action == action_list)
         action_list = action_list->next;
     else {
@@ -3486,7 +3337,6 @@ void remove_sound(sound_t *sound) {
     if (idx >= SOUND_TAB_SIZE) { quit("Can't remove Sound - name out of bounds"); return; }
     if (sound != sound_tab[idx]) return;
 
-    /* Unlink from sound_list */
     if (sound == sound_list)
         sound_list = sound_list->next;
     else {
@@ -3506,7 +3356,6 @@ void remove_rep(rephead_t *rep) {
     if (rep->rep_index < 0) { quit("Can't remove Rep. without name"); return; }
     if (rep != repertoire_tab[rep->rep_index]) { quit("Can't remove Rep. not in repertoireTab"); return; }
 
-    /* Check not in use by any displayed actor */
     for (actor_t *a = root_thing; a; a = a->next_in_display_list) {
         if (rep == a->actor_reperture) { quit("Can't remove Rep. in use by actor"); return; }
         if (a->actor_reperture && a->actor_reperture->rep_index == rep->rep_index) {
@@ -3515,7 +3364,6 @@ void remove_rep(rephead_t *rep) {
     }
     if (game_time == rep->rep_time) { quit("Can't remove Rep with current Time"); return; }
 
-    /* Unlink from repertoire_list */
     if (rep == repertoire_list)
         repertoire_list = repertoire_list->next_rep;
     else {
@@ -3541,7 +3389,6 @@ void remove_actor(actor_t *actor) {
     if (actor != thing_tab[actor->name_index]) { quit2("Can't remove Actor not in ThingTab", str); return; }
     if (game_time == actor->time_actor) { quit2("Can't remove Actor with current Time", str); return; }
 
-    /* Release held objects recursively */
     for (part_t *part = actor->actor_parts_list; part; part = part->next_in_display_list) {
         if (part->actor_2_held) {
             part->actor_2_held->part_heap_link = NULL;
@@ -3553,7 +3400,6 @@ void remove_actor(actor_t *actor) {
         remove_actor(actor->part_heap_link->parent_actor);
     }
 
-    /* Unlink from thing_list */
     if (actor == thing_list)
         thing_list = thing_list->next_thing1;
     else {
@@ -3598,7 +3444,6 @@ void reset_pool_hints(void) {
     event_hint = key_hint = part_hint = point_hint = 0;
 }
 
-/* Free functions */
 void free_event(event_t *event) {
     if (!event) return;
     event->event_type = (int16_t)0x8000;
@@ -3678,14 +3523,7 @@ action_t *find_free_action(void) {
 }
 
 script_t *find_free_script(void) {
-    /* Bug 36: only script_actor_index==-1 marks free. Treating ==0 as free
-     * was catastrophic — 0 is hero's actor_index. Any scene with hero as
-     * script actor would get its hero-script slot reused by the next
-     * find_free_script call, corrupting the owning scene's linked list.
-     * Manifested as scene 1564 (intro, hero script ai=0) getting its
-     * next_script chain overwritten by scene 0's newly-allocated scripts
-     * (ai=261, 3551) → P1 all_done check for scene 1564 saw 3551 as
-     * blocker (not actually in scene 1564) → intro chain frozen. */
+    /* Only script_actor_index == -1 marks a free slot: 0 is the hero. */
     for (int i = 0; i < SCRIPT_SIZE; i++) {
         if (script_arr[i].script_actor_index == -1) {
             memset(&script_arr[i], 0, sizeof(script_t));
@@ -3704,7 +3542,6 @@ actor_t *find_free_actor(void) {
             if (actor_heap_arr[i].flags & 0x8000) {
                 memset(&actor_heap_arr[i], 0, sizeof(actor_t));
                 free_slot = &actor_heap_arr[i];
-                /* Assign lookup tables (like reference PartTabHeap/PointTabHeap/TriangleTabHeap) */
                 free_slot->_PartTab = &part_tab_heap_arr[i];
                 free_slot->_PointTab = &point_tab_heap_arr[i];
                 free_slot->_TriangleTab = &triangle_tab_heap_arr[i];
@@ -3851,7 +3688,6 @@ taction_t *find_free_t_action(void) {
 void delete_key(key_state_t *key) {
     if (!key) return;
 
-    /* Free all events attached to the key */
     for (event_t *ev = key->key_event_list; ev; ) {
         event_t *next = ev->next;
         free_event(ev);
@@ -3872,12 +3708,10 @@ void delete_key(key_state_t *key) {
 void do_delete_thing(actor_t *actor) {
     if (!actor) return;
 
-    /* Guard: must not be in active display list */
     for (actor_t *a = root_thing; a; a = a->next_in_display_list) {
         if (a == actor) { quit("do_delete_thing: actor still in display list"); return; }
     }
 
-    /* Unlink from thing_list */
     if (actor == thing_list)
         thing_list = thing_list->next_thing1;
     else {
@@ -3886,7 +3720,6 @@ void do_delete_thing(actor_t *actor) {
         }
     }
 
-    /* Free all parts and their points */
     for (part_t *part = actor->actor_parts_list; part; ) {
         part_t *next_part = part->next_in_display_list;
         for (point_t *pt = part->points_list; pt; ) {
@@ -3898,14 +3731,12 @@ void do_delete_thing(actor_t *actor) {
         part = next_part;
     }
 
-    /* Free all triangles */
     for (tri_t *tri = actor->polygone_tri_list; tri; ) {
         tri_t *next_tri = tri->next;
         free_event((event_t *)tri);
         tri = next_tri;
     }
 
-    /* Clear thing_tab entry */
     if (actor->name_index >= 0 && actor->name_index < THING_TAB_SIZE)
         thing_tab[actor->name_index] = NULL;
 
@@ -3917,7 +3748,6 @@ void do_delete_thing(actor_t *actor) {
 void do_delete_action(action_t *action) {
     if (!action) return;
 
-    /* Unlink from action_list */
     if (action == action_list)
         action_list = action_list->next;
     else {
@@ -3926,7 +3756,6 @@ void do_delete_action(action_t *action) {
         }
     }
 
-    /* Delete all keys */
     for (key_state_t *key = action->key_list; key; ) {
         key_state_t *next = key->next;
         delete_key(key);
@@ -3941,7 +3770,6 @@ void do_delete_action(action_t *action) {
 void do_delete_scene(scene_t *scene) {
     if (!scene) return;
 
-    /* Unlink from scene_list */
     if (scene == scene_list)
         scene_list = scene_list->scene_next;
     else {
@@ -3950,7 +3778,6 @@ void do_delete_scene(scene_t *scene) {
         }
     }
 
-    /* Free all scripts and their keys */
     for (script_t *scr = scene->scene_script_list; scr; ) {
         script_t *next = scr->next_script;
         for (key_state_t *key = scr->script_action.key_list; key; ) {
@@ -3971,12 +3798,10 @@ void do_delete_rep(rephead_t *rep) {
     if (rep->rep_index < 0) { quit("do_delete_rep: rep has no name"); return; }
     if (rep != repertoire_tab[rep->rep_index]) { quit("do_delete_rep: rep not in tab"); return; }
 
-    /* Remove references from all displayed actors */
     for (actor_t *a = root_thing; a; a = a->next_in_display_list) {
         if (a->actor_reperture == rep) a->actor_reperture = NULL;
     }
 
-    /* Unlink from repertoire_list */
     if (rep == repertoire_list)
         repertoire_list = repertoire_list->next_rep;
     else {
@@ -4006,7 +3831,6 @@ int check_action_loaded_no_msg(int16_t index) {
                     result = 1;
                 }
             } else {
-                /* Bug 46: dir fallback missing */
                 search_action_dirs_and_load(action_names[index].field_0);
                 result = 0;
             }
@@ -4042,7 +3866,6 @@ int check_rep_loaded(int16_t index) {
                     do_info2_req("Can't find rep", "");
                 }
             } else {
-                /* Bug 46: dir fallback missing */
                 search_rep_dirs_and_load(repertoire_names[index].field_0);
             }
         }
@@ -4067,8 +3890,7 @@ void check_actor_loaded_by_index(int16_t actor_index) {
                 do_info2_req("Can't find actor", thing_names[actor_index].field_0);
             }
         } else {
-            /* Bug 46: asm at 0x451F82 branches on load_by_offset — if 0,
-             * loads from directory instead. Was missing. */
+            /* 0x451F82: load from the directory when load_by_offset is 0. */
             search_actor_dirs_and_load(thing_names[actor_index].field_0);
         }
         actor = thing_tab[actor_index];
@@ -4476,7 +4298,6 @@ void start_scene(scene_t *scene) {
     scene_name_flags[scene->scene_index] |= 2;
     scene_name_flags[scene->scene_index] &= ~4;
 
-    /* Check if scene already in root_scene list */
     scene_t *cur;
     for (cur = root_scene; cur && cur != scene; cur = cur->next_scene) {}
     if (!cur) {
@@ -4526,7 +4347,6 @@ void start_scene(scene_t *scene) {
         actor->flags |= 8;
         add_to_display_list(actor);
 
-        /* Clear pending acts */
         for (act_t *act = actor->actor_act_list; act; act = act->next)
             act->flags = 0x400;
         free_spent_acts(actor);
@@ -4596,7 +4416,7 @@ void check_hero_rep(void) {
 
     hero->actor_rep_index = rep_idx;
 
-    /* Bug 52: was scene_name_flags[7]; should read scene 6 (SceneGlobalFlags::Flagged). */
+    /* Scene 6 (SceneGlobalFlags::Flagged), not 7. */
     bool ducking = (scene_name_flags[6] & 0x8) != 0;
     action_t *force = NULL;
 

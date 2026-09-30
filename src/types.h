@@ -133,7 +133,6 @@ struct key_s;
 struct act_s;
 struct camera_data_s;
 
-/* Forward typedefs for use in function declarations */
 typedef struct event_s event_t;
 typedef struct ellipse_s ellipse_t;
 typedef struct actor_s actor_t;

@@ -1,16 +1,10 @@
 /**
  * render_gl_shaders.h
  *
- * GLSL 330 sources, as string literals.
- *
- * Not data files: the game already has a data-path problem on several targets
- * and shipping loose .glsl files next to the .FAN archives would be a
- * regression.
- *
- * Every one of these ends at a palette index, which is then expanded through
- * view_cmap. Keeping the original's shade_map / shade_tab / palette chain
- * intact — rather than substituting a modern lighting model — is what makes
- * the hardware mode look like Ecstatica rather than like a remake.
+ * GLSL 330 sources as string literals, so no loose .glsl files ship beside
+ * the .FAN archives. Every shader ends at a palette index expanded through
+ * view_cmap: the original shade_map / shade_tab / palette chain is kept rather
+ * than replaced by a modern lighting model.
  */
 
 #ifndef RENDER_GL_SHADERS_H
@@ -18,59 +12,38 @@
 
 #ifdef ECS_ENABLE_GL
 
-/* Shared by every fragment shader: turn a palette index into linear RGB.
- * view_cmap holds 6-bit VGA components, already scaled to 8 bits at upload the
- * same way win.c:60 does it for frame dumps.
- *
- * An ordinary sampler2D, not a usampler2D: the palette is the one table here
- * stored as a normalized GL_RGB8 rather than an integer format, so the sampler
- * type has to match or the fetch is undefined — which shows up as a screen of
- * saturated primaries rather than as an error. The index textures either side
- * of it are GL_R8UI and do use integer samplers. */
+/* Palette index to RGB. The palette is GL_RGB8, so this is a sampler2D, not a
+ * usampler2D — a mismatched sampler type is undefined (saturated primaries). */
 #define ECS_GLSL_PALETTE \
     "uniform sampler2D u_palette;\n" \
     "vec3 pal_rgb(uint idx) {\n" \
     "    return texelFetch(u_palette, ivec2(int(idx), 0), 0).rgb;\n" \
     "}\n"
 
-/* Every pass that paints the scene writes two attachments: RGB for display, and
- * the palette index it came from.
- *
- * The index is not a debugging aid — the shadow, smoke and beam modes remap the
- * destination pixel through a table that is index-to-index (SHADOW.DAT, loaded
- * at init.c:723), so an RGB destination could not be run through them at all.
- * Keeping the index alongside the colour is what lets those three modes be
- * exact rather than approximated with a blend factor. */
+/* Scene passes write RGB and the source palette index. Shadow, smoke and beam
+ * remap the destination index through SHADOW.DAT, which is index-to-index. */
 #define ECS_GLSL_DUAL_OUT \
     "layout(location = 0) out vec4 o_col;\n" \
     "layout(location = 1) out uint o_idx;\n"
 
 /* ── Full-screen pass ──────────────────────────────────────────
- * One triangle covering the viewport, generated from gl_VertexID so there is
- * no vertex buffer to bind. Used by the background and the 2D composite.
+ * One triangle from gl_VertexID; used by the background and the 2D composite.
  */
 static const char *VS_FULLSCREEN =
     "#version 330 core\n"
     "out vec2 v_uv;\n"
     "void main() {\n"
     "    vec2 p = vec2((gl_VertexID << 1) & 2, gl_VertexID & 2);\n"
-    /* V is flipped because the two conventions disagree: row 0 of an engine
-     * plane is the top of the screen, row 0 of a GL framebuffer is the bottom.
-     * The 3D passes need no equivalent — build_proj_matrix already negates Y,
-     * so engine-down lands at NDC-bottom on its own. */
+    /* Engine row 0 is the top, GL row 0 the bottom. The 3D passes need no
+     * flip: build_proj_matrix already negates Y. */
     "    v_uv = vec2(p.x, 1.0 - p.y);\n"
     "    gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);\n"
     "}\n";
 
 /* ── Background ────────────────────────────────────────────────
- * Replaces prepare_parts' background blit and clear_masking's depth restore in
- * one draw. The colour comes from bitmap[3] as palette indices; the depth comes
- * from mask_map[2], which is linear view-space Z in int16.
- *
- * gl_FragDepth converts that linear Z into the same non-linear range
- * build_proj_matrix produces, so geometry drawn afterwards can use ordinary
- * interpolated depth and keep early-Z. This is the single point where the two
- * depth conventions are reconciled.
+ * Colour from bitmap[3], linear int16 view-space depth from mask_map[2].
+ * gl_FragDepth converts it to build_proj_matrix's non-linear range, the one
+ * place the two depth conventions meet.
  */
 static const char *FS_BACKGROUND =
     "#version 330 core\n"
@@ -99,14 +72,9 @@ static const char *FS_BACKGROUND =
     "}\n";
 
 /* ── 2D composite ──────────────────────────────────────────────
- * The engine's menus, subtitles, HUD art and cursor still write bytes into the
- * 8bpp plane; rewriting them would not improve them. So the plane is uploaded
- * and drawn on top, and the test for "did the 2D layer touch this pixel" is a
- * comparison against the pristine background that is already resident as a
- * texture — no sentinel colour, no engine change, no second upload.
- *
- * u_force = 1 for menu and requester screens, where there is no 3D content and
- * the whole plane is the frame.
+ * The engine's 8bpp plane (menus, subtitles, HUD) drawn on top. A pixel counts
+ * as 2D where it differs from the resident background texture. u_force = 1 on
+ * menu screens, where the whole plane is the frame.
  */
 static const char *FS_COMPOSITE =
     "#version 330 core\n"
@@ -129,10 +97,7 @@ static const char *FS_COMPOSITE =
     "}\n";
 
 /* ── Flat triangles ────────────────────────────────────────────
- * The palette index is computed on the CPU (render.c face_palette_index), so
- * the fragment stage only expands it. That is deliberate: the original's face
- * shade depends on arctan tables and a fixed-point normal decomposition, and
- * reproducing it exactly costs less on the CPU than approximating it here.
+ * The palette index comes from the CPU (face_palette_index).
  */
 static const char *VS_TRI =
     "#version 330 core\n"
@@ -159,10 +124,8 @@ static const char *FS_TRI_FLAT =
     ECS_GLSL_PALETTE
     "void main() { o_col = vec4(pal_rgb(v_pal), 1.0); o_idx = v_pal; }\n";
 
-/* Textured faces are unlit in the original: tex_tri_line_win95 (asm_f.c:458)
- * writes the sampled texel straight to the framebuffer with no shade applied.
- * Sampling stays integer/nearest — filtering palette indices would average
- * index 10 with index 200 and produce an unrelated colour. */
+/* Textured faces are unlit, as tex_tri_line_win95. Nearest integer sampling:
+ * filtering palette indices would blend unrelated colours. */
 static const char *FS_TRI_TEX =
     "#version 330 core\n"
     "flat in int v_layer;\n"
@@ -178,11 +141,8 @@ static const char *FS_TRI_TEX =
     "}\n";
 
 /* ── Debug map ─────────────────────────────────────────────────
- * The collision map drawn as geometry in place of the pre-rendered background.
- * Colour comes straight down as RGB rather than through the palette: this is a
- * diagnostic view and its coding has to stay legible whatever palette the
- * current camera loaded. o_idx is written all the same so the shadow and smoke
- * passes still have something coherent to sample.
+ * Straight RGB, not the palette; o_idx is still written for the modulating
+ * passes.
  */
 static const char *VS_MAP =
     "#version 330 core\n"
@@ -204,13 +164,8 @@ static const char *FS_MAP =
 
 /* ── Ellipsoids ────────────────────────────────────────────────
  * A screen-aligned quad per instance; the fragment shader intersects the view
- * ray against the quadric analytically. Not a tessellated sphere: this gives an
- * exact silhouette at every distance with four vertices, and an exact per-pixel
- * depth, which is what compositing against the background mask needs.
- *
- * The vertex shader works in view space, where the ellipsoid is
- * centre + rot * diag(axes) * u, and emits a quad big enough to cover the
- * bounding sphere.
+ * ray with the quadric for an exact silhouette and per-pixel depth. The quad
+ * covers the bounding sphere of centre + rot * diag(axes) * u.
  */
 static const char *VS_ELLIPSOID =
     "#version 330 core\n"
@@ -236,12 +191,9 @@ static const char *VS_ELLIPSOID =
     "    v_style  = a_style;\n"
     "    vec2 corner = vec2((gl_VertexID & 1) == 0 ? -1.0 : 1.0,\n"
     "                       (gl_VertexID & 2) == 0 ? -1.0 : 1.0);\n"
-    /* The quad only has to cover the ellipsoid's screen footprint — depth comes
-     * from the fragment shader — so it sits at the centre's depth, where it
-     * cannot be clipped by the near plane while the centre itself is in front
-     * of it. A point on the bounding sphere is at worst radius nearer than the
-     * centre, and projecting that back onto the centre plane magnifies its
-     * offset by centre.z / (centre.z - radius); this is that bound. */
+    /* The quad sits at the centre's depth, so the near plane cannot clip it
+     * while the centre is in front. A bounding-sphere point is at most radius
+     * nearer, which magnifies its offset by centre.z / (centre.z - radius). */
     "    float denom = max(a_centre.z - a_radius, 1.0);\n"
     "    float ext = a_radius * (a_centre.z + length(a_centre.xy)) / denom;\n"
     "    ext = clamp(ext * 1.05, a_radius, 32767.0);\n"
@@ -270,9 +222,7 @@ static const char *FS_ELLIPSOID =
     "void main() {\n"
     "    mat3 Rt = mat3(v_rot0, v_rot1, v_rot2);\n"  /* columns = rows of R */
     "    vec3 d = normalize(v_ray);\n"
-    /* Ellipsoid is  p = c + R * diag(axes) * u  with |u| = 1, so the inverse
-     * map is  u = (R^T (p - c)) / axes.  Rt's columns are R's rows, which makes
-     * Rt itself R transpose, so Rt * v applies the inverse rotation. */
+    /* u = (R^T (p - c)) / axes; Rt * v applies the inverse rotation. */
     "    vec3 o2 = -(Rt * v_centre) / v_axes;\n"
     "    vec3 d2 =  (Rt * d) / v_axes;\n"
     "    float a = dot(d2, d2);\n"
@@ -290,23 +240,17 @@ static const char *FS_ELLIPSOID =
     "    float ndc = (u_far + u_near) / (u_far - u_near)\n"
     "              - 2.0 * u_far * u_near / ((u_far - u_near) * p.z);\n"
     "    gl_FragDepth = clamp(ndc * 0.5 + 0.5, 0.0, 1.0);\n"
-    /* Surface normal: grad of |M^-1 (p-c)|^2 is  R * (u / axes)  up to scale.
-     * Multiplying from the right by Rt applies R, the transpose of Rt.
-     *
-     * The original looks shade_map up in the projected disc frame, which makes
-     * its lighting screen-fixed rather than world-fixed — a part rotating in
-     * place does not change shade. The view-space normal reproduces that for a
-     * sphere exactly and generalises it to a true ellipsoid surface, which the
-     * column sweep could only approximate. Enhanced lighting instead uses the
-     * object-space direction, so parts light consistently as they turn. */
+    /* Normal: R * (u / axes) up to scale. The original's lighting is
+     * screen-fixed (shade_map in the projected disc frame); the view-space
+     * normal reproduces that. Enhanced lighting uses the object-space
+     * direction so parts light consistently as they turn. */
     "    vec3 n = normalize((u / v_axes) * Rt);\n"
     "    vec2 sc = (u_enhanced_light != 0) ? normalize(u).xy : n.xy;\n"
     "    ivec2 smp = ivec2(clamp(sc * 64.0 + 64.0, vec2(0.0), vec2(127.0)));\n"
     "    uint sm = texelFetch(u_shade_map, smp, 0).r;\n"
     "    int shade = int(sm & 0x7Fu);\n"
-    /* ellipse.c:133 — the fog band base depends on whether the camera is in
-     * motion; getting this wrong makes parts jump brightness on a cut.
-     * colour_shade arrives pre-shifted by 7 so the product stays in range. */
+    /* ellipse.c:133 — the fog band base depends on camera motion, or parts
+     * jump brightness on a cut. colour_shade arrives pre-shifted by 7. */
     "    int zi = int(p.z);\n"
     "    int depth_shade = (u_moving_camera != 0) ? (159 - (zi >> 5))\n"
     "                                             : (191 - (zi >> 7));\n"
@@ -319,21 +263,15 @@ static const char *FS_ELLIPSOID =
     "}\n";
 
 /* ── Shadows, smoke and beams ──────────────────────────────────
- * These three do not paint a surface. They take whatever is already in the
- * framebuffer and remap it through a table, which is why they need the scene's
- * palette index and depth as textures rather than as the bound attachments.
- *
- * The conditions come straight from the span routines in asm_f.c, expressed on
- * the two roots of the same quadric the solid pass uses:
+ * Remap what is already drawn through a table, using the conditions of the
+ * asm_f.c span routines on the two roots of the quadric:
  *
  *   smoke  (asm_f.c:425)  near <= scene            -> table 0
  *   shadow (asm_f.c:386)  near <= scene <= far     -> table 1
  *   beam   (asm_f.c:346)  near <= scene            -> table 2 if also <= far,
  *                                                     else table 0
  *
- * "scene" is the depth already there, so an ordinary depth test cannot express
- * any of them — shadow in particular needs the surface to be *inside* the
- * ellipsoid, which is a test against both roots at once.
+ * No depth test can express these, so the shader reads scene depth.
  */
 static const char *FS_ELL_MODULATE =
     "#version 330 core\n"

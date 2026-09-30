@@ -1,13 +1,9 @@
 /**
  * ellipse.c
  *
- * Ellipsoid rendering:
- *   shade_ellipse (column-based shade_map rendering),
- *   draw_triangle (flat-shaded triangle with z-buffer),
- *   Arctan/Arcsin (fixed-point trig),
- *   calculate_squash, find_ellipse (ellipsoid projection).
- *
- * 7 functions prefixed ellipse_ in the original ASM.
+ * Ellipsoid rendering: shade_ellipse (column-based shade_map rendering),
+ * draw_triangle_ell (flat-shaded triangle with z-buffer), fixed-point
+ * arctan/arcsin, calculate_squash and find_ellipse (ellipsoid projection).
  */
 
 #include "ellipse.h"
@@ -21,20 +17,14 @@
 #include "compat.h"
 #include <math.h>
 
-/* Ellipse column renderers in asm_f.c — 5-arg packed convention.
- * Declared in funcs.h. */
-
 /* ellipse_shade_ellipse  E1: 0x429A00 | E2: 0x430750 */
 void shade_ellipse(part_t *part, int plane) {
     check_fade();
     shade_ellipse_win95(part, plane);
 }
 
-/* ellipse_shade_ellipse_win95_430FD8
- * Core ellipsoid renderer: projects ellipsoid to screen, renders
- * column-by-column using shade_map[128][128] for lighting.
- * Supports shadow, smoke, and beam rendering modes via part flags.
- */
+/* ellipse_shade_ellipse_win95_430FD8 — column-by-column shade_map ellipsoid;
+ * part flags select the shadow, smoke and beam modes. */
 void shade_ellipse_win95(part_t *part, int plane) {
     const int mask_stride = screen_width;
     if (!part->vector_persp.Z) return;
@@ -54,11 +44,8 @@ void shade_ellipse_win95(part_t *part, int plane) {
     /* Compute projected half-sizes in pixels */
     int projection = (zoom_factor >> 4) / part->vector_persp.Z;
     int half_x = (int)((int64_t)part->projected_axes.X * projection * screen_width / 320 >> 6);
-    /* Both modes take 7/8 of the projection on the vertical axes; only the
-     * SVGA path adds the 12/5 aspect term. asm 0x429AA1-0x429AC4 (VGA) and
-     * 0x42A15F-0x42A179 (win95). The VGA branch was missing the 7/8, which
-     * left vertical half-axes 14% oversized — invisible on compact parts,
-     * large on a slanted one whose half_z dominates the column sweep. */
+    /* Both modes take 7/8 of the projection vertically; only SVGA adds the
+     * 12/5 aspect term (0x429AA1-0x429AC4 VGA, 0x42A15F-0x42A179 win95). */
     int projection78 = projection - projection / 8;
     int half_y, half_z;
     if (screen_width <= 320) {
@@ -68,17 +55,14 @@ void shade_ellipse_win95(part_t *part, int plane) {
         half_y = ((part->projected_axes.Y * 12 / 5) * projection78) >> 6;
         half_z = ((part->projected_axes.Z * 12 / 5) * projection78) >> 6;
     }
-    /* Skip ellipsoids smaller than 4 pixels */
     if (half_y < 4 || half_x < 4) {
         dd_unlock(plane, plane_data);
         return;
     }
 
     int col_top_fp = (int)(((int64_t)(pos_y - (half_y + half_z)) + 16 * screen_centre_y) << 16);
-    /* 32-bit `half_z << 20` wraps once |half_z| reaches 2048, flipping the sign
-     * of the per-column slant. SVGA carries a 2.1x factor on half_z, so a long
-     * slanted part crosses that limit as it nears the camera while the same
-     * part stays well under it in VGA. Widened rather than reproduced. */
+    /* Widened: 32-bit `half_z << 20` wraps at |half_z| >= 2048, which SVGA's
+     * 2.1x half_z reaches on long slanted parts near the camera. */
     int dy_per_col = (int)(((int64_t)half_z << 20) / half_x);
 
     int step_y = 0x4000000 / half_y;
@@ -104,7 +88,6 @@ void shade_ellipse_win95(part_t *part, int plane) {
         return;
     }
 
-    /* Dirty rectangle tracking */
     subarea_t *dirty_rect = part->parent_actor->area_to_clear;
     int16_t dirty_l = dirty_rect->left;
     int16_t dirty_r = dirty_rect->right;
@@ -126,10 +109,8 @@ void shade_ellipse_win95(part_t *part, int plane) {
             beam_tab1 = &shadow_tab[0][part->color][0];
         }
     } else {
-        /* Bug 66: moving_camera-dependent shade base. asm 0x430FD8 non-Beam
-         * branch: v26 = (moving_camera ? 159 - (pos_z>>5) : 191 - (pos_z>>7)).
-         * Prior port always used 191/>>7 → cams in motion got wrong shade
-         * band → ellipses jumped brightness on cam transitions. */
+        /* 0x430FD8: the shade base depends on moving_camera, or ellipses jump
+         * brightness on camera transitions. */
         int depth_shade = moving_camera ? (159 - (pos_z >> 5)) : (191 - (pos_z >> 7));
         if (depth_shade < 0) depth_shade = 0;
         if (depth_shade > 127) depth_shade = 127;
@@ -151,7 +132,6 @@ void shade_ellipse_win95(part_t *part, int plane) {
     int draw_x = ellipse_left >> 4;
     int draw_y = col_top_fp;
 
-    /* Column-by-column rendering loop */
     while (draw_x < ellipse_right && draw_x < right_edge) {
         if (draw_x >= left_edge) {
             int mask_idx = draw_x + (draw_y >> 20) * mask_stride;
@@ -217,11 +197,8 @@ void shade_ellipse_win95(part_t *part, int plane) {
     dd_unlock(plane, plane_data);
 }
 
-/* ellipse_draw_triangle_431A7C
- * Flat-shaded triangle with z-buffer. Takes 3 screen-space points,
- * computes normal for face direction and shade from shade_map,
- * rasterizes left-to-right column by column using tri_line_win95.
- */
+/* ellipse_draw_triangle_431A7C — flat-shaded triangle with z-buffer, drawn
+ * column by column with tri_line_win95. */
 void draw_triangle_ell(tri_t *tri, int plane, tri_t *shade) {
     if (!tri->point1 || !tri->point2 || !tri->point3) return;
 
@@ -242,7 +219,6 @@ void draw_triangle_ell(tri_t *tri, int plane, tri_t *shade) {
     int ref_z = z1;
     int mask_idx = (plane == 2) ? 1 : 0;
 
-    /* Screen bounds check */
     int x_left  = (((x1 < x2 ? x1 : x2) < x3 ? (x1 < x2 ? x1 : x2) : x3) >> 4) + screen_centre_x;
     int x_right = (((x1 > x2 ? x1 : x2) > x3 ? (x1 > x2 ? x1 : x2) : x3) >> 4) + screen_centre_x;
     int y_top_b = (((y1 < y2 ? y1 : y2) < y3 ? (y1 < y2 ? y1 : y2) : y3) >> 4) + screen_centre_y;
@@ -251,7 +227,6 @@ void draw_triangle_ell(tri_t *tri, int plane, tri_t *shade) {
     if (x_left >= screen_width || x_right < 0 || y_top_b >= screen_height || y_bot_b < 0)
         return;
 
-    /* Dirty rectangle update */
     if (tri->parent_actor) {
         subarea_t *area = tri->parent_actor->area_to_clear;
         if (x_left   < area->left)   area->left   = x_left;
@@ -260,13 +235,11 @@ void draw_triangle_ell(tri_t *tri, int plane, tri_t *shade) {
         if (y_bot_b  > area->bottom) area->bottom = y_bot_b;
     }
 
-    /* Cross product for face normal */
     int cross_x = (z2 - z3) * (y1 - y3) - (z1 - z3) * (y2 - y3);
     int cross_z = (y2 - y3) * (x1 - x3) - (y1 - y3) * (x2 - x3);
     int cross_y = (x2 - x3) * (z1 - z3) - (z2 - z3) * (x1 - x3);
     int tri_color;
 
-    /* Backface cull / flip */
     if (cross_z <= 0) {
         if (!(tri->tri_use_flag & 1)) return;
         cross_x = -cross_x;
@@ -339,7 +312,6 @@ void draw_triangle_ell(tri_t *tri, int plane, tri_t *shade) {
         pixel_color = (unsigned char)shade_tab[tri_color][shade_band][shade_idx];
     }
 
-    /* Sort vertices by X for left-to-right rasterization */
     point_t *left_pt, *mid_pt, *right_pt;
     if (x1 <= x2) {
         if (x2 >= x3) {
@@ -358,7 +330,6 @@ void draw_triangle_ell(tri_t *tri, int plane, tri_t *shade) {
         }
     }
 
-    /* Re-read sorted vertex coordinates */
     int px1 = left_pt->screen_coord.X;
     int py1 = left_pt->screen_coord.Y;
     int pz1 = left_pt->screen_coord.Z;
@@ -422,7 +393,6 @@ void draw_triangle_ell(tri_t *tri, int plane, tri_t *shade) {
         running_z += (dz13 * subpix) >> 4;
         y_bot_fp  += y_corr_12;
 
-        /* Left half: columns from left vertex to mid vertex */
         while (col_count < cols_left_mid) {
             if (col >= right_edge) break;
             if (col >= left_edge) {
@@ -489,7 +459,6 @@ void draw_triangle_ell(tri_t *tri, int plane, tri_t *shade) {
         running_z += (dz12 * subpix) >> 4;
         y_bot_fp  += y_corr_13;
 
-        /* Left half: columns from left vertex to mid vertex */
         while (col_count < cols_left_mid) {
             if (col >= right_edge) break;
             if (col >= left_edge) {
@@ -555,10 +524,7 @@ void draw_triangle_ell(tri_t *tri, int plane, tri_t *shade) {
     dd_unlock(plane, fb_data);
 }
 
-/* ellipse_arctan_432C64
- * Fixed-point arctangent using lookup tables atan_tab0/atan_tab1.
- * Returns angle in 16-bit fixed-point (0x4000 = 90 degrees).
- */
+/* ellipse_arctan_432C64 — table-based; 0x4000 = 90 degrees. */
 int16_t arctan(int16_t X, int16_t Y) {
     int16_t result;
     int tan_val;
@@ -637,9 +603,7 @@ int16_t arcsin(int16_t value) {
     return 0x4000;
 }
 
-/* ellipse_calculate_squash_432E08
- * Computes squash ratios for ellipsoid rendering.
- */
+/* ellipse_calculate_squash_432E08 */
 void calculate_squash(part_t *part) {
     int16_t sx = part->VECTOR_Squash.X;
     int16_t sy = part->VECTOR_Squash.Y;
@@ -662,11 +626,8 @@ void calculate_squash(part_t *part) {
     }
 }
 
-/* ellipse_find_ellipse_432ECC
- * Computes the projected 2D ellipse parameters (axes, tilt, depth offsets)
- * from the 3D ellipsoid orientation via the part's rotation matrix.
- * Uses arctan-based angle decomposition and vector rotations.
- */
+/* ellipse_find_ellipse_432ECC — projected 2D ellipse (axes, tilt, depth
+ * offsets) from the part's rotation matrix. */
 void find_ellipse(part_t *part) {
     vector_t tmp, output_vec, input_vec, dst;
 

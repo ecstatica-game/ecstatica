@@ -18,11 +18,8 @@
 
 int16_t debug_overlay_active = 0;
 
-/*
- * Reserved palette entries injected into view_cmap each frame before the flip.
- * VGA 6-bit values (0-63 per channel). Indices 252-255 are almost certainly
- * black/unused in Ecstatica's scene palette.
- */
+/* Reserved palette entries written into view_cmap before the flip (6-bit VGA
+ * values); 247-255 are unused by the scene palettes. */
 #define ZONE_COL_ACTION  252  /* red    — action trigger  */
 #define ZONE_COL_CAMERA  253  /* blue   — camera zone     */
 #define ZONE_COL_BOTH    254  /* yellow — action + camera */
@@ -196,7 +193,6 @@ static void draw_trigger_zones(void) {
             uint16_t start = new_map[gz][gx];
             if (start == 0xFFFF || start == 0) continue;
 
-            /* Walk element chain for this cell, accumulate types. */
             int has_action = 0, has_camera = 0, has_spawn = 0;
             int16_t gy = 0;
             uint16_t idx = start;
@@ -294,7 +290,6 @@ static void draw_cell_subdivision(int gx, int gz, int16_t gy, int block_config,
         if (ok[d0] && ok[d1])
             draw_line(cx[d0], cy[d0], cx[d1], cy[d1], ZONE_COL_TRI);
 
-        /* Draw active triangle edges in highlight color */
         int t[3];
         switch (block_config) {
             case 2: t[0]=0; t[1]=1; t[2]=2; break; /* x0z0, x1z0, x1z1 */
@@ -317,7 +312,6 @@ static void draw_cell_subdivision(int gx, int gz, int16_t gy, int block_config,
             if (ok[i] && ok[j])
                 draw_line(cx[i], cy[i], cx[j], cy[j], ZONE_COL_TERRAIN);
         }
-        /* Draw cross through center */
         int smx, smy;
         ok[4] = proj(mx, gy, mz, &smx, &smy);
         int emx[4], emy[4], eok[4];

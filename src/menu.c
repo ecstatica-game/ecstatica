@@ -1,13 +1,8 @@
 /**
  * menu.c
  *
- * Game menu system: main menu, pause menu, settings.
- * 15 functions prefixed with menu_ in the original ASM.
- *
- * Uses the requester visual style: dark blue panel (palette 6),
- * light cyan border (palette 7), white text (palette 1),
- * gray text for unselected items (palette 5), highlight bar
- * for selected item (palette 4 bg).
+ * Game menu system: main menu, pause menu, settings, drawn in the original
+ * requester style.
  */
 
 #include "menu.h"
@@ -24,7 +19,6 @@
 #include <string.h>
 #include <stdio.h>
 
-/* Forward declarations */
 static void handle_main_menu_selection(void);
 void do_load_menu(void);
 void do_save_menu(void);
@@ -75,18 +69,9 @@ static bool menu_back(void) {
     return false;
 }
 
-/* ── Per-version palette indices (from binary disassembly) ──
- *
- * E1 (req_request_431034 / show_gadget_43166C):
- *   Uses palette range 0xC3–0xDD (reds/maroons from PALLETTE.RAW).
- *   0xC3=dark red, 0xC9=mid red (fill), 0xCF=bevel light,
- *   0xD8=text, 0xDD=title text.
- *
- * E2 (req_request_43B304 / show_gadget_43B93C):
- *   Uses standard indices 8/10/14/15 (grays + gold from PALLETTE.RAW).
- *   15=gray (fill), 8=near-white (bevel light), 14=near-black (bevel dark),
- *   10=gold (text), 8=title text.
- */
+/* Palette indices per version. E1 (req_request_431034 / show_gadget_43166C)
+ * uses the reds 0xC3–0xDD; E2 (req_request_43B304 / show_gadget_43B93C) uses
+ * greys and gold at 8/10/14/15. */
 static int col_fill(void)       { return (game_version == GAME_VERSION_E1) ? 0xC9 : 15; }
 static int col_bevel_light(void) { return (game_version == GAME_VERSION_E1) ? 0xCF :  8; }
 static int col_bevel_dark(void)  { return (game_version == GAME_VERSION_E1) ? 0xC3 : 14; }
@@ -140,20 +125,8 @@ static void draw_menu_item(const char *label, int x, int y, int item_w, int item
     text(db, label, len);
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  Main Menu — version-specific items and layout
- *
- *  E1 original (from binary at 0x43CDD8 / init_gadgets):
- *    Panel 210×180, gadgets 170×10 at x=20
- *    Items: Start game, Start game (Female), Save game...,
- *           Load game..., Settings..., Quit
- *    Y offsets: 20, 35, 50, 65, 80, 130
- *
- *  E2 (SVGA-scaled: w×2, h×1.5):
- *    Panel 420×270, gadgets 340×15 at x=40
- *    Items: Continue, New Game, Load Game, Save Game,
- *           Settings, Quit
- * ══════════════════════════════════════════════════════════════ */
+/* Main menu. E1 (0x43CDD8): panel 210×180, gadgets 170×10 at x=20. E2 is
+ * scaled for SVGA: panel 420×270, gadgets 340×15 at x=40. */
 
 /* E1 menu items. "Enhanced" is a port addition, sat next to Settings so the
  * original panel keeps only what the release shipped. */
@@ -169,7 +142,6 @@ static const char *e1_menu_items[E1_MENU_ITEMS] = {
 };
 static const int e1_menu_y[E1_MENU_ITEMS] = { 20, 35, 50, 65, 80, 95, 130 };
 
-/* E2 menu items */
 #define E2_MENU_ITEMS 7
 static const char *e2_menu_items[E2_MENU_ITEMS] = {
     "Continue",
@@ -231,8 +203,7 @@ void do_main_menu(void) {
 
     menu_no_continue = false;
 
-    /* Execute deferred actions after menu loop exits,
-     * matching original where actions run outside req_request. */
+    /* Actions run after the menu loop, as the original ran them outside req_request. */
     if (menu_result >= 0) {
         if (game_version == GAME_VERSION_E1) {
             switch (menu_result) {
@@ -252,8 +223,6 @@ void draw_main_menu(void) {
     const char **items = menu_items();
     const int *y_offsets = menu_y_offsets();
 
-    /* Original E1 requester: panel 210×180, gadgets 170×10 at x=20.
-     * SVGA (E2): doubled width, 1.5× height via init_gadget scaling. */
     int panel_w, panel_h, gadget_w, gadget_h, gadget_x;
     if (mode_svga) {
         panel_w = 420; panel_h = 270;
@@ -352,9 +321,7 @@ void do_load_menu(void) {
 
 /* menu_do_save_menu  E1: ? | E2P: 0x42B550 */
 void do_save_menu(void) {
-    /* req_handle_save_game (0x43D3FC) refuses while the intro runs: there is
-     * no player-controlled world yet to write out. Now reachable because ESC
-     * opens the menu during the intro. */
+    /* req_handle_save_game (0x43D3FC) refuses during the intro. */
     if (intro_flag) {
         beep_message("Not during the intro");
         return;
@@ -475,9 +442,7 @@ int do_slot_select(const char *title) {
 
 static const char *difficulty_names[] = {"Easy", "Medium", "Hard"};
 
-/* Language indices match script token mapping:
- * 0=English, 1=German, 2=French, 3=(unused), 4=Italian, 5=Spanish, 6=Polish.
- * E1 only has English/German/French. E2 adds Italian/Spanish/Polish. */
+/* Indices match the script tokens. E1 has English/German/French only. */
 static const char *language_names[] = {
     "English", "German", "French", "", "Italian", "Spanish", "Polish"
 };
@@ -495,12 +460,10 @@ static void draw_setting_row(const char *label, const char *value,
     rect_fill(db, x, y, w, item_h);
     draw_bevel(x, y, w, item_h, selected);
 
-    /* Label on the left */
     a_pen_colour = selected ? col_text_sel() : col_text();
     move_pen(db, (int16_t)(x + 4), (int16_t)ty);
     text(db, label, (int)strlen(label));
 
-    /* Value on the right */
     if (has_arrows) {
         char buf[48];
         snprintf(buf, sizeof(buf), "< %s >", value);
@@ -537,20 +500,13 @@ enum {
     SETT_MAX
 };
 
-/* ── Graphics mode ────────────────────────────────────────────
- * One row covering both the asset set and the renderer, because from the
- * player's side they are one question: how should the game look.
- *
- * E1 shipped two asset sets, so it gets three modes. E2's low-resolution set is
- * incomplete (no LOWGRAPH twin for the HUD art, see init.c), so it always runs
- * the 640x480 assets and the only choice left is the renderer.
+/* One row covers both the asset set and the renderer. E2's low-res set lacks
+ * the HUD art (see init.c), so E2 only chooses the renderer:
  *
  *   E1:  Original (VGA, software)  Enhanced (SVGA, software)  Hardware
  *   E2:  Software                                             Hardware
  *
- * Hardware implies the enhanced asset set on E1: it is offered as a step past
- * Enhanced, and running the GPU renderer against the low-resolution art would
- * be a strange thing to ask for deliberately.
+ * Hardware implies the enhanced asset set on E1.
  */
 enum { GFX_ORIGINAL = 0, GFX_ENHANCED, GFX_HARDWARE };
 
@@ -580,8 +536,6 @@ static const char *gfx_mode_name(int mode) {
     case GFX_ORIGINAL: return "Original";
     case GFX_HARDWARE: return "Hardware";
     default:
-        /* The same underlying mode reads differently depending on what it is
-         * being contrasted with. */
         return (game_version == GAME_VERSION_E1) ? "Enhanced" : "Software";
     }
 }
@@ -600,9 +554,8 @@ void graphics_mode_cycle(int dir) {
 }
 
 static void gfx_apply(int mode) {
-    /* Drop to software before touching the asset set: set_enhanced_graphics
-     * rebuilds icons and parts and re-enters the frame loop, which is not
-     * something to do underneath a live GL context. */
+    /* Drop to software first: set_enhanced_graphics re-enters the frame loop,
+     * which must not happen under a live GL context. */
     if (mode != GFX_HARDWARE && render_backend == RENDER_HARDWARE)
         render_select(RENDER_SOFTWARE);
 
@@ -617,9 +570,7 @@ static void gfx_apply(int mode) {
     save_port_settings();
 }
 
-/* Port options that only bite in the enhanced graphics set: in the original
- * VGA mode the subtitle renderer pins them to their original values, so the
- * rows are shown locked rather than pretending to do something. */
+/* Options pinned to their original values in VGA mode; shown locked there. */
 static bool setting_is_locked(int id) {
     if (mode_svga) return false;
     return id == SETT_SUBTITLE_SIZE || id == SETT_SUBTITLE_HOLD;
@@ -711,8 +662,7 @@ static void settings_adjust(int id, int dir) {
         subtitles_on = !subtitles_on;
         break;
     case SETT_SUBTITLE_SIZE:
-        /* Any live subtitle was drawn at the old size; retire it so the next
-         * one is laid out and cleared with the new metrics. */
+        /* Retire live subtitles so the next one uses the new metrics. */
         subtitle_scale = (subtitle_scale >= 2) ? 1 : 2;
         clear_subtitles = 1;
         save_port_settings();
@@ -727,9 +677,7 @@ static void settings_adjust(int id, int dir) {
         graphics_mode_cycle(dir);
         break;
     case SETT_SUPERSAMPLE:
-        /* Auto, then powers of two only, so the downsample stays a clean
-         * average rather than a resample. Auto follows the drawable, which on
-         * a Retina panel is already 2x the engine's own resolution. */
+        /* Auto, then powers of two, so the downsample stays a clean average. */
         if (dir > 0) render_supersample = (render_supersample <= 0) ? 1
                                         : (render_supersample >= 4) ? 0
                                         : (int16_t)(render_supersample * 2);
@@ -769,8 +717,7 @@ static void run_settings_panel(const char *title, const int *items, int num_item
     int sel = 0;
 
     for (;;) {
-        /* Recomputed every frame: the graphics toggle changes screen_width
-         * and screen_height under us. */
+        /* screen_width/height change under the graphics toggle. */
         int item_h = tx_h + 8;
         int item_w = 30 * tx_w;
         int panel_w = item_w + 16;
@@ -826,39 +773,26 @@ static void run_settings_panel(const char *title, const int *items, int num_item
     }
 }
 
-/* Port-only options, reached from their own main-menu entry so the Settings
- * panel stays the one the original shipped.
- *
- * The graphics toggle is E1-only: E2's low-resolution set is incomplete (no
- * LOWGRAPH twin for the HUD art, see init.c), so it always runs the 640x480
- * assets and there is nothing to switch between. */
+/* Port-only options, kept off the original Settings panel. */
 void do_enhanced_menu(void) {
     int items[SETT_MAX];
     int num_items = 0;
 
-    /* Hidden when there is nothing to switch between — an E2 build whose GL
-     * context failed has exactly one graphics mode. */
     {
         int modes[3];
         if (gfx_mode_list(modes) > 1) items[num_items++] = SETT_GRAPHICS;
     }
     items[num_items++] = SETT_SUBTITLE_SIZE;
     items[num_items++] = SETT_SUBTITLE_HOLD;
-    /* Only where a backend actually came up, so a machine that failed to get a
-     * 3.3 context is not offered switches that would silently do nothing. */
+    /* Only where a hardware backend actually came up. */
     if (render_available()) {
         items[num_items++] = SETT_SUPERSAMPLE;
         items[num_items++] = SETT_LIGHTING;
         items[num_items++] = SETT_MAP3D;
     }
-    /* PSP and Vita panels are wider than the game's 4:3 picture; desktop and
-     * DOS own their window shape and have nothing to offer here. */
     if (platform_scale_mode_supported(win_platform()))
         items[num_items++] = SETT_SCALEMODE;
-    /* E1 only — E2 has no speed modes. The gamepad's own L3 click reaches
-     * this too, except L3 is real hardware only on a PS TV pad: PSP has no
-     * clickable stick at all, and a handheld Vita's sticks don't click
-     * either, so this row is the only way to reach it there. */
+    /* The only way to reach speed modes on PSP and handheld Vita (no L3). */
     if (game_version == GAME_VERSION_E1)
         items[num_items++] = SETT_SPEED_MODE;
 
@@ -867,7 +801,7 @@ void do_enhanced_menu(void) {
 
 /* menu_do_settings_menu  E1: ? | E2P: 0x42B6F0 */
 void do_settings_menu(void) {
-    /* Build visible items list — E1 has no difficulty */
+    /* E1 has no difficulty. */
     int items[SETT_MAX];
     int num_items = 0;
     if (game_version != GAME_VERSION_E1)
@@ -901,7 +835,6 @@ void delete_triangle(tri_t *tri) {
     actor_t *actor = tri->parent_actor;
     if (!actor) { free_event((event_t *)tri); return; }
 
-    /* Unlink from actor's polygon triangle list */
     if (tri == actor->polygone_tri_list) {
         actor->polygone_tri_list = tri->next;
     } else {
@@ -913,7 +846,6 @@ void delete_triangle(tri_t *tri) {
         }
     }
 
-    /* Clear from triangle table */
     if (actor->_TriangleTab && tri->tri_index >= 0 && tri->tri_index < 500)
         actor->_TriangleTab->field_0[tri->tri_index] = NULL;
 
@@ -924,12 +856,10 @@ void delete_triangle(tri_t *tri) {
 void delete_parts(part_t *part) {
     if (!part) return;
 
-    /* Clear from part table */
     if (part->parent_actor && part->parent_actor->_PartTab &&
         part->name_index >= 0 && part->name_index < 500)
         part->parent_actor->_PartTab->field_0[part->name_index] = NULL;
 
-    /* Unlink from actor's display list */
     if (part->parent_actor) {
         part_t *dp = (part_t *)part->parent_actor->actor_parts_list;
         if (dp) {
@@ -942,7 +872,6 @@ void delete_parts(part_t *part) {
         }
     }
 
-    /* Recursively delete child parts */
     part_t *child = (part_t *)part->actor_parts_list;
     while (child) {
         part_t *next_child = child->next;
@@ -997,7 +926,6 @@ void remove_part(part_t *part) {
         return;
     }
 
-    /* Unlink from parent's child list */
     part_t *first = (part_t *)actor->actor_parts_list;
     if (part == first) {
         actor->actor_parts_list = (struct part_s *)first->next;

@@ -1,18 +1,10 @@
 /**
  * openfpga.c
  *
- * Platform backend for openfpgaOS (Analogue Pocket / MiSTer), built
- * against the openfpgaSDK: VexiiRiscv rv32imafc @ 100 MHz, 64 MB SDRAM,
- * 320x240 8-bit indexed video, 32-voice PCM mixer, sample-based MIDI synth.
- *
- * Game data ships as an ISO 9660 image in an APF data slot; it is mounted
- * read-only at /game and the file layer is pointed at that root, so the
- * engine's own case-insensitive path resolution works unchanged.
- *
- * Built by pocket/Makefile, which compiles this tree in place against the
- * SDK's headers, musl and linker script. The of_* calls are confined to this
- * file — the engine reaches openfpgaOS only through platform.h, the same way
- * it reaches Cocoa through macos.m.
+ * openfpgaOS backend (Analogue Pocket / MiSTer), built by pocket/Makefile
+ * against the openfpgaSDK: rv32imafc @ 100 MHz, 64 MB SDRAM, 320x240 8-bit
+ * video, 32-voice PCM mixer, sample-based MIDI synth. Game data is an ISO 9660
+ * image in an APF data slot, mounted read-only at /game.
  */
 
 #include "of.h"
@@ -48,13 +40,9 @@ struct platform_t {
 
 static platform_t g_plat;
 
-/* Pick a scanout mode for a w*h source.
- *
- * Only modes the OS advertises can be set — of_video_get_mode_info shares
- * of_video_set_mode's validation, so an enumerated mode always takes. The
- * core's video.json lists 320x200 alongside 320x240, so the game's VGA mode
- * normally lands exactly and the Pocket scaler fills the panel; anything
- * without an exact match letterboxes into the smallest mode that holds it. */
+/* Only modes the OS advertises can be set. video.json lists 320x200 and
+ * 320x240, so VGA lands exactly and the Pocket scaler fills the panel; other
+ * sizes letterbox into the smallest mode that holds them. */
 static void apply_video_mode(platform_t *p, int w, int h) {
     of_video_mode_t modes[16];
     int count = of_video_get_mode_count();
@@ -79,9 +67,8 @@ static void apply_video_mode(platform_t *p, int w, int h) {
     }
 
     if (best < 0) {
-        /* Nothing advertised is big enough — E2 renders 640x480 and this core
-         * may only offer 320x240. Take the largest mode there is and let the
-         * blit downscale into it; clipping would show a quarter of the frame. */
+        /* Nothing big enough (E2 at 640x480 on a 320x240 core): take the
+         * largest mode and downscale rather than clip. */
         for (int i = 0; i < n; i++)
             if (best < 0 ||
                 (uint32_t)modes[i].width * modes[i].height >
@@ -102,23 +89,14 @@ static void apply_video_mode(platform_t *p, int w, int h) {
     of_video_clear(0);
 }
 
-/* Shrink a source frame into a smaller scanout surface.
- *
- * Nearest-neighbour, and it has to be: these are palette indices, not colour.
- * Averaging index 10 with index 200 gives index 105, an unrelated colour — a
- * box filter would produce confetti. Where the OS can scan out the source size
- * directly this never runs, and the Pocket's scaler does the reduction after
- * the palette lookup, in RGB, which looks better than anything possible here.
- *
- * The engine's own upscale path is the other half of this: E2 with no HIRES/
- * loads the 320x200 background and copy_vga_to_svga()s it up to 640x480, which
- * this then reduces again. Ship HIRES/ if that round trip looks soft. */
+/* Nearest-neighbour, since these are palette indices. Only runs when the OS
+ * cannot scan out the source size; E2 without HIRES/ upscales its 320x200
+ * backgrounds and this reduces them again. */
 static void blit_downscale(platform_t *p, const uint8_t *src, uint8_t *fb) {
     int dw = p->mode_w, dh = p->mode_h, stride = p->mode_stride;
     int sw = p->render_w, sh = p->render_h;
 
-    /* 640x480 into 320x240 is the case that actually happens; a shift beats a
-     * fixed-point step on a 100 MHz core with no hardware divider in the loop. */
+    /* The 640x480 → 320x240 case: shifts, no divider in the loop. */
     if (sw == dw * 2 && sh == dh * 2) {
         for (int y = 0; y < dh; y++) {
             const uint8_t *s = src + (size_t)(y * 2) * sw;
@@ -170,13 +148,10 @@ platform_t *platform_init(const char *title, int fb_width, int fb_height, int sc
 
 bool platform_hires_supported(platform_t *p) {
     (void)p;
-    /* The core scales whatever the engine renders into the panel mode. */
     return true;
 }
 
-/* The core's own scaler owns the panel's aspect ratio, so there is no fit
- * mode to choose here — only PSP and Vita, with a fixed panel wider than the
- * game's picture, offer this. */
+/* The core's scaler owns the aspect ratio; only PSP and Vita offer fit modes. */
 bool platform_scale_mode_supported(platform_t *p) {
     (void)p;
     return false;
@@ -209,9 +184,7 @@ void platform_blit(platform_t *p, const uint8_t *framebuffer, const uint8_t *pal
     if (!p || !framebuffer)
         return;
 
-    /* view_cmap is a 256-entry VGA 6-bit RGB table (palette_entry_t, 3
-     * bytes). Uploading 256 entries costs a syscall + 1 KB of writes, so
-     * only push it when it actually changed — fades aside, it rarely does. */
+    /* 6-bit VGA RGB; uploaded only when it changed (a syscall + 1 KB). */
     if (palette && (!p->pal_valid || memcmp(p->last_pal, palette, 768) != 0)) {
         memcpy(p->last_pal, palette, 768);
         p->pal_valid = true;
@@ -234,9 +207,7 @@ void platform_blit(platform_t *p, const uint8_t *framebuffer, const uint8_t *pal
     int dst_x = (p->mode_w - copy_w) / 2;
     int dst_y = (p->mode_h - copy_h) / 2;
 
-    /* With an exact mode match this is a straight row-by-row copy. When the
-     * source is letterboxed, clear only the bars — not the whole surface,
-     * which would be another 76 KB of writes per frame on a 100 MHz core. */
+    /* Letterboxed: clear only the bars, not 76 KB per frame. */
     if (dst_y > 0) {
         memset(fb, 0, (size_t)dst_y * stride);
         memset(fb + (size_t)(dst_y + copy_h) * stride, 0,
@@ -256,8 +227,7 @@ void platform_blit(platform_t *p, const uint8_t *framebuffer, const uint8_t *pal
 }
 
 void platform_blit_rgba(platform_t *p, const uint8_t *framebuffer) {
-    /* The engine only takes this path for the debug overlay, which the
-     * Pocket build does not enable. */
+    /* Only the debug overlay uses this, and it is off here. */
     (void)p;
     (void)framebuffer;
 }
@@ -312,10 +282,8 @@ static void pump_keyboard(platform_t *p) {
             p->keys_latch[i] = true;
 }
 
-/* Pointer input: a docked USB mouse drives the cursor directly; without
- * one the right stick moves it and R3 clicks, so the requester gadgets in
- * req.c stay reachable on a bare Pocket. The d-pad and left stick are left
- * alone — win.c binds those to movement. */
+/* A docked USB mouse drives the cursor; otherwise the right stick moves it
+ * and R3 clicks, so req.c's gadgets stay reachable. */
 static void pump_pointer(platform_t *p) {
     of_mouse_state_t ms;
     of_input_mouse_state(&ms);
@@ -384,8 +352,7 @@ int platform_mouse_state(platform_t *p, int *out_x, int *out_y) {
     return p->mouse_buttons;
 }
 
-/* Flip an axis to positive-up. -(-32768) does not fit an int16, so a stick
- * held fully forward would wrap round to fully back. */
+/* To positive-up. -(-32768) does not fit an int16. */
 static int16_t neg_axis(int v) {
     v = -v;
     return (int16_t)(v > 32767 ? 32767 : (v < -32767 ? -32767 : v));
@@ -407,8 +374,7 @@ void platform_gamepad_poll(platform_t *p, platform_gamepad_state_t *state) {
     state->dpad_left   = (st.buttons & OF_BTN_LEFT)  != 0;
     state->dpad_right  = (st.buttons & OF_BTN_RIGHT) != 0;
 
-    /* win.c reads left_y as "positive is up", matching the desktop
-     * backends; the SDK reports positive-down, so invert here. */
+    /* The SDK reports positive-down; win.c wants positive-up. */
     state->left_x  = st.joy_lx;
     state->left_y  = neg_axis(st.joy_ly);
     state->right_x = st.joy_rx;
@@ -420,16 +386,11 @@ void platform_gamepad_poll(platform_t *p, platform_gamepad_state_t *state) {
     state->btn_north  = (st.buttons & OF_BTN_Y) != 0;
     state->btn_start  = (st.buttons & OF_BTN_START) != 0;
     state->btn_lstick = (st.buttons & OF_BTN_L3) != 0;
-    /* R3 drives the virtual mouse click; don't also fire the graphics
-     * toggle win.c binds to it. */
+    /* R3 is the virtual mouse click, not the graphics toggle. */
     state->btn_rstick = false;
 
-    /* The bare Analogue Pocket has one shoulder button per side and no
-     * L2/R2/triggers at all; L2/R2/trigger_l/trigger_r only read anything on
-     * a docked controller that actually has them. Select is the shift for
-     * the second shoulder row here too, same as vita.c/psp.c — without it,
-     * E1's per-hand pick-up and E2's magic modifier (both LT/RT) would be
-     * unreachable on a bare Pocket. */
+    /* A bare Pocket has one shoulder per side and no triggers; Select is the
+     * shift for the second row, as in vita.c/psp.c. */
     bool l1 = (st.buttons & OF_BTN_L1) != 0;
     bool r1 = (st.buttons & OF_BTN_R1) != 0;
     bool l2 = (st.buttons & OF_BTN_L2) != 0 || st.trigger_l > 16384;
@@ -469,10 +430,9 @@ void platform_shutdown(platform_t *p) {
 
 /* ── Audio ──────────────────────────────────────────────────── */
 
-/* The mixer's 8-bit path wants signed samples; the engine's WAV data is
- * unsigned. Converting in place is not safe (check_sound_loaded can reload
- * a buffer from the archive), so keep signed copies in a small cache keyed
- * by source pointer. Speech is the big consumer — a few hundred KB each. */
+/* The mixer wants signed 8-bit; the WAV data is unsigned. check_sound_loaded
+ * can reload a buffer, so converting in place is unsafe: signed copies are
+ * cached by source pointer. */
 #define PCM_CACHE_ENTRIES 48
 #define PCM_CACHE_BUDGET  (4 * 1024 * 1024)
 
@@ -542,10 +502,8 @@ static const uint8_t *pcm_to_signed(const void *src, int len) {
     return conv;
 }
 
-/* Runs while a blocking file read waits on its DMA. Loading a background is
- * ~95 KB off the ISO and the main loop is stalled for all of it, which is
- * exactly when a sound effect would otherwise cut out. Must not itself issue
- * a blocking read — of_mixer_pump only touches the mixer. */
+/* Runs while a blocking read waits on DMA (a background is ~95 KB off the
+ * ISO), so effects do not cut out. Must not itself issue a blocking read. */
 static void audio_idle_hook(void) {
     of_mixer_pump();
 }
@@ -634,9 +592,7 @@ int platform_midi_play(const void *smf_data, int length, bool loop) {
 
     of_midi_stop();
 
-    /* platform.h promises the caller may free immediately, and of_midi
-     * plays straight out of the buffer from its timer ISR — keep a copy
-     * alive for the lifetime of the tune. */
+    /* The caller may free the blob, but of_midi plays from it in its ISR. */
     uint8_t *blob = (uint8_t *)malloc((size_t)length);
     if (!blob)
         return -1;
@@ -672,9 +628,7 @@ void platform_set_music_volume(int vol) {
 
 /* ── Platform capabilities ──────────────────────────────────── */
 
-/* Mount the game-data image and point the file layer at it. There is no
- * per-process working directory here, so this has to happen before the engine
- * opens anything — detect_game_version() reads from the archives. */
+/* No working directory here, so mount before detect_game_version() reads. */
 void platform_early_init(void) {
     static const char *const candidates[] = {
         "ecstatica.iso", "ecstatica2.iso", "game.iso",
@@ -691,8 +645,7 @@ void platform_early_init(void) {
         return;
     }
 
-    /* No image: fall back to whatever the launcher exposed as flat slots.
-     * Only the smallest single-archive setups will work that way. */
+    /* No image: fall back to flat launcher slots (single-archive setups only). */
 }
 
 /* APF nonvolatile slots 10..19. The region runs 0x20100000..0x20380000 and
@@ -702,14 +655,11 @@ int platform_save_slot_count(void) {
 }
 
 void platform_save_path(char *buf, int bufsz, int slot, int game_version) {
-    /* Must match the data_slots filenames in the core's instance JSON. The
-     * two games get separate sets so an E1 and an E2 instance of the same
-     * core never share a slot. */
+    /* Must match data_slots in the core's instance JSON; E1 and E2 get
+     * separate sets. */
     snprintf(buf, bufsz, "ecstatica%s_%d.sav",
              game_version == GAME_VERSION_E2 ? "2" : "", slot);
 }
 
 void platform_save_prepare(void) {
-    /* Slots are pre-declared by the launcher; there is nothing to create,
-     * and no directories to create it in. */
 }

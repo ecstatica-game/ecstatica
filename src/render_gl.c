@@ -1,13 +1,8 @@
 /**
  * render_gl.c
  *
- * OpenGL 3.3 core backend.
- *
- * Every GL call in the project is in this file. The platform layer supplies a
- * context and a swap; render.c supplies the draw lists. That containment is
- * deliberate — it is what would make a Metal backend a replacement for this one
- * file rather than a rewrite, on a platform where OpenGL has been deprecated
- * since 10.14.
+ * OpenGL 3.3 core backend. Every GL call in the project is here, so another
+ * backend (Metal) would replace this one file.
  *
  * The frame is:
  *   background   full-screen, palette-expanded, depth written from the mask
@@ -34,9 +29,7 @@
 #define MAX_TEX_LAYERS   32
 #define TEX_LAYER_DIM    128
 
-/* Instance layout handed to the GPU. Kept separate from render_ellipsoid_t so
- * the CPU-side list stays readable and the packing rules (colour_shade folded
- * to 7 bits) live at the one place that cares. */
+/* GPU instance layout; colour_shade is folded to 7 bits here. */
 typedef struct {
     float centre[3];
     float axes[3];
@@ -53,20 +46,17 @@ static struct {
     int fb_w, fb_h;        /* current engine render size */
     int ss;                /* supersample factor actually in use */
 
-    /* programs */
     GLuint prog_bg, prog_composite, prog_flat, prog_tex, prog_ell, prog_ell_mod;
     GLuint prog_map;
 
-    /* Scene target. Two colour attachments: RGB to look at, and the palette
-     * index each pixel came from, which the shadow/smoke/beam passes remap. */
+    /* RGB to look at, plus each pixel's palette index for the shadow/smoke/beam
+     * passes to remap. */
     GLuint scene_fbo, scene_color, scene_index, scene_depth;
     int    scene_w, scene_h;
 
-    /* Snapshot of the scene's index and depth. GL cannot read an attachment
-     * that is currently bound, so the modulating passes read this copy. */
+    /* A bound attachment cannot be read, so the modulating passes read this copy. */
     GLuint copy_fbo, copy_index, copy_depth;
 
-    /* textures */
     GLuint tex_palette;     /* 256x1  R8UI ... stored RGB8 */
     GLuint tex_bg_index;    /* R8UI   background palette indices */
     GLuint tex_bg_depth;    /* R16I   background view-space depth */
@@ -76,21 +66,18 @@ static struct {
     GLuint tex_shadow_tab;  /* 256x16x3  R8UI — SHADOW.DAT */
     GLuint tex_array;       /* part textures */
 
-    /* geometry */
     GLuint vao_empty;
     GLuint vao_tri, vbo_tri;
     GLuint vao_ell, vbo_ell;
     GLuint vao_map, vbo_map;
 
-    /* per-texture-index → array layer, -1 when not resident */
     int16_t tex_layer[TEXTURE_TAB_SIZE];
     int     tex_layer_next;
 
     bool bg_dirty;
     bool pal_dirty;
     bool tables_uploaded;
-    /* The scene target holds a usable 3D frame. Not per-frame: it stays true
-     * across flips that carry no new geometry. */
+    /* Stays true across flips that carry no new geometry. */
     bool have_scene;
 
     uint8_t pal_cache[768];
@@ -240,20 +227,14 @@ static bool ensure_scene_target(int w, int h) {
     return true;
 }
 
-/**
- * Snapshot the scene's palette index and depth so the modulating passes can
- * read what is underneath them. Taken twice a frame: once after the background
- * (shadows land on the background, before parts draw, matching draw_parts'
- * pass order at display.c:742) and once after the opaque geometry (smoke and
- * beams land on everything).
- */
+/* Snapshot index and depth for the modulating passes: after the background
+ * (shadows, as draw_parts' pass order) and after the opaque geometry (smoke,
+ * beams). */
 static void snapshot_scene(void) {
     glBindFramebuffer(GL_READ_FRAMEBUFFER, G.scene_fbo);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, G.copy_fbo);
-    /* The index lives in attachment 1; the read buffer has to say so, and be
-     * put back afterwards because composite_2d blits the colour attachment
-     * from this same framebuffer. Integer attachments cannot be filtered, and
-     * depth never can. */
+    /* The index is attachment 1; restore the read buffer after, as composite_2d
+     * blits attachment 0 from this framebuffer. */
     glReadBuffer(GL_COLOR_ATTACHMENT1);
     glBlitFramebuffer(0, 0, G.scene_w, G.scene_h, 0, 0, G.scene_w, G.scene_h,
                       GL_DEPTH_BUFFER_BIT, GL_NEAREST);
@@ -265,8 +246,7 @@ static void snapshot_scene(void) {
 
 /* ── Uploads ──────────────────────────────────────────────── */
 
-/* shade_map and shade_tab never change after load_shade_map / init, so this
- * runs once. shade_tab is 17 * 128 * 128 = 278 KB. */
+/* Runs once: shade_map and shade_tab never change after load. */
 static void upload_static_tables(void) {
     if (G.tables_uploaded) return;
 
@@ -286,8 +266,7 @@ static void upload_static_tables(void) {
     glTexImage3D(GL_TEXTURE_3D, 0, GL_R8UI, 128, 128, 17, 0,
                  GL_RED_INTEGER, GL_UNSIGNED_BYTE, &shade_tab[0][0][0]);
 
-    /* SHADOW.DAT: [3][16][256], indexed in the shader as (src_index, colour,
-     * table) so the texelFetch reads along the fastest-varying axis. */
+    /* SHADOW.DAT [3][16][256], fetched as (src_index, colour, table). */
     glGenTextures(1, &G.tex_shadow_tab);
     glBindTexture(GL_TEXTURE_3D, G.tex_shadow_tab);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -338,8 +317,7 @@ static void upload_background(void) {
 
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
-    /* The engine's planes are strided by hires_width, which is not always the
-     * visible width; copy row by row rather than assuming they match. */
+    /* Planes are strided by hires_width, which may exceed the visible width. */
     static uint8_t  *idx_buf = NULL;
     static int16_t  *dep_buf = NULL;
     static int       buf_px  = 0;
@@ -361,8 +339,7 @@ static void upload_background(void) {
     G.tex_bg_index = make_tex_2d(GL_R8UI, w, h, GL_RED_INTEGER, GL_UNSIGNED_BYTE, idx_buf);
     G.tex_bg_depth = make_tex_2d(GL_R16I, w, h, GL_RED_INTEGER, GL_SHORT, dep_buf);
 
-    /* Level 2 only: the scan is a full pass over the depth image, and this is
-     * the one place to confirm a new view's mask actually arrived. */
+    /* Level 2 only: a full pass over the depth image. */
     if (debug_verbose >= 2) {
         int16_t lo = 0x7FFF, hi = -0x7FFF;
         long far_count = 0;
@@ -426,9 +403,8 @@ int render_gl_texture_layer(int16_t texture_name_index) {
     if (!tex || !tex->texture_data) return -1;
     if (G.tex_layer_next >= MAX_TEX_LAYERS) return -1;
 
-    /* The rasteriser masks u and v with 0x7F regardless of the declared size
-     * (asm_f.c:456), so a layer is always 128x128 and a smaller texture is
-     * padded by repeating its own rows — which is what the mask does anyway. */
+    /* The rasteriser masks u and v with 0x7F, so every layer is 128x128 and a
+     * smaller texture repeats its rows. */
     uint8_t layer[TEX_LAYER_DIM * TEX_LAYER_DIM];
     int tw = tex->x_size > 0 ? tex->x_size : TEX_LAYER_DIM;
     int th = tex->y_size > 0 ? tex->y_size : TEX_LAYER_DIM;
@@ -461,13 +437,8 @@ static void draw_fullscreen(void) {
     glDrawArrays(GL_TRIANGLES, 0, 3);
 }
 
-/**
- * The collision map in place of the pre-rendered background.
- *
- * Unlike the background pass this is ordinary geometry: it depth-tests and
- * depth-writes normally, so characters occlude against the terrain the game
- * actually walks on rather than against a painted image.
- */
+/* The collision map as ordinary depth-tested geometry, so characters occlude
+ * against the terrain the game walks on. */
 static void draw_map3d(void) {
     glClearColor(0.05f, 0.06f, 0.09f, 1.0f);
     glClearDepth(1.0);
@@ -502,13 +473,9 @@ static void draw_background(void) {
     set_uniform_f(G.prog_bg, "u_near", (float)RENDER_NEAR_Z);
     set_uniform_f(G.prog_bg, "u_far",  (float)RENDER_FAR_Z);
 
-    /* GL_ALWAYS with the test *enabled*, not the test disabled.
-     *
-     * Disabling GL_DEPTH_TEST does not merely make the test pass — it also
-     * turns off depth writes, and glDepthMask and gl_FragDepth are both
-     * ignored while it is off. Written the obvious way, this pass left the
-     * depth buffer at the cleared far value everywhere, so nothing the engine
-     * drew afterwards was ever occluded by the pre-rendered background. */
+    /* GL_ALWAYS with the test enabled: disabling GL_DEPTH_TEST also disables
+     * depth writes and gl_FragDepth, and nothing would be occluded by the
+     * background. */
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_ALWAYS);
     glDepthMask(GL_TRUE);
@@ -538,8 +505,7 @@ static void draw_triangles(const render_vertex_t *verts, int count, bool texture
     glDrawArrays(GL_TRIANGLES, 0, count);
 }
 
-/* Fill the instance buffer with every ellipsoid of one mode. Returns how many,
- * having already uploaded them; zero means there is nothing to draw. */
+/* Uploads every ellipsoid of one mode; returns how many. */
 static int stage_ellipsoids(int mode) {
     static gl_instance_t *inst = NULL;
     static int inst_cap = 0;
@@ -597,15 +563,10 @@ static void draw_ellipsoids_solid(void) {
     glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, used);
 }
 
-/**
- * Shadow, smoke and beam. These remap what is already in the framebuffer, so
- * they read the snapshot rather than the live attachments, do their own depth
- * comparison in the shader, and never write depth.
- */
-/* ECSTATICA_GL_PASSES is a bitmask over the three modulating passes
- * (1 shadow, 2 smoke, 4 beam). They overlay the whole scene and are the
- * hardest passes to reason about from a finished frame, so being able to drop
- * one without a rebuild is worth the four lines. */
+/* Shadow, smoke and beam remap what is already drawn: they read the snapshot,
+ * depth-test in the shader and never write depth.
+ *
+ * ECSTATICA_GL_PASSES masks them for debugging (1 shadow, 2 smoke, 4 beam). */
 static int modulate_pass_mask(void) {
     static int parsed = 0, mask = 7;
     if (!parsed) {
@@ -668,8 +629,6 @@ static void composite_2d(bool force_full) {
         set_uniform_i(G.prog_composite, "u_bg_index", 1);
         set_uniform_i(G.prog_composite, "u_palette", 2);
 
-        /* Blit the resolved scene straight to the back buffer — a filtered
-         * downsample when supersampling, a stretch otherwise. */
         glBindFramebuffer(GL_READ_FRAMEBUFFER, G.scene_fbo);
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
         glBlitFramebuffer(0, 0, G.scene_w, G.scene_h,
@@ -705,12 +664,8 @@ static void composite_2d(bool force_full) {
 void render_gl_frame_begin(void) {
     if (!G.active) return;
 
-    /* 0 means "match the display". The engine's screen size is fixed at 320x200
-     * or 640x480 by the data, but the drawable is whatever the window and the
-     * backing scale make it — 1280x960 for a 640x480 window on a Retina panel.
-     * Rendering the 3D layer at the engine size there would upscale it 2x and
-     * throw away half the resolution the display actually has, which is the
-     * one thing this renderer exists to avoid. */
+    /* 0 = match the drawable: on Retina a 640x480 window is 1280x960, and
+     * rendering at engine size would throw half of it away. */
     int ss = render_supersample;
     if (ss <= 0) {
         int dw = 0, dh = 0;
@@ -750,17 +705,8 @@ void render_gl_frame_begin(void) {
 }
 
 #ifdef ENABLE_FRAME_DUMP
-/**
- * Read the presented image back and write it as a PPM.
- *
- * The software renderer's equivalent (win.c, ENABLE_FRAME_DUMP) dumps the 8bpp
- * plane, which under the hardware renderer holds only the 2D layer. This dumps
- * what was actually presented, so the two are directly comparable — which is
- * the only practical way to check hardware output against software on a
- * headless run.
- *
- * ECSTATICA_GL_DUMP=n1,n2,... names the frames to capture.
- */
+/* ECSTATICA_GL_DUMP=n1,n2,...: write presented frames as PPM. win.c's dump
+ * shows only the 2D plane under this renderer; this is the comparable one. */
 int render_gl_dump_after_cut = 0;   /* set by upload_background, counted down here */
 
 static void maybe_dump_frame(void) {
@@ -772,8 +718,7 @@ static void maybe_dump_frame(void) {
         parsed = 1;
         const char *e = getenv("ECSTATICA_GL_DUMP");
         if (e && strcmp(e, "cut") == 0) {
-            /* Dump the frames straight after every camera change — the only
-             * practical way to see a cut without driving the game by hand. */
+            /* The frames after a camera change. */
             on_cut = 1;
         } else {
             while (e && *e && nframes < 8) {
@@ -827,9 +772,8 @@ void render_gl_frame_end(void) {
         glEnable(GL_DEPTH_TEST);
         glDepthMask(GL_TRUE);
 
-        /* Pass order follows draw_parts (display.c:742-765): shadows land on
-         * the background before any part is drawn, then the solid geometry,
-         * then smoke over the lot. Beams go last, being the brightest. */
+        /* draw_parts' order: shadows on the background, solid geometry, smoke,
+         * then beams, the brightest. */
         snapshot_scene();
         draw_ellipsoids_modulated(RENDER_ELL_SHADOW);
 
@@ -848,15 +792,9 @@ void render_gl_frame_end(void) {
         }
     }
 
-    /* A flip with no new 3D is not a 2D-only screen — present_delay (win.c)
-     * and the menus flip repeatedly without going through prepare_parts, and
-     * the engine's own double buffer keeps showing the last game frame across
-     * those. So the scene target is left alone and re-presented; blanking it
-     * here is what drew the pre-rendered background over the characters during
-     * camera changes, which is exactly when present_delay is used.
-     *
-     * The full-plane path is only for before any 3D frame exists at all — the
-     * startup logos and the title screen. */
+    /* A flip with no new 3D re-presents the scene target: present_delay and
+     * the menus flip without prepare_parts during camera changes. The full
+     * plane path is only for before any 3D frame (logos, title). */
     upload_ui_plane();
     composite_2d(!G.have_scene);
 
@@ -987,8 +925,7 @@ bool render_gl_init(platform_t *p) {
     upload_static_tables();
     upload_palette();
 
-    /* The context stays, the surface goes back: this only established that the
-     * machine can do GL 3.3, not that the player asked for it. */
+    /* Keep the context, give back the surface: this only probed for GL 3.3. */
     platform_gfx_set_active(p, false);
 
     G.ready = true;
@@ -997,8 +934,7 @@ bool render_gl_init(platform_t *p) {
 
 bool render_gl_start(void) {
     if (!G.ready) return false;
-    /* set_active re-attaches the drawable and makes the context current; doing
-     * make_current first would run against a context with no drawable. */
+    /* set_active attaches the drawable and makes the context current. */
     platform_gfx_set_active(G.plat, true);
     platform_gfx_make_current(G.plat);
     G.active     = true;
@@ -1010,8 +946,7 @@ bool render_gl_start(void) {
 
 void render_gl_stop(void) {
     G.active = false;
-    /* Give the surface back before returning, or the software blit paints into
-     * a window GL is still holding and nothing appears. */
+    /* Give the surface back, or the software blit paints into a GL window. */
     platform_gfx_set_active(G.plat, false);
 }
 

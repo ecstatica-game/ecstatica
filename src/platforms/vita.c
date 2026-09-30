@@ -1,26 +1,19 @@
 /**
  * platforms/vita.c
  *
- * PlayStation Vita backend, built against VitaSDK.
+ * PlayStation Vita backend (VitaSDK), built by vita/CMakeLists.txt.
  *
- *   Video     SceDisplay, 960x544 32-bit, triple-buffered in CDRAM. The
- *             engine's 8-bit indexed frame is palette-expanded and scaled on
- *             the CPU into a 4:3 area centred on the panel (pillarboxed), with
- *             per-row and per-column source tables so the inner loop is a
- *             lookup and a store.
- *   Input     SceCtrl for the buttons and both sticks. The front panel is a
- *             pointer and click for menus and requesters; the rear panel's
- *             left and right halves are the second shoulder row the Vita
- *             does not have (E1 per-hand pick-up, E2 magic).
- *   Timing    sceKernelGetProcessTimeWide (microseconds).
- *   Audio     One BGM port at 44100 Hz stereo, fed by a mixer thread that sums
- *             the engine's 16 voices in software. Music is silent — the Vita
- *             has no General MIDI synth, see platform_midi_play.
+ *   Video     SceDisplay, 960x544 32-bit, triple-buffered in CDRAM. The 8-bit
+ *             frame is palette-expanded and scaled on the CPU through per-row
+ *             and per-column source tables.
+ *   Input     SceCtrl buttons and sticks. The front panel is a pointer for
+ *             menus; the rear panel halves are the missing second shoulder
+ *             row (E1 per-hand pick-up, E2 magic).
+ *   Timing    sceKernelGetProcessTimeWide.
+ *   Audio     One 44100 Hz stereo BGM port fed by a software mixer thread.
+ *             Music is silent (no OS synth).
  *
- * Built by vita/CMakeLists.txt through VitaSDK's vita.cmake. The sce* calls
- * are confined to this file; the engine reaches the Vita only through
- * platform.h. The game data lives outside the VPK, in ux0:data/ecstatica, so
- * the package stays small and saves have somewhere writable to go.
+ * Game data lives in ux0:data/ecstatica, outside the VPK.
  */
 
 #ifdef __vita__
@@ -44,8 +37,7 @@
 #include <string.h>
 #include <unistd.h>
 
-/* Newlib's heap. The archives, the part and event pools and the decoded
- * backgrounds all live in it; the default is far below what a Vita app has. */
+/* The archives, pools and backgrounds all live in newlib's heap. */
 int _newlib_heap_size_user = 192 * 1024 * 1024;
 /* Deep call chains through the renderers, matrices passed by value. */
 unsigned int sceUserMainThreadStackSize = 1024 * 1024;
@@ -87,10 +79,8 @@ static uint32_t s_lut[256];
 static uint8_t  s_last_pal[768];
 static bool     s_pal_valid;
 
-/* The picture area inside the 960x544 panel, and for each of its columns and
- * rows the source pixel it samples. Rebuilt when the render size or the
- * scale mode changes — the graphics toggle switches between 320x200 and
- * 640x480, and the settings menu switches SCALE_PILLARBOX/CROP/STRETCH. */
+/* Picture area and per-column/row source pixels; rebuilt when the render size
+ * or scale mode changes. */
 static int      s_dst_x, s_dst_w;
 static uint16_t s_col_src[SCREEN_W];
 static uint32_t s_row_off[SCREEN_H];
@@ -100,9 +90,7 @@ static int      s_scale_mode = SCALE_PILLARBOX;
 static void build_scale_maps(int sw, int sh) {
     int v0, v1;
 
-    /* The horizontal source range is always the full [0, sw) — on this panel
-     * (wider than 4:3) the picture only ever needs cropping vertically to
-     * fill the screen, never horizontally. */
+    /* The panel is wider than 4:3, so cropping is only ever vertical. */
     switch (s_scale_mode) {
     case SCALE_CROP: {
         int full_h = SCREEN_W * 3 / 4;
@@ -163,8 +151,7 @@ static bool video_init(void) {
     sceKernelGetMemBlockBase(s_fb_block, &base);
     for (int i = 0; i < FB_COUNT; i++) {
         s_fb[i] = (uint32_t *)((uint8_t *)base + (size_t)i * FB_BYTES);
-        /* The pillarbox bars are never drawn again, so they have to start
-         * black in every buffer. */
+        /* Bars are never drawn again, so they start black. */
         memset(s_fb[i], 0, SCREEN_W * SCREEN_H * 4);
     }
 
@@ -188,7 +175,6 @@ platform_t *platform_init(const char *title, int fb_width, int fb_height, int sc
     platform_t *p = &g_plat;
     memset(p, 0, sizeof(*p));
 
-    /* The engine is a software renderer; give it the fastest ARM clock. */
     scePowerSetArmClockFrequency(444);
     scePowerSetBusClockFrequency(222);
 
@@ -252,18 +238,14 @@ void platform_blit(platform_t *p, const uint8_t *framebuffer, const uint8_t *pal
         upload_lut(palette);
     }
 
-    /* Triple buffering: the buffer written here is neither the one on screen
-     * nor the one queued for the next vblank, so nothing waits and nothing
-     * tears. */
+    /* Triple buffering: this buffer is neither on screen nor queued. */
     uint32_t *fb = s_fb[s_fb_next];
     const uint16_t *cols = s_col_src;
     const int dw = s_dst_w;
 
     for (int y = 0; y < SCREEN_H; y++) {
         uint32_t *row = fb + y * SCREEN_W;
-        /* Pillarboxed frames leave bars this loop never writes; a frame drawn
-         * in crop/stretch mode earlier may have painted over them in this
-         * buffer, so they need reblacking whenever a bar is in play. */
+        /* Re-black the bars, which a crop/stretch frame may have painted. */
         if (s_dst_x > 0) {
             memset(row, 0, (size_t)s_dst_x * sizeof(uint32_t));
             memset(row + s_dst_x + dw, 0, (size_t)(SCREEN_W - s_dst_x - dw) * sizeof(uint32_t));
@@ -288,8 +270,7 @@ void platform_blit(platform_t *p, const uint8_t *framebuffer, const uint8_t *pal
 }
 
 void platform_blit_rgba(platform_t *p, const uint8_t *framebuffer) {
-    /* Only the debug overlay takes this path, and the Vita build does not
-     * enable it. */
+    /* Only the debug overlay uses this, and it is off here. */
     (void)p;
     (void)framebuffer;
 }
@@ -301,12 +282,10 @@ void platform_set_title(platform_t *p, const char *title) {
 
 /* ── Input ──────────────────────────────────────────────────── */
 
-/* Analog sticks: 0..255 per axis, centred at 128. Scale to the int16 range the
- * gamepad interface uses; win.c reads Y as positive-up. */
+/* 0..255 centred at 128, scaled to int16; win.c reads Y as positive-up. */
 static int16_t stick_axis(unsigned char raw) {
     int v = ((int)raw - 128) * 258;
-    /* Symmetric on purpose: the Y axis is negated by the caller, and -(-32768)
-     * does not fit an int16 — full forward wrapped round to full back. */
+    /* Symmetric: the caller negates Y, and -(-32768) does not fit int16. */
     if (v >  32767) v =  32767;
     if (v < -32767) v = -32767;
     return (int16_t)v;
@@ -320,8 +299,7 @@ static bool s_touch_info_valid;
 static bool s_rear_left, s_rear_right;
 
 static void pump_pointer(platform_t *p) {
-    /* Front panel: the finger is the pointer, and touching is holding the
-     * left button, so a tap is a click. Mapped through the 4:3 picture area;
+    /* Touching is holding the left button, mapped through the 4:3 picture;
      * the bars clamp to the nearest edge. */
     if (s_front.reportNum > 0) {
         int span_x = s_front_info.maxAaX - s_front_info.minAaX;
@@ -336,9 +314,7 @@ static void pump_pointer(platform_t *p) {
         p->mouse_y = sy * p->render_h / SCREEN_H;
         p->mouse_buttons = PMOUSE_LEFT;
     } else {
-        /* Same stick-driven pointer as the PSP, for playing without touching
-         * the screen: the stick walks in play and moves the cursor in the
-         * requesters, which are the only place req.c reads it. */
+        /* Stick-driven pointer, as on the PSP; req.c reads it in menus only. */
         int dx = (int)s_pad.lx - 128;
         int dy = (int)s_pad.ly - 128;
         const int dz = 24;
@@ -374,21 +350,17 @@ bool platform_pump_events(platform_t *p) {
         s_touch_info_valid = true;
     }
 
-    /* Peek, not read: the read calls block until the next sample, which would
-     * pace the whole game off the controller. */
+    /* Peek: the read calls block until the next sample. */
     sceCtrlPeekBufferPositive(0, &s_pad, 1);
     sceTouchPeek(SCE_TOUCH_PORT_FRONT, &s_front, 1);
     sceTouchPeek(SCE_TOUCH_PORT_BACK, &s_back, 1);
 
-    /* No keyboard, so the key table stays empty and the latches with it;
-     * everything the player can press arrives through the pad. */
     memcpy(p->keys_prev, p->keys_now, sizeof(p->keys_now));
 
     pump_pointer(p);
     pump_rear();
 
-    /* The PS button suspends the app at the system's level; there is no quit
-     * request to report. */
+    /* The PS button suspends at system level; there is no quit request. */
     return true;
 }
 
@@ -454,10 +426,8 @@ void platform_gamepad_poll(platform_t *p, platform_gamepad_state_t *state) {
     bool r = (b & (SCE_CTRL_RTRIGGER | SCE_CTRL_R1)) != 0;
     bool select = (b & SCE_CTRL_SELECT) != 0;
 
-    /* The engine wants two shoulder rows: LB/RB (jump, attack) and LT/RT
-     * (E1's per-hand pick-up, E2's magic). The rear panel halves are the
-     * second row. Select + shoulder does the same, as on the PSP, for anyone
-     * holding the Vita where the rear panel is awkward to reach. */
+    /* The rear panel halves are the second shoulder row; Select + shoulder
+     * does the same, as on the PSP. */
     if (select && (l || r)) {
         state->btn_lt = l;
         state->btn_rt = r;
@@ -492,10 +462,8 @@ uint32_t prof_clock_us(void) {
 #endif
 
 /* ── Audio ──────────────────────────────────────────────────────
- * One BGM port at 44100 Hz stereo, with the engine's 16 voices summed in
- * software by a dedicated thread. Voices are 8-bit unsigned mono at whatever
- * rate the WAV carried, usually 22050, so each one is point-resampled as it
- * is mixed. Same mixer as the PSP backend.
+ * Same mixer as the PSP backend: 16 voices point-resampled and summed by a
+ * dedicated thread into one 44100 Hz stereo port.
  */
 
 #define VITA_VOICES       16
@@ -548,8 +516,7 @@ static void mix_block(void) {
         uint32_t idx = vo->idx, frac = vo->frac, step = vo->step, len = vo->len;
 
         int scale = (vo->vol * s_sfx_vol * 256) / (127 * 255);
-        /* pan is -128 (left) .. 0 (centre) .. 127 (right). Attenuate the far
-         * side only, so a centred sound is not quieter than a panned one. */
+        /* Attenuate the far side only, so centred sounds are not quieter. */
         int scale_l = vo->pan > 0 ? scale * (127 - vo->pan) / 127 : scale;
         int scale_r = vo->pan < 0 ? scale * (128 + vo->pan) / 128 : scale;
 
@@ -619,8 +586,7 @@ void platform_audio_init(void) {
     }
 
     s_audio_quit = false;
-    /* Higher priority (lower number) than the main thread's default, so a
-     * long frame in the renderer cannot starve the mixer into an underrun. */
+    /* Above the main thread, so a long frame cannot starve the mixer. */
     s_audio_thread = sceKernelCreateThread("ecs_audio", audio_thread,
                                            0x10000100 - 16, 64 * 1024, 0, 0, NULL);
     if (s_audio_thread < 0) {
@@ -700,10 +666,7 @@ void platform_audio_shutdown(void) {
     }
 }
 
-/* music.c hands over a Standard MIDI File and expects a General MIDI synth on
- * the other side. The Vita has none, so tunes are silent until a software
- * synth and a bank are linked in, the same position as the PSP and DOS
- * targets. Sound effects and speech go through the mixer above. */
+/* The Vita has no General MIDI synth, so tunes are silent, as on PSP and DOS. */
 int platform_midi_play(const void *smf_data, int length, bool loop) {
     (void)smf_data;
     (void)length;
@@ -728,16 +691,14 @@ void platform_set_music_volume(int vol) {
 
 static char s_data_root[256];
 
-/* Each VPK is built for one game (vita/CMakeLists.txt), so both can be
- * installed as their own LiveArea bubbles and each opens its own folder. */
+/* One VPK per game, each its own LiveArea bubble and data folder. */
 #ifndef VITA_GAME_DIR
 #define VITA_GAME_DIR "e2"
 #endif
 
 void platform_early_init(void) {
-    /* app0: is the read-only VPK mount, so the data goes on a memory card:
-     * ux0:data/ecstatica/e1 or /e2 for this bubble's game. The bare folder is
-     * the fallback for a card that carries just one game. */
+    /* app0: is the read-only VPK mount. The bare folder is the fallback for a
+     * card with one game. */
     static const char *const candidates[] = {
         "ux0:data/ecstatica/" VITA_GAME_DIR,
         "uma0:data/ecstatica/" VITA_GAME_DIR,
@@ -752,8 +713,7 @@ void platform_early_init(void) {
         snprintf(s_data_root, sizeof(s_data_root), "%s", candidates[i]);
         file_set_data_root(s_data_root);
         file_flush_path_cache();
-        /* The debug log and prof.log are opened by bare name; the process
-         * starts in app0:, which is read-only. */
+        /* The logs are opened by bare name, and app0: is read-only. */
         chdir(s_data_root);
         return;
     }

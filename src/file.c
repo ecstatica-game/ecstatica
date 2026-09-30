@@ -3,7 +3,6 @@
  *
  * Data file I/O: .FAN archive loading, offset-based reading,
  * actor/part/triangle/event deserialization, save/load game.
- * 64 functions prefixed with file_ in the original ASM.
  */
 
 #include "file.h"
@@ -42,14 +41,12 @@ bool load_by_offset = false;
 int32_t file_offsets[MAX_OFFSETS];
 int32_t number_of_offsets = 0;
 
-/* Per-type offset arrays for resource loading */
 int32_t action_offset[ACTION_TAB_SIZE];
 int32_t scene_offset[SCENE_TAB_SIZE];
 int32_t actor_offset[THING_TAB_SIZE];
 int32_t sound_offset[SOUND_TAB_SIZE];
 int32_t repertoire_offset[REPERTOIRE_TAB_SIZE];
 
-/* File version & state */
 int16_t file_version = 0;
 int game_version = GAME_VERSION_E2;
 int16_t last_scene_dir = 0;
@@ -126,17 +123,10 @@ static int is_swappable_asset(const char *path) {
     return 0;
 }
 
-/* Cached directory listings for the case-resolving walk below.
- *
- * On a desktop the walk is cheap: the OS caches directory entries and a miss
- * costs a syscall. On openfpgaOS every opendir/readdir pass reads the ISO
- * through the SD bridge, and the directories are not small — E2 ships 1119
- * files in VIEWS/ and 75 in MUSIC/. Loading one tune probes five extensions
- * (only one exists), and with a second data root in play that is up to ten
- * full scans of the same directory for a single asset.
- *
- * Asset roots are read-only for the life of the process — saves go through
- * plain fopen(), never this path — so a listing, once read, stays valid. */
+/* Cached directory listings for the case-resolving walk below. On openfpgaOS
+ * every readdir pass reads the ISO through the SD bridge, and E2 ships 1119
+ * files in VIEWS/; one tune probes five extensions across two roots. Asset
+ * roots are read-only (saves use plain fopen), so a listing stays valid. */
 #define DIRCACHE_SLOTS 6
 
 typedef struct {
@@ -214,7 +204,6 @@ static int resolve_ci(const char *base, const char *path, char *out, size_t outs
     if (strlen(path) >= sizeof(buf)) return 0;
     strcpy(buf, path);
 
-    /* Normalize backslashes */
     for (char *p = buf; *p; p++)
         if (*p == '\\') *p = '/';
 
@@ -271,12 +260,10 @@ static FILE *fopen_ci_root(const char *base, const char *path, const char *mode)
     char direct[512];
     if (!base || !base[0]) base = data_root;
 
-    /* The engine mixes separators and cases: "CODE\\ECSTATIC.FAN",
-     * "files\\ECSTATIC", "graphics/iconpage.raw", "MUSIC/NAME.sbl". Every one
-     * of those missed the direct open and fell through to the directory walk,
-     * which is close to free on a desktop and expensive over an SD-backed ISO.
-     * Normalising the separator, then retrying in upper case, turns the common
-     * ones into first-try hits — ISO 9660 stores the names upper-cased. */
+    /* The engine mixes separators and cases ("CODE\\ECSTATIC.FAN",
+     * "graphics/iconpage.raw"). Normalising the separator and retrying in
+     * upper case (ISO 9660 stores names upper-cased) avoids the directory
+     * walk, which is expensive over an SD-backed ISO. */
     char norm[512];
     snprintf(norm, sizeof(norm), "%s", path);
     for (char *p = norm; *p; p++)
@@ -368,7 +355,6 @@ void init_data_roots(void) {
     alt_root_is_enhanced = 1;
     enhanced_graphics = 0;
 
-    /* Forward: nested W/ holding the 640x480 set. */
     char resolved[512];
     if (resolve_ci("", "W/CODE/ECSTATIC.FAN", resolved, sizeof(resolved))) {
         FILE *probe = fopen(resolved, "rb");
@@ -431,7 +417,6 @@ int hires_data_available(void) {
     return found;
 }
 
-/* Forward declarations */
 void merge_file_contents(FILE *f);
 void merge_sought_file(FILE *f, int quiet);
 void file_read_thing(FILE *f);
@@ -1000,9 +985,8 @@ void read_offsets_file(void) {
     free(buf);
 }
 
-/* file_getl_425D18 — read 32-bit little-endian */
+/* file_getl_425D18 — read 32-bit big-endian */
 int32_t getl(FILE *f) {
-    /* Big-endian 32-bit read */
     unsigned char buf[4];
     if (fread(buf, 1, 4, f) != 4) return 0;
     return ((int32_t)buf[0] << 24) |
@@ -1052,7 +1036,6 @@ void merge_file_contents(FILE *f) {
     if (!f) return;
     int block_count = 0;
 
-    /* .FAN format: series of tagged blocks */
     for (;;) {
         int block_type = fgetc(f);
         if (block_type == EOF) break;
@@ -1087,7 +1070,6 @@ void merge_file_contents(FILE *f) {
             DBG_LOG(2, "[FILE] merge_file_contents: end marker 0xFF after %d blocks\n", block_count);
             return;
         default:
-            /* Unknown block — skip */
             DBG_LOG(1, "[FILE] merge_file_contents: unknown block type 0x%02X at block %d, aborting\n", block_type, block_count);
             return;
         }
@@ -1098,17 +1080,14 @@ void merge_file_contents(FILE *f) {
 void file_read_thing(FILE *f) {
     if (!f) return;
 
-    /* Read thing name index */
     int16_t name_index = getw_be(f);
     if (name_index < 0 || name_index >= THING_TAB_SIZE) return;
 
-    /* Allocate thing */
     actor_t *thing = (actor_t *)calloc(1, sizeof(actor_t));
     if (!thing) return;
 
     thing->name_index = name_index;
 
-    /* Read thing name */
     char name[26];
     int name_len = fgetc(f);
     if (name_len > 25) name_len = 25;
@@ -1119,7 +1098,6 @@ void file_read_thing(FILE *f) {
         strncpy(thing_names[name_index].field_0, name, 25);
     }
 
-    /* Read thing properties */
     thing->flags = getw_be(f);
     thing->position_vector.X = getw_be(f);
     thing->position_vector.Y = getw_be(f);
@@ -1128,25 +1106,21 @@ void file_read_thing(FILE *f) {
     thing->rotate_vector.Y = getw_be(f);
     thing->rotate_vector.Z = getw_be(f);
 
-    /* Read parts */
     int16_t num_parts = getw_be(f);
     for (int i = 0; i < num_parts; i++) {
         file_read_part(f, thing);
     }
 
-    /* Read triangles */
     int16_t num_tris = getw_be(f);
     for (int i = 0; i < num_tris; i++) {
         file_read_triangle(f, thing);
     }
 
-    /* Read points */
     int16_t num_points = getw_be(f);
     for (int i = 0; i < num_points; i++) {
         file_read_point(f, thing);
     }
 
-    /* Link into thing tab and list */
     thing_tab[name_index] = thing;
     thing->next_thing1 = thing_list;
     thing_list = thing;
@@ -1161,12 +1135,10 @@ void file_read_part(FILE *f, actor_t *actor) {
 
     part->name_index = getw_be(f);
 
-    /* Offset */
     part->Offset.X = getw_be(f);
     part->Offset.Y = getw_be(f);
     part->Offset.Z = getw_be(f);
 
-    /* Rotation */
     part->Rotate.X = getw_be(f);
     part->Rotate.Y = getw_be(f);
     part->Rotate.Z = getw_be(f);
@@ -1176,13 +1148,11 @@ void file_read_part(FILE *f, actor_t *actor) {
     part->VECTOR_Squash.Y = getw_be(f);
     part->VECTOR_Squash.Z = getw_be(f);
 
-    /* Properties */
     part->color = fgetc(f);
     part->type = fgetc(f);
     part->flags = getw_be(f);
     part->color_shade = 0x4000;
 
-    /* Copy to defaults */
     part->def_offset = part->Offset;
     part->def_rotate = part->Rotate;
     part->def_Squash = part->VECTOR_Squash;
@@ -1200,11 +1170,9 @@ void file_read_part(FILE *f, actor_t *actor) {
         fpr_log++;
     }
 
-    /* Parent link */
     part->parent_link_index = getw_be(f);
     part->point_to_point = NULL;
 
-    /* Link into actor's part list */
     part->parent_actor = actor;
     part->next = actor->actor_parts_list;
     part->next_in_display_list = actor->actor_parts_list;
@@ -1229,7 +1197,6 @@ void file_read_triangle(FILE *f, actor_t *actor) {
 
     tri->parent_actor = actor;
 
-    /* Link into actor's triangle list */
     tri->next = actor->polygone_tri_list;
     actor->polygone_tri_list = tri;
 }
@@ -1250,7 +1217,6 @@ void file_read_point(FILE *f, actor_t *actor) {
     point->parent_part_index = getw_be(f);  /* parent part index (resolved later) */
     point->point_use_flag = getw_be(f);
 
-    /* Link into global point list */
     point->next = point_list;
     point_list = point;
 }
@@ -1266,12 +1232,11 @@ void file_read_action(FILE *f) {
     if (!action) return;
 
     action->action_index = name_index;
-    action->thing_name_index = getw_be(f);     /* thing name index */
+    action->thing_name_index = getw_be(f);
     action->act_duration = getw_be(f);
     action->action_flags = getw_be(f);
     action->next_action_index = -1;
 
-    /* Read key list */
     int16_t num_keys = getw_be(f);
     for (int i = 0; i < num_keys; i++) {
         file_read_key(f, action);
@@ -1292,7 +1257,6 @@ void file_read_key(FILE *f, action_t *action) {
     key->KEY_position = getw_be(f);
     key->field_E = fgetc(f);
 
-    /* Read events for this key */
     int16_t num_events = getw_be(f);
     for (int i = 0; i < num_events; i++) {
         file_read_event(f, key);
@@ -1357,7 +1321,6 @@ void file_read_code(FILE *f) {
 
     code->index_code = name_index;
 
-    /* Read token count and tokens into global token_store */
     int16_t token_count = getw_be(f);
     if (token_count > 0 && token_count < 10000) {
         code->token_store_index = top_of_tokens;
@@ -1384,11 +1347,8 @@ static int16_t sound_rate_from_header(const char *hdr, int16_t fallback) {
     return (int16_t)rate;
 }
 
-/* file_read_sound_4263A8 — all fields little-endian.
- * Header layout: name_index, use_flag|1, field_10, sound_length, volume;
- * then sound_length - 32 bytes of raw 8-bit PCM. Prior port had wrong
- * endianness on name_index/field_10 → sample rate was 0x2256 (8790 Hz)
- * instead of 0x5622 (22050 Hz). Also missing 32-byte header skip. */
+/* file_read_sound_4263A8 — all fields little-endian: name_index, use_flag|1,
+ * field_10, sound_length, volume; then sound_length - 32 bytes of 8-bit PCM. */
 void file_read_sound(FILE *f) {
     if (!f) return;
 
@@ -1403,7 +1363,7 @@ void file_read_sound(FILE *f) {
     sound->sample_rate = getwLoHi(f);
     int32_t stored_length = getlLoHi(f);
     sound->volume = getwLoHi(f);
-    if (sound->volume <= 0) sound->volume = 100;   /* volume default */
+    if (sound->volume <= 0) sound->volume = 100;
 
     int32_t pcm_length = stored_length - 32;
     sound->sound_length = pcm_length;
@@ -1444,10 +1404,9 @@ void file_read_repertoire(FILE *f) {
     memset(rep->action_slots, 0xFF, sizeof(rep->action_slots));
 
     rep->rep_index = name_index;
-    rep->thing_index = getw_be(f);   /* thing name index */
-    rep->rep_flags = getw_be(f);   /* flags */
+    rep->thing_index = getw_be(f);
+    rep->rep_flags = getw_be(f);
 
-    /* Read action list for repertoire */
     int16_t num_actions = getw_be(f);
     for (int i = 0; i < num_actions; i++) {
         int16_t action_index = getw_be(f);
@@ -1509,7 +1468,6 @@ void file_read_texture(FILE *f) {
     tex->x_size = getw_be(f);
     tex->y_size = getw_be(f);
 
-    /* Read texture pixel data */
     int32_t size = tex->x_size * tex->y_size;
     if (size > 0 && size < 0x100000) {
         tex->texture_data = (char *)calloc(size, 1);
@@ -1589,18 +1547,7 @@ void load_a_repertoire(int rep_index) {
     }
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  Save / Load Game — E2-compatible format (saved/XXXX.ecs)
- *
- *  Format:
- *    save name (26 bytes), version (2), thumbnail (4800),
- *    actor events (terminated by NO_EVENT), repertoire list (-1),
- *    scene list (-1), per-thing state (-1), per-actor arrays,
- *    map areas (-1), globals, cameras (150), ambients, settings,
- *    sentinel 0x1234, then scene flags (v5+) and hero gender (v6+).
- * ══════════════════════════════════════════════════════════════ */
-
-/* ── Port-only settings ──
+/* Port-only settings.
  * Preferences the original never had (it stores its own settings inside the
  * save file, so anything kept there would reset on load). Plain text so it can
  * be edited or deleted by hand; a missing or malformed file just leaves the
@@ -1654,6 +1601,12 @@ void save_port_settings(void) {
     fprintf(f, "scale_mode = %d\n", (int)display_scale_mode);
     fclose(f);
 }
+
+/* Save format (saved/XXXX.ecs): save name (26 bytes), version (2), thumbnail
+ * (4800), actor events (terminated by NO_EVENT), repertoire list (-1), scene
+ * list (-1), per-thing state (-1), per-actor arrays, map areas (-1), globals,
+ * cameras (150), ambients, settings, sentinel 0x1234, then scene flags (v5+)
+ * and hero gender (v6+). */
 
 /* Bump when appending to the save stream. Older files stay loadable as long
  * as new sections are appended after the sentinel and read version-gated. */
@@ -1743,7 +1696,6 @@ void save_game_thing(actor_t *actor, FILE *f) {
 
     save_game_parts(actor, f);
 
-    /* POINT_TO_POINT links for parts in display list */
     for (part_t *pt = (part_t *)actor->actor_parts_list; pt;
          pt = pt->next_in_display_list) {
         if (pt->point_to_point) {
@@ -1751,7 +1703,6 @@ void save_game_thing(actor_t *actor, FILE *f) {
         }
     }
 
-    /* Triangle/polygon geometry */
     for (tri_t *tri = actor->polygone_tri_list; tri; tri = tri->next) {
         put_event(f, tri->tri_index, ADD_TRIANGLE, tri->point1->point_index, tri->point2->point_index, tri->point3->point_index);
 
@@ -2252,9 +2203,7 @@ int get_save_name(int slot, char *buf, int buflen) {
     return 1;
 }
 
-/* file_wave_open_file_4268B8
- * Opens a WAV file via fopen_ci, validates RIFF/WAVE header, reads
- * the fmt chunk.  Returns 0 on success, -1 on failure. */
+/* file_wave_open_file_4268B8 — validates the RIFF/WAVE header and reads the fmt chunk. */
 void wave_open_file(const char *filename) {
     if (!filename) return;
 
@@ -2272,9 +2221,7 @@ void wave_open_file(const char *filename) {
     fclose(f);
 }
 
-/* file_wave_load_file_426928
- * Loads a WAV file: parses RIFF header, finds data chunk, returns PCM
- * via sound_heap.  Zero callers currently — kept for completeness. */
+/* file_wave_load_file_426928 — no callers. */
 void wave_load_file(const char *filename) {
     if (!filename) return;
 
@@ -2358,7 +2305,6 @@ void calc_rel_centre(part_t *part) {
     }
 }
 
-/* Generic: find or add a name in a name_text_t array, return index */
 static int16_t add_name_find_index_ex(const char *name, name_text_t *names, int max_count, bool *is_new) {
     if (!name || !names) {
         DBG_LOG(1, "[NAME] add_name_find_index: NULL name or names array\n");
@@ -2366,7 +2312,6 @@ static int16_t add_name_find_index_ex(const char *name, name_text_t *names, int 
         return -1;
     }
 
-    /* Search for existing name */
     for (int i = 0; i < max_count; i++) {
         if (names[i].field_0[0] == '\0')
             break;  /* end of used entries */
@@ -2376,7 +2321,6 @@ static int16_t add_name_find_index_ex(const char *name, name_text_t *names, int 
         }
     }
 
-    /* Find first empty slot and add */
     for (int i = 0; i < max_count; i++) {
         if (names[i].field_0[0] == '\0') {
             strncpy(names[i].field_0, name, 25);
@@ -2696,11 +2640,6 @@ void merge_event_names(event_t *evt) {
     }
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  Read actors / actions / repertoires / code / sounds /
- *  textures from .FAN stream
- * ══════════════════════════════════════════════════════════════ */
-
 /* file_read_actors  E1: 0x43A008 | E2: 0x4442B0 */
 void read_actors(FILE *f, int quiet) {
     int16_t event_type;
@@ -2732,7 +2671,6 @@ void read_actors(FILE *f, int quiet) {
                 copy_actual_to_defaults(selected_thing);
         }
 
-        /* When quiet and actor already exists, skip all events for this actor */
 check_add_thing:
         if (event_type == ADD_THING && thing_tab[event->param1] != NULL) {
             if (quiet) {
@@ -2782,7 +2720,6 @@ void read_actions(FILE *f) {
         merge_event_names(event);
         event_type = event->event_type;
 
-        /* Skip if action already exists (auto-overwrite) */
         while (event_type == PSEUDO_ACTION) {
             if (!action_tab[event->event_index])
                 break;
@@ -2864,12 +2801,8 @@ void read_repertoires(FILE *f) {
     } while (event_type);
 }
 
-/* file_read_code_444C10
- * Reads code blocks from the FAN file in token+text format.
- * Each code block has: code_name_index, token stream, text lines.
- * Token format uses a 4-bit type prefix (0x1000=part, 0x2000=thing, etc.)
- * and 0xE000 for extended array tokens.
- */
+/* file_read_code_444C10 — tokens carry a 4-bit type prefix (0x1000 part,
+ * 0x2000 thing, ...) and 0xE000 marks extended array tokens. */
 static int16_t merge_token_names(int16_t token) {
     uint16_t type_nibble = (uint16_t)token & 0xF000u;
     int16_t val = token & 0x0FFF;
@@ -2894,12 +2827,10 @@ void read_code(FILE *f) {
 
     for (int i = 0; i < code_size; i++) {
         int16_t file_code_idx = getw_be(f);
-        /* Translate file name index to runtime index */
         int16_t code_name_idx = -1;
         if (file_code_idx >= 0 && file_code_idx < CODE_TAB_SIZE)
             code_name_idx = new_code_name[file_code_idx];
 
-        /* Allocate code_t and link to code_list */
         code_t *code = add_code();
         if (!code) {
             DBG_LOG(1, "[FILE] read_code: failed to allocate code_t #%d\n", i);
@@ -2921,14 +2852,12 @@ void read_code(FILE *f) {
 
         code->index_code = code_name_idx;
 
-        /* If a code with this index already exists, delete the old one */
         if (code_name_idx >= 0 && code_name_idx < CODE_TAB_SIZE) {
             if (code_tab[code_name_idx] && code_tab[code_name_idx] != code)
                 delete_code(code_tab[code_name_idx]);
             code_tab[code_name_idx] = code;
         }
 
-        /* Read tokens */
         int16_t token = getw_be(f);
         if (token != 0) {
             code->token_store_index = top_of_tokens;
@@ -2960,7 +2889,6 @@ void read_code(FILE *f) {
             token_store[top_of_tokens++] = 0;
         }
 
-        /* Read text lines */
         int16_t line_count = getw_be(f);
         line_of_code_t *prev_loc = NULL;
         for (int j = 0; j < line_count; j++) {
@@ -2976,11 +2904,9 @@ void read_code(FILE *f) {
                 while ((ch = fgetc(f)) != 0 && ch != EOF) {
                     if (k < 53) loc->field_0[k++] = (char)ch;
                 }
-                /* Null-terminate (overwrite space padding) */
                 if (k < 53) loc->field_0[k] = '\0';
                 prev_loc = loc;
             } else {
-                /* Can't allocate — just skip the bytes */
                 int ch;
                 while ((ch = fgetc(f)) != 0 && ch != EOF) {}
             }
@@ -3059,10 +2985,8 @@ void read_sounds(FILE *f) {
     }
 }
 
-/* file_read_textures_4451A8
- * Reads textures from the FAN file:
- * sentinel byte, then index(LE) + flags(LE) + width(LE) + height(LE) + pixel data.
- */
+/* file_read_textures_4451A8 — sentinel byte, then per texture: index, flags,
+ * width, height (LE) and pixel data. */
 void read_textures(FILE *f) {
     int sentinel = fgetc(f);
     int tex_count = 0;
@@ -3070,10 +2994,9 @@ void read_textures(FILE *f) {
         tex_count++;
         (void)getwLoHi(f);   /* 2 bytes LE: texture name index */
         (void)getwLoHi(f);   /* 2 bytes LE: flags/type, OR'd with 1 */
-        int16_t width = getwLoHi(f);        /* 2 bytes LE */
-        int16_t height = getwLoHi(f);       /* 2 bytes LE */
+        int16_t width = getwLoHi(f);
+        int16_t height = getwLoHi(f);
 
-        /* Skip pixel data: width * height bytes */
         int pixel_size = width * height;
         if (pixel_size > 0)
             fseek(f, pixel_size, SEEK_CUR);
@@ -3147,7 +3070,6 @@ void merge_new_map(FILE *f) {
     int cam_has_top_clip = (game_version == GAME_VERSION_E2 && file_version >= 36);
     for (int i = 0; i < num_cameras; ++i) {
         if (i >= 1200) {
-            /* skip excess cameras */
             getwLoHi(f); getwLoHi(f); getwLoHi(f);
             getwLoHi(f); getwLoHi(f); getwLoHi(f);
             getwLoHi(f);
@@ -3195,7 +3117,6 @@ void merge_new_map(FILE *f) {
     }
 }
 
-/* Helper: read null-terminated name from stream, strip trailing spaces */
 static int read_name_from_stream(FILE *f, char *buf, int max_len) {
     int len = 0;
     char ch = fgetc(f);
@@ -3206,7 +3127,6 @@ static int read_name_from_stream(FILE *f, char *buf, int max_len) {
         buf[len++] = ch;
         ch = fgetc(f);
     } while (ch);
-    /* strip trailing spaces */
     while (len > 1 && buf[len - 1] == ' ')
         --len;
     buf[len] = '\0';
@@ -3237,7 +3157,6 @@ static void merge_sought_file_body(FILE *f, int quiet) {
     if (file_version >= 26)
         new_name_sys = getw_be(f);
 
-    /* Read internal name (version >= 23) */
     char fan_internal_name[28];
     memset(fan_internal_name, 0, sizeof(fan_internal_name));
     if (file_version >= 23) {
@@ -3252,9 +3171,6 @@ static void merge_sought_file_body(FILE *f, int quiet) {
     if (new_name_sys) {
         set_new_names_to_old();
     } else {
-        /* Read name tables from file */
-
-        /* Part names */
         name_count = 0;
         while (read_name_from_stream(f, name_buf, 50)) {
             new_part_name[name_count] = add_part_name(name_buf);
@@ -3262,7 +3178,6 @@ static void merge_sought_file_body(FILE *f, int quiet) {
         }
         DBG_LOG(2, "[FILE]   part names: %d (pos=%ld)\n", name_count, ftell(f));
 
-        /* Thing names */
         name_count = 0;
         while (read_name_from_stream(f, name_buf, 50)) {
             new_thing_name[name_count] = add_thing_name(name_buf);
@@ -3270,7 +3185,6 @@ static void merge_sought_file_body(FILE *f, int quiet) {
         }
         DBG_LOG(2, "[FILE]   thing names: %d (pos=%ld)\n", name_count, ftell(f));
 
-        /* Action names */
         name_count = 0;
         while (read_name_from_stream(f, name_buf, 50)) {
             new_action_name[name_count] = add_action_name(name_buf);
@@ -3278,7 +3192,6 @@ static void merge_sought_file_body(FILE *f, int quiet) {
         }
         DBG_LOG(2, "[FILE]   action names: %d (pos=%ld)\n", name_count, ftell(f));
 
-        /* Scene names */
         name_count = 0;
         while (read_name_from_stream(f, name_buf, 50)) {
             new_scene_name[name_count] = add_scene_name(name_buf);
@@ -3368,7 +3281,6 @@ static void merge_sought_file_body(FILE *f, int quiet) {
     }
 
     DBG_LOG(2, "[FILE] merge_sought_file: actions/actors loaded, reading scenes...\n");
-    /* Read events/scenes/scripts/keys/ellipses */
     int16_t event_type;
     script_t *current_script = NULL;
     key_state_t *key_struct = NULL;
@@ -3379,7 +3291,6 @@ static void merge_sought_file_body(FILE *f, int quiet) {
         merge_event_names(event);
         event_type = event->event_type;
 
-        /* Handle scene overwrite */
         while (event_type == PSEUDO_SCENE) {
             if (scene_tab[event->event_index] == NULL)
                 break;
@@ -3521,11 +3432,9 @@ static void merge_sought_file_body(FILE *f, int quiet) {
         add_to_display_list(selected_thing);
     }
 
-    /* Clear action edit flags */
     for (action_t *action = action_list; action; action = action->next)
         action->action_flags &= 0xFDFFu;
 
-    /* Only log when load actually produced something interesting */
     if (selected_thing) {
     }
 }

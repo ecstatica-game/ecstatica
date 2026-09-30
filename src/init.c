@@ -2,7 +2,6 @@
  * init.c
  *
  * Initialization, display primitives, input handling, timing.
- * Contains 110 functions prefixed with init_ in the original ASM.
  */
 
 #include "init.h"
@@ -49,7 +48,7 @@ bool key_esc_was_pressed = false;
 bool key_i_was_pressed = false;
 bool key_return_was_pressed = false;
 int16_t joystick = 0;
-bool joystick_control = true;   /* defaults to 1 */
+bool joystick_control = true;
 int16_t joy_button = 0;
 int16_t movement_speed_mode = 4;  /* default: walk speed 1 (F5) */
 
@@ -91,7 +90,6 @@ void setup(void) {
     init();
     DBG_LOG(1, "SETUP: after init\n");
 
-    /* Read config file */
     FILE *f = fopen_ci("e_config", "rb");
     if (f) {
         config_t config;
@@ -107,15 +105,11 @@ void setup(void) {
 
     load_port_settings();
 
-    /* Same reasoning as render_init() below: do_init() ran before the stored
-     * preference was loaded, so the backend got the SCALE_PILLARBOX default
-     * and needs telling now. No-op on backends that ignore scale mode. */
+    /* do_init() ran before the stored preference was loaded. */
     platform_set_scale_mode(win_platform(), display_scale_mode);
 
-    /* Here, not in do_init(), because the stored renderer preference is only
-     * known once load_port_settings() above has run — and do_init() runs
-     * before this. The window already exists by now, which is all a backend
-     * needs; a failure leaves the software renderer selected. */
+    /* Here, not in do_init(): the renderer preference is only known once
+     * load_port_settings() has run. A failure leaves the software renderer. */
     render_init();
     DBG_LOG(1, "SETUP: after render_init\n");
 
@@ -169,10 +163,8 @@ void setup(void) {
         return;
     }
 
-    /* Start the game.
-     * Asm setup_41007C clears bitmap[0] to color 0 BEFORE make_thing,
-     * NOT bitmap[2] to color 15 (which would wipe the cam-loaded bg
-     * stored in plane 2 by check_view). */
+    /* setup_41007C clears bitmap[0] to 0 here, not bitmap[2], which holds the
+     * background check_view loaded. */
     start_game_medium(0, 0);
     a_pen_colour = 0;
     rect_fill(0, 0, 0, screen_width, screen_height);
@@ -235,11 +227,7 @@ void init(void) {
     int boot_vga = !display_hires || (vga_data && !hires_available);
 
     /* Must agree with the boot resolution before the first asset load, or the
-     * swappable lookups prefer the wrong root. It only mattered once the W/
-     * side gained a paired root: booting there is SVGA, but enhanced_graphics
-     * still read 0, so backgrounds came from the DOS 320x200 set. The title
-     * screen survived by fallback (TSCREEN.RAW exists only in W/), which is
-     * why the first screen looked right and the next one did not. */
+     * swappable lookups prefer the wrong root. */
     enhanced_graphics = boot_vga ? 0 : 1;
 
     if (boot_vga) {
@@ -255,12 +243,9 @@ void init(void) {
     if (!boot_vga)
         go_svga();
 
-    /* The publisher logos and the title screen are six seconds of nothing the
-     * viewer has any use for. Skipping the waits is not enough on its own:
-     * load_background_title() leaves the title in the draw planes, and every
-     * present_delay() setup() makes between the archive merges flips it back
-     * up, so it stays on screen for the whole load. The planes have to be
-     * cleared instead of painted. */
+    /* Skip the publisher logos and title in the viewer. Skipping the waits is
+     * not enough: every present_delay() in setup() would flip the title back
+     * up during the load, so the planes are cleared instead. */
     if (game_version != GAME_VERSION_E1 && !viewer_mode) {
         load_logo("psyglogo.raw");
         present_delay(2000);
@@ -289,10 +274,8 @@ void init(void) {
      * the new player. */
     init_material_flags();
 
-    /* Clear all-black colour map */
     memset(all_black_cmap, 0, sizeof(all_black_cmap));
 
-    /* Allocate name stores */
     part_names = (name_text_t *)calloc(PART_POOL_SIZE, sizeof(name_text_t));
     thing_names = (name_text_t *)calloc(THING_TAB_SIZE, sizeof(name_text_t));
     action_names = (name_text_t *)calloc(ACTION_TAB_SIZE, sizeof(name_text_t));
@@ -319,11 +302,9 @@ void init(void) {
         strncpy(part_names[i].field_0, default_part_names[i], 25);
     }
 
-    /* Allocate token store */
     token_store = (int16_t *)calloc(20000, sizeof(int16_t));
     top_of_tokens = 1;
 
-    /* Initialize math tables and game systems */
     fill_in_sin_tables();
     load_shadow_tab();
     init_map();
@@ -332,24 +313,16 @@ void init(void) {
     clear_keys_pressed();
     load_shade_map();
 
-    /* Populate 132-glyph 6x8 font. CharacterSet literal extracted
-     * into chars.c. */
     extern void load_character_set_ref(void);
     load_character_set_ref();
 
     game_time = 0;
 }
 
-/* init_setup_directory_paths_413DA4
- * Original: set per-category path prefixes based on install_type (CD vs disk).
- * asm2c port: all data is in CWD, so paths are empty (no prefix needed).
- * The search_*_dirs_and_load functions build relative paths directly. */
+/* init_setup_directory_paths_413DA4 — the original picked CD or disk path
+ * prefixes; all data here is relative to the data root. */
 void setup_directory_paths(void) {
-    /* Nothing to do — all paths relative to CWD */
 }
-
-/* init_thing_name  E1: 0x410A0C | E2: 0x410A08 */
-/* Helper — not externally visible */
 
 /* init_stop_samples_413E88 — stop all playing sound buffers */
 void stop_samples(void) {
@@ -362,14 +335,10 @@ void start_playing_sample(sound_t *sound, int loop, int volume) {
     if (sound->audio_ptr && sound->sound_length > 0) {
         sound->_time = game_time;
 
-        /* Track when audio currently in flight will have finished, so a
-         * subtitle can be held for as long as its speech lasts. A running
-         * maximum, not the latest sample: one spoken paragraph is a single
-         * long sample spanning several caption lines, and the footsteps and
-         * other short effects firing over it must not pull the finish time
-         * back. Values in the past are inert, so this needs no reset.
-         * Recorded even with SFX muted so the hold still scales with the
-         * line rather than snapping back to the flat 420 ticks. */
+        /* Track when the audio in flight will finish, so a subtitle can be
+         * held for as long as its speech lasts. A running maximum: footsteps
+         * over a long spoken sample must not pull it back. Recorded even with
+         * SFX muted so the hold still scales with the line. */
         int rate = sound->sample_rate > 0 ? sound->sample_rate : 22050;
         int32_t now_rt = my_time();
         int32_t dur = (int32_t)(((int64_t)sound->sound_length * MY_TIME_PER_SEC) / rate);
@@ -388,17 +357,16 @@ void start_playing_sample(sound_t *sound, int loop, int volume) {
 
 /* init_start_playing_sound  E1: 0x41108C | E2: 0x413EB8 */
 int start_playing_sound(void) {
-    return 1;  /* Stub */
+    return 1;
 }
 
 /* init_start_recording  E1: 0x41120C | E2: 0x414038 */
 void start_recording(void) {
-    /* Stub — recording not needed */
 }
 
 /* init_find_recorded_len  E1: 0x411418 | E2: 0x414244 */
 int find_recorded_len(void) {
-    return 0;  /* Stub */
+    return 0;
 }
 
 /* init_set_up_sound_driver  E1: 0x411460 | E2: 0x41428C */
@@ -461,37 +429,29 @@ try_per_file:
 
 /* init_select_sound_card_win95  E1: 0x412EA8 | E2: 0x416410 */
 void select_sound_card_win95(void) {
-    /* Stub */
 }
 
 /* init_select_sound_card  E1: 0x412F38 | E2: 0x4164A0 */
 void select_sound_card(void) {
-    /* Stub */
 }
 
 /* init_wait_vert_blank  E1: 0x411844 | E2: 0x414664 */
 void wait_vert_blank(void) {
-    /* No-op on modern platforms — vsync handled by platform layer */
 }
 
 /* init_select_video_page  E1: 0x411874 | E2: 0x414694 */
 void select_video_page(void) {
-    db = 1 - db;  /* Toggle double-buffer index */
+    db = 1 - db;
 }
 
 /* init_set_up_bitmaps  E1: 0x411990 | E2: 0x4147B0 */
 void set_up_bitmaps(void) {
-    /* Size the planes to the largest mode this session can reach, not to a
-     * fixed 640x480. go_svga() is the only widener and it bails out when
-     * low_res_only (game.c:3154), which init() has already fixed for the
-     * session by here — so a low-res-only session never addresses past
-     * 320x200 and does not need the 640x480 allocation. Saves 2.44 MB on the
-     * targets that care. Every accessor strides by hires_width, so the plane
-     * only has to hold the mode that is actually selected. */
+    /* Size the planes to the largest mode this session can reach. go_svga()
+     * is the only widener and bails out when low_res_only, so a low-res-only
+     * session saves 2.44 MB. */
     int32_t plane_pixels = (low_res_only ? (320 * 200) : (640 * 480))
                          + BITMAP_SLACK;
 
-    /* Planes 0 and 1 are legacy VGA addresses — allocate real buffers */
     bitmap[0] = (char *)calloc(plane_pixels, 1);
     bitmap[1] = (char *)calloc(plane_pixels, 1);
     bitmap[2] = (char *)calloc(plane_pixels, 1);
@@ -520,11 +480,9 @@ void load_logo(const char *file_name) {
     FILE *f = fopen_ci(file_name, "rb");
     if (!f) return;
 
-    /* Read 32-byte header */
     char header[32];
     fread(header, 1, 32, f);
 
-    /* Read 768-byte palette */
     uint8_t pal[768];
     fread(pal, 1, 768, f);
     for (int i = 0; i < 256; i++) {
@@ -533,11 +491,9 @@ void load_logo(const char *file_name) {
         spare_cmap[i].B = pal[i * 3 + 2] >> 2;
     }
 
-    /* Read pixel data */
     fread(bitmap[3], 1, screen_width * screen_height, f);
     fclose(f);
 
-    /* Blit and set palette */
     clip_blit(3, 0, 0, 0, 0, 0, screen_width, screen_height, 0xC0);
     clip_blit(3, 0, 0, 1, 0, 0, screen_width, screen_height, 0xC0);
     set_palette(spare_cmap);
@@ -564,7 +520,7 @@ void load_def_palette(void) {
         colour_map[i].B = pal[i * 3 + 2] >> 2;
     }
 
-    // HACK: red colour showing as pink in E1, so darken the red channel for the red palette entries
+    /* Red reads as pink in E1; darken the red channel of the red entries. */
     if (game_version == GAME_VERSION_E1) {
         for (int i = 207; i <= 223; i++) {
             colour_map[i].G = colour_map[i].G / 2;
@@ -608,10 +564,8 @@ void load_background_title(void) {
     memcpy(fade_cmap, spare_cmap, 256 * sizeof(palette_entry_t));
 }
 
-/* init_load_motion_file_420578 — editor-only: reads motion.txt for motion capture import.
- * Not called at runtime. */
+/* init_load_motion_file_420578 — editor-only motion capture import. */
 void load_motion_file(void) {
-    /* No-op: editor-only function, never called at runtime */
 }
 
 /* init_quit2  E1: 0x412028 | E2: 0x414E30 */
@@ -622,7 +576,6 @@ void quit2(const char *msg1, const char *msg2) {
 
 /* init_quit  E1: 0x412034 | E2: 0x414E3C */
 void quit(const char *info) {
-    /* Release sound resources */
     sound_t *s = sound_list;
     while (s) {
         release_sound_buffer_win95(s);
@@ -630,7 +583,6 @@ void quit(const char *info) {
     }
     remove_sound_driver_win95();
 
-    /* Close data files */
     if (file_pointer) { fclose(file_pointer); file_pointer = NULL; }
     if (file2_pointer) { fclose(file2_pointer); file2_pointer = NULL; }
 
@@ -643,14 +595,10 @@ void quit(const char *info) {
 
 /* init_fill_in_sin_tables  E1: 0x41210C | E2: 0x414F14 */
 void fill_in_sin_tables(void) {
-    /* Fill atan_tab0 and atan_tab1.
-     * Byte-scaled: arctan() expands via `(int16)result << 8` to recover the
-     * full angle (where 0x4000 = 90°). Formula reverse-engineered from
-     * init_fill_in_sin_tables_414F40 by running it in Unicorn:
-     *   tab0[i] = trunc(128 * atan(i / 64) / π + 0.5)   for X/Y in 0..4
-     *   tab1[i] = trunc(128 * atan(i /  4) / π + 0.5)   for X/Y in 0..64
-     * (round-half-up via `+0.5` then truncate toward zero, matching asm
-     * `fadd 0.5; call __CHP; fistp`.) */
+    /* atan_tab0/1 are byte-scaled: arctan() recovers the angle with << 8
+     * (0x4000 = 90°). From init_fill_in_sin_tables_414F40:
+     *   tab0[i] = trunc(128 * atan(i / 64) / π + 0.5)
+     *   tab1[i] = trunc(128 * atan(i /  4) / π + 0.5) */
     for (int i = 0; i < 256; i++) {
         atan_tab0[i] = (int8_t)(128.0 * atan((double)i / 64.0) / M_PI + 0.5);
         atan_tab1[i] = (int8_t)(128.0 * atan((double)i /  4.0) / M_PI + 0.5);
@@ -734,10 +682,9 @@ void fill_in_sin_tables(void) {
     }
 }
 
-/* init_fill_in_shadow_tab_415560 — generates shadow_tab from colour map.
- * Not needed: load_shadow_tab() reads pre-computed SHADOW.DAT instead. */
+/* init_fill_in_shadow_tab_415560 — load_shadow_tab() reads the precomputed
+ * SHADOW.DAT instead. */
 void fill_in_shadow_tab(void) {
-    /* No-op: SHADOW.DAT is loaded directly */
 }
 
 /* init_load_shadow_tab  E1: ? | E2: 0x415B4C */
@@ -753,8 +700,7 @@ int load_anti_alias(void) {
     return 1;  /* Anti-aliasing not in final game */
 }
 
-/* init_wait_for_interrupt  E1: 0x41262C | E2: 0x415CF4 */
-/* No-op on modern platforms */
+/* init_wait_for_interrupt  E1: 0x41262C | E2: 0x415CF4 — not needed. */
 
 /* init_biostime  E1: 0x41999C | E2: 0x41CF18 */
 int32_t biostime(void) {
@@ -767,7 +713,6 @@ int32_t my_time(void) {
     static int32_t deterministic_time = 0;
     return deterministic_time++;
 #else
-    /* Use platform ticks — convert ms to game time units */
     /* Original: E1 = 60 * clock / 100, E2 = 70 * clock / 100 */
     int32_t rate = (game_version == GAME_VERSION_E1) ? 60 : 70;
     return (int32_t)(platform_ticks(NULL) * rate / 1000);
@@ -776,12 +721,10 @@ int32_t my_time(void) {
 
 /* init_add_keyboard_handler  E1: 0x4184D4 | E2: 0x41BA4C */
 void add_keyboard_handler(void) {
-    /* Handled by platform layer */
 }
 
 /* init_get_joystick  E1: 0x41264C | E2: 0x415D14 */
 void get_joystick(void) {
-    /* Map numpad keys to joystick direction */
     joystick = 1000;  /* No direction */
 
     if (key8_pressed) joystick = 0;       /* Up */
@@ -845,14 +788,14 @@ void get_joystick(void) {
         }
     }
 
-    /* Return key — show inventory/icon page (binary: byte_4C39AC → show_icon_page) */
+    /* Return: inventory page (byte_4C39AC). */
     if (key_return_was_pressed) {
         key_return_was_pressed = false;
         stop_the_clock = true;
         show_icon_page();
     }
 
-    /* I key — toggle HUD icons on/off (binary: byte_4C39A7 → no_icons toggle) */
+    /* I: toggle HUD icons (byte_4C39A7). */
     if (key_i_was_pressed) {
         key_i_was_pressed = false;
         no_icons = !no_icons;
@@ -862,10 +805,8 @@ void get_joystick(void) {
             clear_game_icons();
     }
 
-    /* Handle special keys. 0x4129B4 gates on game_up_and_running alone, so the
-     * menu is reachable during the intro too — that is where a player wants
-     * the language and subtitle settings, not after it. Intro skipping stays
-     * on space/enter, as in the original. */
+    /* 0x4129B4 gates on game_up_and_running alone, so the menu is reachable
+     * during the intro too. */
     if ((key_esc_was_pressed || key_esc_was_forced) && game_up_and_running) {
         stop_the_clock = true;
         if (key_esc_was_forced) {
@@ -879,13 +820,10 @@ void get_joystick(void) {
 
 /* init_get_mouse  E1: 0x4184D8 | E2: 0x41BA50 */
 void get_mouse(void) {
-    /* The original assembly get_mouse (init_get_mouse_41BA7C) included
-     * the full Win32 message pump (PeekMessage/GetMessage/DispatchMessage).
-     * Our equivalent is window_proc() which calls platform_pump_events. */
+    /* init_get_mouse_41BA7C ran the Win32 message pump here. */
     window_proc();
 
     if (!app_active) {
-        /* App is inactive — wait */
         platform_delay(100);
         return;
     }
@@ -923,9 +861,7 @@ void clear_ptr_tabs(void) {
 
 /* init_init_material_flags  E1: 0x413604 | E2: 0x416B7C */
 void init_material_flags(void) {
-    /* Hardcoded surface-type render behaviors — asm init_init_material_flags_416BA8.
-     * Was incorrectly identity-initialized (bug 41), corrupting render behavior
-     * for water/reflective/transparent surfaces during rasterization. */
+    /* Hardcoded, from init_init_material_flags_416BA8. */
     material_flags[0]  = 0;
     material_flags[1]  = 14;
     material_flags[2]  = 7;
@@ -960,7 +896,6 @@ void init_material_flags(void) {
 
 /* init_init_event_type_flags  E1: 0x413710 | E2: 0x416C88 */
 void init_event_type_flags(void) {
-    /* Event type flags determine which events affect parts/triangles/points */
     memset(event_type_flags, 0, sizeof(event_type_flags));
     memset(event_priority, 0, sizeof(event_priority));
 
@@ -1095,7 +1030,6 @@ void clip_blit_win95(int src_plane, int src_x, int src_y, int dst_plane,
     if (!bitmap[src_plane] || !bitmap[dst_plane]) return;
     if (width <= 0 || height <= 0) return;
 
-    /* Clamp to screen bounds */
     if (dst_x < 0) { src_x -= dst_x; width += dst_x; dst_x = 0; }
     if (dst_y < 0) { src_y -= dst_y; height += dst_y; dst_y = 0; }
     if (dst_x + width > screen_width) width = screen_width - dst_x;
@@ -1114,14 +1048,8 @@ void put_graphic(char *data, int plane, int x, int y, int sx, int sy) {
     put_graphic_win95(data, plane, x, y, sx, sy);
 }
 
-/* init_put_graphic_win95_41831C — PutGraphicWIN95.
- * .RAW graphics are stored ROW-MAJOR: pixel(row j, col i) at
- * data[j * sx + i]. Prior port assumed COL-MAJOR (data[col*sy + row])
- * → every graphic (intro title, HUD icons, requester glyphs) rendered
- * transposed + reflected → looked "flipped and rotated 90 degrees".
- * Mask plane indexing: use MaskMap[0] for plane < 2 and MaskMap[1] for
- * plane >= 2. Prior port used `mask_map[plane>=2 ? 2 : plane]` — index 2
- * was wrong. */
+/* init_put_graphic_win95_41831C — .RAW graphics are row-major. Mask plane is
+ * mask_map[0] for planes 0-1 and mask_map[1] for planes 2-3. */
 void put_graphic_win95(char *data, int plane, int x, int y, int sx, int sy) {
     if (!data || !bitmap[plane]) return;
 
@@ -1143,10 +1071,8 @@ void put_graphic_win95(char *data, int plane, int x, int y, int sx, int sy) {
         int off = (y + row) * hw + x;
         for (int col = col0; col < col1; col++) {
             char pixel = src[col];
-            /* 0xFF is the transparency key. Comparing against -1 assumes a
-             * signed char, which is not universal — Open Watcom's default char
-             * is unsigned, and the test silently never fired there, so every
-             * graphic drew its transparent pixels as palette entry 255. */
+            /* 0xFF is the transparency key; Open Watcom's char is unsigned,
+             * so comparing with -1 never matches there. */
             if ((unsigned char)pixel == 0xFFu) continue;
             dst[off + col] = pixel;
             if (m) m[off + col] = 0;
@@ -1196,17 +1122,9 @@ int convert_ascii(int ascii_code) {
     return 102;  /* fallback character */
 }
 
-/* init_text_418770 — SmallTextWIN95.
- * Bug fixes vs prior port:
- * 1. Glyph cells hold literal '#' (0x23) for foreground, ' ' (0x20) for
- *    background — BOTH nonzero. Prior `if (fontBit)` treated every cell
- *    as foreground → every glyph rendered as a solid rectangle. Must
- *    compare cell == '#'.
- * 2. pen_position_x[plane] advances +6 per glyph. Prior port didn't
- *    advance the pen — successive text() calls stacked on the same X
- *    position → only the last string visible.
- * 3. length == 0 means unbounded until null terminator (str_length =
- *    10000 as effective infinity). */
+/* init_text_418770 — SmallTextWIN95. Glyph cells hold '#' for foreground and
+ * ' ' for background. The pen advances 6 per glyph; length 0 means up to the
+ * NUL terminator. */
 void text(int plane, const char *text, int length) {
     if (!text || !bitmap[plane]) return;
     int limit = length ? length : 10000;
@@ -1227,7 +1145,6 @@ void text(int plane, const char *text, int length) {
         int px = pen_position_x[plane];
         int py = pen_position_y[plane];
 
-        /* Clip the glyph cell once rather than per pixel. */
         int cx0 = (px < 0) ? -px : 0;
         int cy0 = (py < 0) ? -py : 0;
         int cx1 = (px + glyph_w > w) ? w - px : glyph_w;
@@ -1256,7 +1173,7 @@ void small_text_win95(int plane, const char *str, int length) {
 
 /* init_anti_aliased_text  E1: 0x415A44 | E2: 0x418FBC */
 void anti_aliased_text(int plane, const char *str, int length) {
-    text(plane, str, length);  /* No AA in cross-platform build */
+    text(plane, str, length);
 }
 
 /* init_text_with_mask  E1: 0x415F04 | E2: 0x41947C */
@@ -1264,17 +1181,13 @@ void text_with_mask(int plane, const char *str, int length) {
     text_with_mask_win95(plane, str, length);
 }
 
-/* init_text_with_mask_win95_41987C.
- * Draws with unconditional bg-color fill (drawMode 2 semantic) AND zeros
- * the mask plane at every glyph cell — makes text-region cutout so
- * text renders on top of any masked layer. Prior port just delegated
- * to text() with no mask write. */
+/* init_text_with_mask_win95_41987C — fills the background colour and zeroes
+ * the mask at every glyph cell, so text draws over any masked layer. */
 void text_with_mask_win95(int plane, const char *str, int length) {
     text_with_mask_scaled(plane, str, length, 1);
 }
 
-/* Port addition: same as text_with_mask_win95 but replicates each glyph pixel
- * into a scale x scale block. scale 1 is byte-identical to the original path. */
+/* Port addition: text_with_mask_win95 with each glyph pixel scaled up. */
 void text_with_mask_scaled(int plane, const char *str, int length, int scale) {
     if (!str || !bitmap[plane]) return;
     if (scale < 1) scale = 1;
@@ -1317,7 +1230,6 @@ void rect_fill(int plane, int x, int y, int w, int h) {
 void rect_fill_win95(int plane, int x, int y, int w, int h) {
     if (!bitmap[plane]) return;
 
-    /* Clamp */
     if (x < 0) { w += x; x = 0; }
     if (y < 0) { h += y; y = 0; }
     if (x + w > screen_width) w = screen_width - x;
@@ -1330,10 +1242,7 @@ void rect_fill_win95(int plane, int x, int y, int w, int h) {
 
 /* init_set_palette  E1: 0x4179E4 | E2: 0x41AF5C */
 void set_palette(palette_entry_t *new_palette) {
-    /* Copy to view_cmap and update platform palette */
     memcpy(view_cmap, new_palette, 256 * sizeof(palette_entry_t));
-
-    /* Platform layer handles the actual palette application via platform_blit */
 }
 
 /* init_move  E1: 0x417AD4 | E2: 0x41B04C */
@@ -1404,7 +1313,6 @@ void xor_pixel(int plane, int x, int y) {
 
 /* init_if_editor_show_cursor  E1: 0x4184C4 | E2: 0x41BA3C */
 void if_editor_show_cursor(void) {
-    /* Stub */
 }
 
 /* init_turn_mouse_pointer_on  E1: 0x418724 | E2: 0x41BC9C */
@@ -1424,27 +1332,22 @@ void draw_mouse_cursor(void) {
 
 /* init_draw_mouse_cursor_win95  E1: 0x4188EC | E2: 0x41BE68 */
 void draw_mouse_cursor_win95(void) {
-    /* Software cursor drawing — platform layer handles the actual cursor */
 }
 
 /* init_draw_db_mouse_cursor_win95  E1: 0x418A54 | E2: 0x41BFD0 */
 void draw_db_mouse_cursor_win95(void) {
-    /* Double-buffered mouse cursor */
 }
 
 /* init_clear_mouse_cursor_win95  E1: 0x418BDC | E2: 0x41C158 */
 void clear_mouse_cursor_win95(void) {
-    /* Clear software cursor */
 }
 
 /* init_clear_db_mouse_cursor_win95  E1: 0x418CD8 | E2: 0x41C254 */
 void clear_db_mouse_cursor_win95(void) {
-    /* Clear double-buffered cursor */
 }
 
 /* init_init_colours0to8  E1: 0x419748 | E2: 0x41CCC4 */
 void init_colours0to8(palette_entry_t *palette) {
-    /* 8 hardcoded palette entries */
     palette[0] = pal_rgb(0, 0, 0);       /* Black */
     palette[1] = pal_rgb(63, 63, 63);     /* White */
     palette[2] = pal_rgb(63, 0, 0);       /* Red */
@@ -1455,10 +1358,8 @@ void init_colours0to8(palette_entry_t *palette) {
     palette[7] = pal_rgb(32, 48, 63);     /* Light cyan */
 }
 
-/* init_expand_colour_map_a_bit_41CD54 — palette interpolation.
- * Not called at runtime. */
+/* init_expand_colour_map_a_bit_41CD54 — not called at runtime. */
 void expand_colour_map_a_bit(void) {
-    /* No-op: palette expansion not used in Win95 port */
 }
 
 /* init_load_shade_map  E1: 0x4198E0 | E2: 0x41CE5C */
@@ -1466,13 +1367,7 @@ void load_shade_map(void) {
     FILE *f = fopen_ci("shademap.dat", "rb");
     if (!f) return;
 
-    /* Bulk-read entire file (128*128 * 3 bytes per cell = 49152 bytes)
-     * instead of 49K individual fgetc/getw_be calls.
-     *
-     * static, because 48 KB does not fit in a DOS stack: DOS/4GW gives the
-     * program 64 KB by default and nothing traps the overflow — the frame just
-     * runs off the end into whatever is below and the game wanders off. This
-     * is called once, from one thread, so a static buffer costs nothing. */
+    /* Static because 48 KB overflows DOS/4GW's default 64 KB stack silently. */
     static uint8_t buf[128 * 128 * 3];
     size_t n = fread(buf, 1, sizeof(buf), f);
     fclose(f);
@@ -1496,16 +1391,12 @@ void clear_mask_rect(int mask, int x, int y, int w, int h) {
     clip_mask(0, mask, x, y, w, h);
 }
 
-/* init_pack_bitmap_41D084 — editor-only: packs bitmap for archiving.
- * Returns 0 (confirmed no-op in Win95 port).
- * Only unpack_bitmap is called at runtime. */
+/* init_pack_bitmap_41D084 — editor-only; a no-op in the Win95 release. */
 void pack_bitmap(char *output, char *input) {
     (void)output; (void)input;
 }
 
-/* init_pack_mask_41D2BC — editor-only: packs mask for archiving.
- * Returns 0 (confirmed no-op in Win95 port).
- * Only unpack_mask is called at runtime. */
+/* init_pack_mask_41D2BC — editor-only; a no-op in the Win95 release. */
 void pack_mask(int16_t *output, char *input) {
     (void)output; (void)input;
 }
@@ -1517,49 +1408,40 @@ void set_load_by_offset(void) {
 
 /* init_reverse_char_word  E1: 0x41A5EC | E2: 0x41DB6C */
 void reverse_char_word(void) {
-    /* Stub — character set manipulation */
 }
 
 /* init_shift_char_word  E1: 0x41A674 | E2: 0x41DBF4 */
 void shift_char_word(void) {
-    /* Stub */
 }
 
-/* init_change_character_set_41DC8C — remaps font glyphs for different languages.
- * Not called at runtime (options menu language change). */
+/* init_change_character_set_41DC8C — language font remap; not called. */
 void change_character_set(void) {
 }
 
-/* init_change_subtitles_41E3C4 — loads translated subtitle text.
- * Not called at runtime (language change). */
+/* init_change_subtitles_41E3C4 — not called. */
 void change_subtitles(void) {
 }
 
-/* init_change_text_jap_41E85C — loads Japanese text translations.
- * Not called at runtime. */
+/* init_change_text_jap_41E85C — not called. */
 void change_text_jap(void) {
 }
 
 /* init_set_up_sub_directories  E1: ? | E2P: 0x41EB30 */
 void set_up_sub_directories(void) {
-    /* Stub */
 }
 
 /* init_check_directories  E1: 0x41C53C | E2: 0x41FABC */
 void check_directories(void) {
-    /* Stub */
 }
 
 /* init_dd_lock  E1: 0x415460 | E2: 0x4189D8 */
 char *dd_lock(int plane, int *pitch) {
-    /* No-op — DirectDraw surface locking not needed */
     if (pitch) *pitch = screen_width;
     return bitmap[plane];
 }
 
 /* init_dd_unlock  E1: 0x41555C | E2: 0x418AD4 */
 void dd_unlock(int plane, char *data) {
-    /* No-op */
     (void)plane;
     (void)data;
 }

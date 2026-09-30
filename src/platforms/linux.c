@@ -29,15 +29,10 @@
 
 #define MAX_KEYS 256
 
-/* Raw joystick button/axis indices are assigned by ascending EV_KEY/EV_ABS code
- * of whatever the driver happens to declare, so they shift between pads. The
- * Steam Deck's hid-steam declares BTN_TL2 and BTN_TR2 for its analog triggers,
- * which pushes BTN_THUMBR from index 10 (where an xpad puts it) out to 12 —
- * index 10 there is BTN_MODE, the Steam button. JSIOCGBTNMAP/JSIOCGAXMAP hand
- * back the EV code for each index, so resolve everything semantically. */
-/* Generous: the Steam Deck's own pad declares trackpad clicks, four back
- * buttons and gyro axes alongside the ordinary ones, and a slot that lands past
- * these caps would read as permanently released. */
+/* js button/axis indices follow the EV codes each driver declares, so they
+ * shift between pads (hid-steam's BTN_TL2/TR2 push BTN_THUMBR from 10 to 12).
+ * JSIOCGBTNMAP/JSIOCGAXMAP give the EV code per index, so everything is
+ * resolved semantically. Caps are generous for the Deck's extra controls. */
 #define JS_MAX_BUTTONS 64
 #define JS_MAX_AXES    32
 
@@ -50,11 +45,8 @@ enum {
     GA_LX, GA_LY, GA_RX, GA_RY, GA_LT, GA_RT, GA_DX, GA_DY, GA_COUNT
 };
 
-/* Every pad node is tracked, not just the first that looks usable. A Steam
- * Deck or Steam Machine carries several at once — the physical pad, Steam
- * Input's virtual X-Box 360 pad, and whatever else is plugged in — and only
- * one of them is the one Steam is actually feeding. Picking the lowest index
- * and stopping there lands on a silent node about as often as the live one. */
+/* Every pad node is tracked: a Steam Deck has the physical pad, Steam Input's
+ * virtual X360 pad and more, and only one of them is live. */
 #define JS_MAX_PADS 4
 
 typedef struct {
@@ -93,11 +85,9 @@ struct platform_t {
     Atom     wm_delete;
     int      screen;
 
-    /* Hardware renderer. GLX fixes the visual at window creation and the game
-     * window already exists with the default one, so the context goes on a
-     * child window covering the parent. The parent keeps the event mask, so
-     * input, the WM protocol and the software blit path are all untouched and
-     * the renderer can be switched at runtime without recreating anything. */
+    /* GLX fixes the visual at window creation, so the GL context lives on a
+     * child window over the parent. The parent keeps the event mask and the
+     * software blit, so the renderer can switch at runtime. */
 #ifdef ECS_ENABLE_GL
     Window   gl_window;
     GLXContext gl_ctx;
@@ -220,7 +210,6 @@ platform_t *platform_init(const char *title, int fb_width, int fb_height, int sc
     p->wm_delete = XInternAtom(p->display, "WM_DELETE_WINDOW", False);
     XSetWMProtocols(p->display, p->window, &p->wm_delete, 1);
 
-    /* Prevent window resize */
     XSizeHints *hints = XAllocSizeHints();
     if (hints) {
         hints->flags = PMinSize | PMaxSize;
@@ -257,14 +246,10 @@ platform_t *platform_init(const char *title, int fb_width, int fb_height, int sc
     XMapWindow(p->display, p->window);
     XFlush(p->display);
 
-    /* Disable X11 key auto-repeat detection */
     XkbSetDetectableAutoRepeat(p->display, True, NULL);
 
-    /* Pads are opened by the first platform_gamepad_poll(), which is also
-     * what resolves the button and axis maps. Opening one here instead left
-     * btn[]/ax[] at their calloc'd zeroes, aiming every slot at button 0
-     * and axis 0 — one face button pressed every action at once, and the left
-     * stick drove both sticks and both triggers. */
+    /* Opened by the first platform_gamepad_poll(), which also resolves the
+     * button and axis maps. */
     for (int i = 0; i < JS_MAX_PADS; i++) {
         p->js_pads[i].fd = -1;
         p->js_pads[i].index = -1;
@@ -278,9 +263,7 @@ bool platform_hires_supported(platform_t *p) {
     return true;
 }
 
-/* The window owns its own aspect ratio, so there is no fit mode to choose —
- * only PSP and Vita, with a fixed panel wider than the game's picture, offer
- * this. */
+/* The window owns its aspect ratio; only PSP and Vita offer fit modes. */
 bool platform_scale_mode_supported(platform_t *p) {
     (void)p;
     return false;
@@ -335,9 +318,7 @@ bool platform_gfx_create(platform_t *p) {
     XVisualInfo *vi = glXGetVisualFromFBConfig(p->display, cfg);
     if (!vi) { XFree(cfgs); return false; }
 
-    /* A child window, because the visual cannot be changed on the parent. It
-     * carries no event mask, so every event still arrives at the parent and
-     * the input code does not know this exists. */
+    /* No event mask on the child, so input still arrives at the parent. */
     XSetWindowAttributes swa;
     memset(&swa, 0, sizeof(swa));
     swa.colormap = XCreateColormap(p->display, p->window, vi->visual, AllocNone);
@@ -370,17 +351,14 @@ bool platform_gfx_create(platform_t *p) {
     XFree(cfgs);
 
     if (!p->gl_ctx) {
-        /* No ARB_create_context means no way to ask for a core profile, and a
-         * legacy context will not compile #version 330. Fail rather than
-         * present something that cannot work. */
+        /* Without ARB_create_context there is no core profile, and a legacy
+         * context cannot compile #version 330. */
         XDestroyWindow(p->display, p->gl_window);
         p->gl_window = 0;
         return false;
     }
 
-    /* Left unmapped: the child window would cover the parent and hide the
-     * software blit, and the context is created before the renderer choice is
-     * acted on. platform_gfx_set_active maps it. */
+    /* Unmapped until platform_gfx_set_active, or it hides the software blit. */
     XSync(p->display, False);
     return true;
 }
@@ -421,8 +399,7 @@ void platform_gfx_destroy(platform_t *p) {
 
 void platform_gfx_drawable_size(platform_t *p, int *w, int *h) {
     if (!p) return;
-    /* The window is fixed size (XSetWMNormalHints pins it in platform_init) and
-     * X11 has no backing-scale concept, so this is just the window size. */
+    /* Fixed-size window and no backing scale in X11. */
     if (w) *w = p->fb_width  * p->scale;
     if (h) *h = p->fb_height * p->scale;
 }
@@ -468,8 +445,7 @@ void platform_blit(platform_t *p, const uint8_t *framebuffer, const uint8_t *pal
         XPutImage(p->display, p->window, p->gc, p->ximage,
                   0, 0, 0, 0, fw, fh);
     } else {
-        /* Scale by drawing to a pixmap, then copying scaled.
-           XPutImage does not scale, so we do nearest-neighbor in software. */
+        /* XPutImage does not scale: nearest-neighbour in software. */
         int win_w = fw * p->scale;
         int win_h = fh * p->scale;
         uint32_t *scaled = (uint32_t *)malloc(win_w * win_h * 4);
@@ -611,9 +587,7 @@ bool platform_pump_events(platform_t *p) {
                 break;
             }
             case Expose: {
-                /* The GL child window owns the surface while hardware
-                 * rendering is up; repainting the parent underneath it would
-                 * do nothing useful and can flicker during the swap. */
+                /* The GL child window owns the surface. */
                 if (p->gl_active) break;
                 if (p->ximage) {
                     if (p->scale == 1) {
@@ -669,8 +643,7 @@ uint32_t platform_ticks(platform_t *p) {
 
     struct timespec now;
     clock_gettime(CLOCK_MONOTONIC, &now);
-    /* Signed arithmetic throughout: tv_nsec difference is negative whenever
-     * now.tv_nsec < ref->tv_nsec, and an unsigned cast would wrap it. */
+    /* Signed: the tv_nsec difference can be negative. */
     int64_t elapsed_ms = (int64_t)(now.tv_sec - ref->tv_sec) * 1000
                        + ((int64_t)now.tv_nsec - (int64_t)ref->tv_nsec) / 1000000;
     if (elapsed_ms < 0) elapsed_ms = 0;
@@ -731,15 +704,11 @@ static bool name_contains(const char *hay, const char *needle) {
     return false;
 }
 
-/* BTN_A/BTN_B/BTN_X/BTN_Y are *aliases*: BTN_X is BTN_NORTH and BTN_Y is
- * BTN_WEST. A driver that fills its table with the letter names in Xbox pad
- * order therefore reports the physical left button as BTN_NORTH and the
- * physical top button as BTN_WEST — the pair comes out swapped from what the
- * compass names say. xpad does this, so does hid-steam (the Steam Deck's own
- * pad), and so does every virtual X360 pad Steam Input synthesises through
- * uinput. Drivers written against the compass names — hid-playstation,
- * hid-nintendo — get it right. Nothing in the joystick protocol tells the two
- * apart, so key off the device name and let the environment override. */
+/* BTN_X and BTN_Y are aliases of BTN_NORTH and BTN_WEST, so drivers that fill
+ * their table in Xbox letter order (xpad, hid-steam, Steam Input's virtual
+ * X360 pad) report west and north swapped; hid-playstation and hid-nintendo do
+ * not. The protocol cannot tell them apart, so key off the device name, with
+ * an environment override. */
 static bool js_face_buttons_swapped(int fd) {
     const char *env = getenv("ECSTATICA_GAMEPAD_SWAP_FACE");
     if (env) return atoi(env) != 0;
@@ -759,10 +728,9 @@ static bool js_face_buttons_swapped(int fd) {
     return true;
 }
 
-/* Resolve js indices from the driver's code maps. Falls back to the xpad
- * ordering only when the ioctls are unavailable — a slot the driver did not
- * describe must stay unresolved, because backfilling it aliases some unrelated
- * axis or button onto a game action. */
+/* Resolve js indices from the driver's code maps. The xpad fallback is used
+ * only when the ioctls fail: guessing a slot would alias an unrelated control
+ * onto a game action. */
 static void js_build_maps(js_pad_t *pad) {
     for (int i = 0; i < GB_COUNT; i++) pad->btn[i] = -1;
     for (int i = 0; i < GA_COUNT; i++) pad->ax[i] = -1;
@@ -810,10 +778,9 @@ static void js_build_maps(js_pad_t *pad) {
     if (ok_a) {
         if (naxes > JS_MAX_AXES) naxes = JS_MAX_AXES;
 
-        /* ABS_Z/ABS_RZ is the other ambiguity: the analog triggers on an xpad
-         * or a DualShock 4, but the right stick on a DualShock 3 and on most
-         * generic pads. A real right stick shows up as ABS_RX/ABS_RY, so only
-         * read Z/RZ as triggers when that pair is already there. */
+        /* ABS_Z/RZ are triggers on xpad and DualShock 4 but the right stick on
+         * DualShock 3 and most generic pads; read them as triggers only when
+         * ABS_RX/RY exist. */
         bool has_rstick = false;
         for (int i = 0; i < naxes; i++)
             if (axmap[i] == ABS_RX) {
@@ -886,21 +853,16 @@ static int16_t js_read_axis(const js_pad_t *pad, int slot) {
     return (i >= 0 && i < JS_MAX_AXES) ? pad->axes[i] : 0;
 }
 
-/* A trigger axis rests at either end of its range depending on the driver:
- * -32767 once joydev has rescaled a 0..255 trigger, 0 on a pad that centres
- * it. Comparing against the value the axis first reported — joydev synthesises
- * a JS_EVENT_INIT for every axis on open — is right either way, where a fixed
- * `> 0` reads half the pads as permanently half-pressed. */
+/* Triggers rest at -32767 (joydev-rescaled) or 0 depending on the driver, so
+ * compare against the value from joydev's JS_EVENT_INIT. */
 static bool js_axis_pulled(const js_pad_t *pad, int slot) {
     int i = pad->ax[slot];
     if (i < 0 || i >= JS_MAX_AXES) return false;
     return (int)pad->axes[i] - (int)pad->axes_rest[i] > 16000;
 }
 
-/* Accept a node only once the driver has described a left stick and a south
- * button. /dev/input/js* also carries accelerometers, flight yokes and the
- * Deck's own motion device, and treating one of those as the pad drives the
- * game from whatever its axes happen to be resting at. */
+/* Needs a left stick and a south button: js nodes also carry accelerometers,
+ * yokes and the Deck's motion device. */
 static bool js_looks_like_pad(const js_pad_t *pad) {
     return pad->btn[GB_SOUTH] >= 0 && pad->ax[GA_LX] >= 0 && pad->ax[GA_LY] >= 0;
 }
@@ -945,8 +907,7 @@ static void js_scan(platform_t *p) {
         js_build_maps(pad);
         if (js_looks_like_pad(pad)) continue;
 
-        /* The rescan runs once a second and reopens every non-pad node it
-         * finds, so warn about each one only the first time. */
+        /* The once-a-second rescan reopens non-pads; warn once each. */
         static uint32_t warned = 0;
         if (getenv("ECSTATICA_GAMEPAD_DEBUG") && n < 32 && !(warned & (1u << n))) {
             warned |= 1u << n;
@@ -958,9 +919,7 @@ static void js_scan(platform_t *p) {
     }
 }
 
-/* Fold one pad's decoded state into the state being returned. Buttons and
- * directions are OR'd; a stick axis is taken from whichever pad is pushing it
- * furthest, so an idle pad never cancels the one being held. */
+/* Buttons are ORed; each stick axis comes from the pad pushing it furthest. */
 static void js_merge(const js_pad_t *pad, platform_gamepad_state_t *state) {
     int16_t lx = js_read_axis(pad, GA_LX);
     int16_t ly = (int16_t)(-js_read_axis(pad, GA_LY));
@@ -1210,14 +1169,9 @@ void platform_audio_shutdown(void) {
     s_pcm = NULL;
 }
 
-/* MIDI music playback via FluidSynth + a system General MIDI soundfont.
- *
- * Mirrors the macOS AVMIDIPlayer path: hand the whole SMF to a player that
- * owns its synth, its sequencer and its own output stream, running parallel
- * to the PCM mixer above. Unlike CoreAudio there is no OS-supplied GM bank,
- * so a .sf2 has to be located on disk. libfluidsynth is dlopen'd rather than
- * linked so that neither it nor a soundfont is a build- or run-time
- * requirement — without them the game runs with music silent. */
+/* MIDI via FluidSynth and a GM soundfont found on disk, as the macOS
+ * AVMIDIPlayer path but with no OS bank. libfluidsynth is dlopen'd, so neither
+ * it nor a soundfont is required; without them music is silent. */
 
 typedef void fluid_settings_t;
 typedef void fluid_synth_t;

@@ -65,11 +65,8 @@ void matrix_vector(vector_t *in, vector_t *out, matrix3x3_t *mat) {
                          (int32_t)mat->_33 * z) >> 14);
 }
 
-/* asm_matrix_long_vector_45DF0E — transform long_vector_t by matrix.
- * Asm uses 64-bit imul (edx:eax) then shrd 14 → low 32. C must mirror
- * with int64 product, else int32*int32 overflow truncates each term
- * before sum, producing wrong high bits.
- */
+/* asm_matrix_long_vector_45DF0E — 64-bit products, as the original's
+ * imul/shrd; int32 products overflow before the sum. */
 void matrix_long_vector(long_vector_t *in, long_vector_t *out, matrix3x3_t *mat) {
     int64_t x = in->l_X, y = in->l_Y, z = in->l_Z;
 
@@ -83,12 +80,6 @@ void matrix_long_vector(long_vector_t *in, long_vector_t *out, matrix3x3_t *mat)
                            (int64_t)mat->_32 * y +
                            (int64_t)mat->_33 * z) >> 14);
 }
-
-/*
- * RLE format: each span has a header byte
- *   bits 7-6: type (0=packed_delta, 1=fill, 2=copy, 3=fill)
- *   bits 5-0: length (0 = end of stream)
- */
 
 /* asm_unpack_bitmap_45DF96
  * Header byte: low 2 bits = type, high 6 bits = length (in output bytes).
@@ -217,33 +208,15 @@ void unpack_mask(int16_t *dst, char *src) {
     }
 }
 
-/*
- * Column-based triangle scanline rasterizer with z-buffer.
- * Parameters passed via global "self-modifying code" variables.
- *
- * Global params set before calling:
- *   wTriMod_wid      — framebuffer pitch (hires_width)
- *   wTriMod_colour   — fill colour
- *   wTriMod_mask     — mask buffer base
- *   wTriMod_bitmap   — bitmap buffer base
- *   wTriMod_diy      — height delta per Y step (fixed 16.16)
- *   wTriMod_y_start  — starting height (fixed 16.16)
- */
-
-/* asm_tri_line_win95_45D92A
- * Column renderer for flat-shaded triangles.
- *   draw_height     — Z value in 16.16 fixed-point
- *   draw_data       — packed (pixel_count << 8 | color); decremented by 256 per pixel
- *   draw_height_bias— Z step per scanline (16.16)
- *   mask_ptr        — pointer into depth/mask buffer (stride = screen_width int16_t per row)
- *   fb_ptr          — pointer into framebuffer column (stride = pitch bytes per row)
- *   pitch           — framebuffer pitch in bytes
+/* asm_tri_line_win95_45D92A — flat-shaded triangle column with z-buffer.
+ *   draw_height      — Z, 16.16 fixed-point
+ *   draw_data        — (pixel_count << 8) | colour, minus 256 per pixel
+ *   draw_height_bias — Z step per row, 16.16
+ *   mask_ptr / fb_ptr, pitch — depth buffer and framebuffer column
  */
 void tri_line_win95(int draw_height, int draw_data, int draw_height_bias,
                     int16_t *mask_ptr, char *fb_ptr, int pitch) {
-    /* The framebuffer store goes through a char*, which may alias anything, so
-     * every global read in the loop body is reloaded from memory on each
-     * iteration. Nothing here writes them — hoist once. */
+    /* Stores through char* may alias any global, so hoist the reads. */
     const int mask_stride = screen_width;
 
     do {
@@ -256,39 +229,19 @@ void tri_line_win95(int draw_height, int draw_data, int draw_height_bias,
         mask_ptr += mask_stride;
         draw_height += draw_height_bias;
         draw_data -= 256;
-        /* `sub ecx,100h / jge` — the count lives in the high bits and the low
-         * byte is the colour, so the original keeps going while the whole
-         * packed value is >= 0. With `> 0` the final pixel of every column is
-         * dropped whenever the colour byte is 0, leaving a hairline gap along
-         * the bottom edge of the span. */
+        /* `sub ecx,100h / jge`: the low byte is the colour, so `> 0` would
+         * drop the last pixel of a column whenever the colour is 0. */
     } while (draw_data >= 0);
 }
 
-/*
- * Column-based ellipsoid renderer with z-buffer and shade map.
- * The shade map table (shade_map[128][128]) determines visibility
- * and shade of each pixel on the ellipsoid surface.
- *
- * Global params (originally self-modifying code patches):
- *   z_scale       — z-depth scale factor
- *   fb_pitch         — framebuffer pitch
- *   shade_lut      — shade lookup table base
- *   wElMod_medpoint    — z midpoint (16.16 fixed)
- *   shade_dy, dzy    — shade/depth stepping per scanline
- */
-
-/* asm_ellipse_line_win95_45D10E — Standard ellipse column
- * 5-arg packed convention matching original ASM. Uses globals:
- *   depth_mask, shade_lut, z_scale, fb_pitch, shade_dy, z_dy
- * shade_map[128][128] and profile[128][128] accessed as flat arrays via [0][index].
- */
+/* asm_ellipse_line_win95_45D10E — ellipsoid column with z-buffer; shade_map
+ * decides the visibility and shade of each pixel. Uses depth_mask, shade_lut,
+ * z_scale, fb_pitch, shade_dy and z_dy. */
 void ellipse_line_win95(int mask_idx, int col_height,
                         int z_interp, char *draw_ptr,
                         int shade_idx) {
-    /* The framebuffer store goes through a char*, which may alias anything, so
-     * fb_pitch, screen_width, z_scale, shade_dy, z_dy, depth_mask and
-     * shade_lut are otherwise reloaded from memory on every pixel. Nothing in
-     * the loop writes them. Same hoist in the three variants below. */
+    /* Stores through char* may alias any global, so hoist the reads. Same in
+     * the three variants below. */
     const int             pitch       = fb_pitch;
     const int             mask_stride = screen_width;
     const int32_t         zs          = z_scale;
@@ -321,10 +274,7 @@ void ellipse_line_win95(int mask_idx, int col_height,
     } while (col_height >= 0);
 }
 
-/* asm_beam_line_win95_45D2CC — Beam/highlight ellipse column
- * 5-arg packed convention. Uses globals: depth_mask, beam_tab1, beam_tab2,
- * z_scale, fb_pitch, shade_dy, z_dy.
- */
+/* asm_beam_line_win95_45D2CC — beam/highlight column; beam_tab1/2. */
 void beam_line_win95(int mask_idx, int col_height,
                         int z_interp, char *draw_ptr,
                         int shade_idx) {
@@ -362,10 +312,7 @@ void beam_line_win95(int mask_idx, int col_height,
     } while (col_height >= 0);
 }
 
-/* asm_shadow_line_win95_45D482 — Shadow ellipse column
- * 5-arg packed convention. Uses globals: depth_mask, shadow_lut,
- * z_scale, fb_pitch, shade_dy, z_dy.
- */
+/* asm_shadow_line_win95_45D482 — shadow column; shadow_lut. */
 void shadow_line_win95(int mask_idx, int col_height,
                           int z_interp, char *draw_ptr,
                           int shade_idx) {
@@ -401,10 +348,7 @@ void shadow_line_win95(int mask_idx, int col_height,
     } while (col_height >= 0);
 }
 
-/* asm_smoke_line_win95_45D5F8 — Smoke/transparent ellipse column
- * 5-arg packed convention. Uses globals: depth_mask, beam_tab1,
- * z_scale, fb_pitch, shade_dy, z_dy.
- */
+/* asm_smoke_line_win95_45D5F8 — smoke/transparent column; beam_tab1. */
 void smoke_line_win95(int mask_idx, int col_height,
                          int z_interp, char *draw_ptr,
                          int shade_idx) {
@@ -436,12 +380,8 @@ void smoke_line_win95(int mask_idx, int col_height,
     } while (col_height >= 0);
 }
 
-/* asm_tex_tri_line_win95_45D99A
- * Textured triangle column renderer (Win95 mode).
- * Matches tri_line_win95 calling convention: draw_data is packed
- * (pixel_count << 8 | shade_mod). Loop decrements draw_data by 256
- * per pixel. Texture lookup: index = (v & 0x7F) * tex_width + (u & 0x7F).
- */
+/* asm_tex_tri_line_win95_45D99A — textured tri_line_win95; texel index is
+ * (v & 0x7F) * tex_width + (u & 0x7F). */
 void tex_tri_line_win95(int draw_height, int draw_data, int draw_height_bias,
                         int16_t *mask_ptr, char *fb_ptr, int pitch,
                         int32_t tex_u, int32_t tex_v,
@@ -463,13 +403,12 @@ void tex_tri_line_win95(int draw_height, int draw_data, int draw_height_bias,
         tex_u += tex_du;
         tex_v += tex_dv;
         draw_data -= 256;
-        /* 0x44FA4A: same `jge`. Here the original even clobbers the low byte
-         * with the sampled texel each pixel, which is harmless precisely
-         * because any 0..255 low byte still compares >= 0. */
+        /* 0x44FA4A: same `jge`; the original even overwrites the low byte with
+         * the texel, which is harmless for the same reason. */
     } while (draw_data >= 0);
 }
 
-/* These were direct VGA register manipulations — no-ops in software renderer */
+/* VGA register access — no-ops here. */
 
 /* asm_set_plane_mask  E1: 0x44ED24 | E2: 0x45CCD4 */
 void set_plane_mask(int mask) { (void)mask; }
@@ -511,7 +450,7 @@ void remove_timer_handler(void) { }
 /* asm_dosmemalloc  E1: 0x45012E | E2: 0x45E0DE */
 void *dos_mem_alloc(int size) {
     (void)size;
-    return NULL;  /* No DOS memory needed */
+    return NULL;
 }
 
 /* asm_dosmemfree  E1: 0x45016B | E2: 0x45E11B */

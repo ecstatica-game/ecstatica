@@ -37,9 +37,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* One occupied voxel. Every view that lands a sample here contributes: the
- * sample with the smallest footprint — the nearest, most head-on view — is
- * kept as `best`, and all of them go into a footprint-weighted mean. */
+/* One occupied voxel: `best` is the sample with the smallest footprint (the
+ * nearest, most head-on view); all samples feed a footprint-weighted mean. */
 typedef struct {
     uint64_t key;
     float    best_fp;
@@ -215,9 +214,8 @@ static float dist3(const float a[3], const float b[3]) {
     return (float)sqrt((double)(dx * dx + dy * dy + dz * dz));
 }
 
-/* Two neighbouring pixels belong to the same surface unless their depths
- * jump. A floor seen at a grazing angle changes depth quickly from row to
- * row, so the test is relative, with a floor for the near field. */
+/* Same surface unless the depth jumps; relative, since grazing floors change
+ * depth fast, with a floor for the near field. */
 static bool continuous(int za, int zb) {
     if (!zb) return false;
     int d = za > zb ? za - zb : zb - za;
@@ -229,13 +227,9 @@ static bool continuous(int za, int zb) {
  *   px - centre_x = kx * X / z,  kx = zoom * (sw/320) / 16384
  *   py - centre_y = ky * Y / z,  ky = kx * 7/8 * (sh/200) / (sw/320)
  *   world = view_matrix^T * view + view_pos
- * The matrix is orthonormal in 14-bit fixed point, so its transpose is its
- * inverse.
  *
- * With fill on, each 2x2 block of pixels whose depths are continuous is
- * treated as a bilinear patch and sampled finely enough that no voxel on it
- * is skipped — far away one pixel spans more than a voxel, and without this
- * the reconstruction is a lattice with holes between the samples. */
+ * With fill on, each continuous 2x2 pixel block is sampled as a bilinear patch
+ * finely enough that no voxel is skipped; far away a pixel spans several. */
 static void unproject_view(int cam, int step, int max_z, bool fill, bool tint) {
     int w = screen_width, h = screen_height;
     float kx = (float)zoom_factor * ((float)w / 320.0f) / 16384.0f;
@@ -361,11 +355,10 @@ static void unproject_view(int cam, int step, int max_z, bool fill, bool tint) {
 
 /* ── Collision map as blocks ────────────────────────────────── */
 
-/* Each map cell holds a run of elements, ended by bit 15 of code_index_p1.
- * An element is a slab: its top is def_height, its floor height2 (below
- * height2 find_map_element falls through to the next element down, which is
- * how bridges and overhangs work), and block_config clips its footprint to
- * the whole cell, a triangle, or a set of quadrants (topo.c:73). */
+/* Each map cell holds a run of elements ended by bit 15 of code_index_p1. An
+ * element is a slab from height2 up to def_height (below height2 the next
+ * element applies: bridges, overhangs), clipped by block_config to the cell,
+ * a triangle or quadrants. */
 
 #define MAP_MAX_DROP 12
 
@@ -431,9 +424,8 @@ static bool point_in_poly(float x, float z, const float p[][2], int n) {
     return in;
 }
 
-/* Mean colour of the reconstructed surface lying on this footprint. The
- * background ground sits within a voxel or two above the collision top
- * (engine Y down, so "above" is smaller Y). */
+/* Mean colour of the reconstructed surface just above this footprint (engine
+ * Y is down). */
 static bool top_colour(float cx, float cz, const float poly[][2], int nv,
                        float y_top, bool blend, uint8_t out[3]) {
     float sum[3] = { 0, 0, 0 };
@@ -469,9 +461,9 @@ static void shade(const uint8_t in[3], int num, int den, uint8_t out[3]) {
     for (int k = 0; k < 3; k++) out[k] = (uint8_t)(in[k] * num / den);
 }
 
-/* Vertices go to m->f as they are emitted; faces are fan-triangulated into a
- * second stream and appended once the vertex count is known. Every face gets
- * its own vertices so it can carry its own colour. */
+/* Vertices stream to m->f; faces are fan-triangulated into a second stream
+ * appended once the vertex count is known. Faces own their vertices so each
+ * can carry its own colour. */
 static void emit_face(mesh_out_t *m, FILE *faces, const float (*v)[3], int n,
                       const uint8_t rgb[3]) {
     unsigned long base = m->verts;
@@ -500,8 +492,7 @@ static void dump_map_blocks(bool blend) {
             if (idx == 0 || idx == 0xFFFF) continue;
             float cx = (float)((col - 64) << 9), cz = (float)((row - 64) << 9);
 
-            /* Empty neighbours are ignored: the map edge and unused cells
-             * would otherwise pull every border column down to height 0. */
+            /* Ignore empty neighbours, or borders drop to height 0. */
             int ground = 256;
             static const int nb[4][2] = { { -1, 0 }, { 1, 0 }, { 0, -1 }, { 0, 1 } };
             for (int k = 0; k < 4; k++) {
@@ -514,9 +505,7 @@ static void dump_map_blocks(bool blend) {
                 const map_area_element_t *e = &map_elements[idx];
                 int top = e->def_height;
                 /* height2 == 0 is solid ground: run it down to the lowest
-                 * neighbour so drops read as walls rather than floating tiles,
-                 * capped like render.c's skirts so a cliff stays a cliff and
-                 * not a curtain. */
+                 * neighbour, capped like render.c's skirts. */
                 int bot = e->height2;
                 if (!bot) {
                     bot = ground;

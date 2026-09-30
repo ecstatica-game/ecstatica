@@ -1,10 +1,7 @@
 /**
  * icon.c
  *
- * Resolution constants:
- *   set_vga_constants (320×200), set_svga_constants (640×480).
- *
- * 2 functions prefixed icon_ in the original ASM.
+ * Resolution constants: set_vga_constants (320×200), set_svga_constants (640×480).
  */
 
 #include "icon.h"
