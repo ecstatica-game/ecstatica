@@ -4,7 +4,7 @@ Decompilation and portable C99 reimplementation of **Ecstatica 1 & 2**, the 1994
 
 Primary reverse-engineering target is `E2WIN95.EXE` (Ecstatica 2 Win95 build, which includes high-res mode). Ecstatica 1 is a secondary target and runs from the same binary — game version is auto-detected at runtime.
 
-The goal is a single native executable that runs both games on modern systems (macOS first, Linux/Windows scaffolded) using the original game data.
+The goal is a single native executable that runs both games on modern systems (macOS, Linux, Windows) using the original game data.
 
 ![Ecstatica 1](docs/e1.png)
 ![Ecstatica 2](docs/e2.png)
@@ -36,7 +36,7 @@ The goal is a single native executable that runs both games on modern systems (m
 ## Status
 
 * Build system: CMake + Makefile wrapper
-* Platforms: macOS (Cocoa/NSView framebuffer) working; Linux + Windows scaffolded, untested
+* Platforms: macOS (Cocoa/NSView framebuffer), Linux (X11/GLX), Windows (Win32) — all tested
 * Input: keyboard + mouse + gamepad (Steam Deck, Xbox, PlayStation, generic HID)
 * Renderer: 8-bit indexed palette framebuffer, palette expansion + scale in `platform_blit`
 * Modules ported: init, display, ellipse, tri, asm_f (fixed-point + rasterizers), edit, move, map, topo, anim, file (.FAN I/O), music, menu, req, icon, chars, win, game
@@ -132,8 +132,8 @@ src/
   types.h           structs, enums, constants, forward decls
   platforms/
     macos.m         Cocoa NSView framebuffer + input + timing
-    linux.c         Linux platform (WIP, untested)
-    windows.c       Windows platform (WIP, untested)
+    linux.c         X11/GLX, ALSA, FluidSynth music
+    windows.c       Win32
 
 decomp/
   parse.py          extract Watcom debug symbols → JSON + IDC
