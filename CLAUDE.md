@@ -150,9 +150,9 @@ or unused in the C port. Do not recreate them when decompiling nearby code.
 **Empty stubs (no-op in original or irrelevant to C port):**
 - `init`: `analyse_view`, `archive_all`, `archive_all_fast`, `display_beep`, `expand_palette`, `set_grey_palette`, `zeroise_bitmap_pointers`, `read_from_dsp`, `write_to_dsp`, `load_hires_path` (fills `hires_path`, never read), `setup_hi_res_long_screen` (no callers), `clear_background_svga`, `rect_fill_svga`, `text_svga`, `clip_blit_svga`, `draw_mouse_cursor_svga`, `draw_db_mouse_cursor_svga`, `clear_mouse_cursor_svga`, `clear_db_mouse_cursor_svga`, `load_backmask` (SVGA bank-switched video path, no callers on any platform including DOS/Win9x)
 - `anim`: `clear_choice_box`, `draw_choice_box`, `load_action_directory`, `draw_view_cone_tri`, `draw_world_square`
-- `map`: `reposition_fixed_parts`, `reposition_thing` (declared, never defined, no callers)
+- `map`: `reposition_fixed_parts`, `reposition_thing` (declared, never defined, no callers), `go_to_location`, `load_packed_views` (no callers)
 - `req`: `handle_ok2`, `handle_test`, `handle_strings_gadg`, `handle_file_gadg`, `handle_uninstall`
-- `topo`: `show_topography`, `make_mask_map`
+- `topo`: `show_topography`, `make_mask_map`, `paint_word`, `draw_tri`, `find_normal`, `draw_clipped_line`, `load_long_screen`, `save_raw_for_printing` (same dead terrain-editor debug subsystem as `show_topography`, no callers)
 - `tri`: `clip_tri`
 
 **Dead wrappers (called another function with same args, no callers):**
