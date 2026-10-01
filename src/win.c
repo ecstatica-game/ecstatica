@@ -37,8 +37,9 @@ void win_set_scale_mode(int mode) {
 }
 
 /* E1 speed mode (sneak/walk/run), driven by simulating the F-key groups the
- * game's script reads (see the L3 handler in window_proc()). Shared by the
- * Settings menu row and the pad's L3, which PSP and handheld Vita lack. */
+ * game's script reads (see window_proc()'s L3 handler, and its PSP/Vita
+ * Circle handler below for pads with no L3). Shared with the Settings
+ * menu row too. */
 static const int e1_speed_fkey[3] = { 0x70, 0x74, 0x78 };  /* F1, F5, F9 */
 static int e1_speed_step = 1;                              /* game starts in walk */
 
@@ -211,7 +212,9 @@ void window_proc(void) {
      * Shared (matches controls.md):
      *   Left stick / D-pad    → legs: walk and turn, eight ways
      *   A / Cross  (south)    → Space: reach out — pick up, interact, confirm
-     *   B / Circle (east)     → Escape: back / cancel
+     *   B / Circle (east)     → Escape: back / cancel. On PSP/Vita, in E1
+     *                           gameplay (not a menu), cycles speed mode
+     *                           instead — those have no L3 to do it with.
      *   Y / Triangle (north)  → Enter: inventory
      *   X / Square (west)     → Left Alt: use what is held
      *   LB / L1               → Left Shift: jump
@@ -335,7 +338,18 @@ void window_proc(void) {
         btn_south_was_pressed = gp.btn_south;
         extra_keys_pressed[57] |= gp.btn_south;
 
-        if (gp.btn_east && !btn_east_was_pressed) key_esc_was_pressed = true;
+        bool circle_edge = gp.btn_east && !btn_east_was_pressed;
+#if defined(__PSP__) || defined(__vita__)
+        /* No L3 on these two, so Circle takes over its speed-cycle job
+         * during gameplay; in a menu it is still back/cancel, same as
+         * everywhere else. */
+        if (circle_edge && game_version == GAME_VERSION_E1 && !menu_is_active())
+            e1_cycle_speed_mode(1);
+        else if (circle_edge)
+            key_esc_was_pressed = true;
+#else
+        if (circle_edge) key_esc_was_pressed = true;
+#endif
         if (gp.btn_start && !btn_start_was_pressed) key_esc_was_pressed = true;
         btn_east_was_pressed = gp.btn_east;
         btn_start_was_pressed = gp.btn_start;

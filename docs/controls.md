@@ -211,7 +211,7 @@ modifiers instead.
 | Left stick | Arrows / WASD | Walk and turn, eight directions |
 | D-pad | Arrows / WASD | Same as the left stick |
 | A / Cross (south) | Space | Reach out — pick up, interact, confirm a menu or dialogue |
-| B / Circle (east) | Escape | Back / cancel |
+| B / Circle (east) | Escape | Back / cancel. **On Vita/PSP, during E1 gameplay** this instead cycles speed mode — see [Handhelds](#handhelds-vita-psp-analogue-pocket-mister) |
 | X / Square (west) | Left Alt | Use what is held (empty-handed: flip / roll) |
 | Y / Triangle (north) | Enter | Open the inventory screen |
 | LB / L1 | Left Shift | Jump |
@@ -248,10 +248,11 @@ the free hand, and either can be holding something. Each trigger is that hand.
 | **Left stick click (L3)** | F1 / F5 / F9 | Cycle speed mode: walk → run → sneak → walk |
 | A / Cross | Space | Pick up without choosing a hand |
 
-L3 needs a clickable stick, which not every pad this engine targets has —
-Settings → Enhanced → Speed Mode reaches the same three steps from any menu,
-gamepad or keyboard, and is the only way to change speed at all on a
-platform with no L3 (see [Handhelds](#handhelds-vita-psp-analogue-pocket-mister)).
+L3 needs a clickable stick, which not every pad this engine targets has.
+Vita and PSP instead cycle speed mode on B/Circle during gameplay (Circle
+keeps its usual back/cancel job in menus); any platform can also reach the
+same three steps from Settings → Enhanced → Speed Mode. See
+[Handhelds](#handhelds-vita-psp-analogue-pocket-mister).
 
 RB is the attack modifier, and the direction you hold picks the strike:
 
@@ -397,12 +398,14 @@ mapping above.
 MiSTer, and a docked Pocket, aren't a fixed row in this table — see below.
 
 - **Vita** has no L3/R3 on its own body (a PS TV pad's real DualShock does),
-  so the graphics toggle (R3 elsewhere) and, on E1, the speed-mode cycle (L3)
-  both fall back to Settings → Enhanced in the pause menu — `SETT_GRAPHICS`
-  and `SETT_SPEED_MODE` in `menu.c`, reachable from any platform's D-pad and
-  confirm button. E1's left/right-hand pick-up, which the desktop mapping
-  puts on LT/RT, moves to the rear touchpad (or Select + L/R as a chorded
-  alternative) since the Vita has no back triggers.
+  so the graphics toggle (R3 elsewhere) falls back to Settings → Enhanced in
+  the pause menu — `SETT_GRAPHICS` in `menu.c`, reachable from any platform's
+  D-pad and confirm button. On E1, the speed-mode cycle (L3 elsewhere) moves
+  to B/Circle instead, but only during gameplay — in a menu Circle is still
+  back/cancel; `SETT_SPEED_MODE` also still works as a fallback from any
+  menu, gamepad or keyboard. E1's left/right-hand pick-up, which the desktop
+  mapping puts on LT/RT, moves to the rear touchpad (or Select + L/R as a
+  chorded alternative) since the Vita has no back triggers.
 - **PSP** has a single stick and one shoulder button per side, so it cannot
   fit the desktop mapping's LT/RT at all: Select acts as a shift key for the
   second shoulder row (`Select+L`/`Select+R`) instead. E1's right-stick quick
@@ -410,10 +413,11 @@ MiSTer, and a docked Pocket, aren't a fixed row in this table — see below.
   land on the same move codes as RB+Up / RB+Right in `move.c`'s
   `BH_JOYSTICK` handling (`extra_keys_pressed[71]`/`[73]` produce `next_move`
   0/2, identically to the Ctrl+Up/Ctrl+Right branch above them), so nothing
-  is actually lost. R3's graphics toggle and, on E1, L3's speed-mode cycle
-  have no stick-click to sit on either; both reach the same Settings →
-  Enhanced menu fallback as Vita's. The stick doubles as the menu cursor
-  (analog + Cross), since PSP has no touch or mouse.
+  is actually lost. R3's graphics toggle has no stick-click to sit on either
+  and falls back to the same Settings → Enhanced menu as Vita's; E1's L3
+  speed-mode cycle moves to B/Circle during gameplay the same way it does on
+  Vita, `SETT_SPEED_MODE` still available as a fallback. The stick doubles as
+  the menu cursor (analog + Cross), since PSP has no touch or mouse.
 - **Analogue Pocket**, played on its own body with nothing docked, is the
   most limited input of any target this engine ships to: D-pad, A/B/X/Y, L/R
   and Start/Select, and nothing else — no analog stick, no triggers, no
