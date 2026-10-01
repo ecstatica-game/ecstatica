@@ -18,6 +18,18 @@ The goal is a single native executable that runs both games on modern systems (m
 * Native platform builds via thin platform layer (macOS, Linux, Windows)
 * Optional: retarget DOS build with Open Watcom (`wcl386`)
 
+## Tools
+
+### Viewer
+
+![Ecstatica 1](docs/e1-viewer.png)
+![Ecstatica 2](docs/e2-viewer.png)
+
+### Scenes
+
+![Ecstatica 1](docs/e1-scenes.png)
+![Ecstatica 2](docs/e2-scenes.png)
+
 ## Community
 * Discord: https://discord.gg/msQB6yBP9
 
