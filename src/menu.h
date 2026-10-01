@@ -20,6 +20,7 @@ void go_svga(void);
 void go_vga(void);
 void set_enhanced_graphics(int enabled);
 extern bool menu_no_continue;
+bool menu_is_active(void);
 void do_main_menu(void);
 void draw_main_menu(void);
 void delete_point(point_t *point);

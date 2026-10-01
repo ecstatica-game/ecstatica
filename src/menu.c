@@ -31,6 +31,12 @@ static int menu_active = 0;
 static int menu_result = -1;
 bool menu_no_continue = false;
 
+/* PSP/Vita's Circle binding needs to tell gameplay from a menu: see the
+ * btn_east handling in window_proc(). */
+bool menu_is_active(void) {
+    return menu_active != 0;
+}
+
 static void menu_frame_start(void) {
     window_proc();
 }
@@ -792,7 +798,9 @@ void do_enhanced_menu(void) {
     }
     if (platform_scale_mode_supported(win_platform()))
         items[num_items++] = SETT_SCALEMODE;
-    /* The only way to reach speed modes on PSP and handheld Vita (no L3). */
+    /* Fallback for platforms with no L3: PSP/Vita have B/Circle for this
+     * during gameplay (see window_proc()'s btn_east handling), but this row
+     * still works from the menu on any platform or input device. */
     if (game_version == GAME_VERSION_E1)
         items[num_items++] = SETT_SPEED_MODE;
 
