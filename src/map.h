@@ -37,7 +37,6 @@ void check_camera(void);
 void copy_vga_to_svga(void);
 void switch_camera(camera_data_t *camera);
 void init_map(void);
-void reposition_thing(actor_t *actor);
 int  position_is_visible(vector_t *pos);
 void check_visibility(actor_t *actor);
 void check_thing_name_invis(int actor_index);
