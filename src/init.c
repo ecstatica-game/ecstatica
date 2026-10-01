@@ -1446,48 +1446,6 @@ void dd_unlock(int plane, char *data) {
     (void)data;
 }
 
-/* init_clear_background_svga  E2: 0x418560 (SVGA stub) */
-void clear_background_svga(int plane, int x, int y, int sx, int sy) {
-    (void)plane; (void)x; (void)y; (void)sx; (void)sy;
-}
-
-/* init_rect_fill_svga  E2: 0x41AE2C (SVGA stub) */
-void rect_fill_svga(int plane, int x, int y, int w, int h) {
-    (void)plane; (void)x; (void)y; (void)w; (void)h;
-}
-
-/* init_text_svga  E2: 0x418D90 (SVGA stub) */
-void text_svga(int plane, const char *text, int length) {
-    (void)plane; (void)text; (void)length;
-}
-
-/* init_clip_blit_svga  E2: 0x417D10 (SVGA stub) */
-void clip_blit_svga(int src_plane, int src_x, int src_y, int dst_plane,
-                    int dst_x, int dst_y, int width, int height, int minterm) {
-    (void)src_plane; (void)src_x; (void)src_y; (void)dst_plane;
-    (void)dst_x; (void)dst_y; (void)width; (void)height; (void)minterm;
-}
-
-/* init_draw_mouse_cursor_svga  E2: 0x41C378 (SVGA stub) */
-void draw_mouse_cursor_svga(void) {
-}
-
-/* init_draw_db_mouse_cursor_svga  E2: 0x41C67C (SVGA stub) */
-void draw_db_mouse_cursor_svga(void) {
-}
-
-/* init_clear_mouse_cursor_svga  E2: 0x41C994 (SVGA stub) */
-void clear_mouse_cursor_svga(void) {
-}
-
-/* init_clear_db_mouse_cursor_svga  E2: 0x41CBC8 (SVGA stub) */
-void clear_db_mouse_cursor_svga(void) {
-}
-
-/* init_load_backmask  E2: 0x414E2C (SVGA stub) */
-void load_backmask(void) {
-}
-
 void show_timer(int timer_val, char reset, int unused) {
     (void)unused;
     if (reset) game_timer = -1;
