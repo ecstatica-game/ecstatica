@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions & discussion
+    url: https://discord.gg/msQB6yBP9
+    about: General questions, build help, and discussion happen on Discord, not in issues.
+  - name: Report a security vulnerability
+    url: https://github.com/ecstatica-game/ecstatica/security/advisories/new
+    about: Please use private reporting for security issues instead of a public issue — see SECURITY.md.

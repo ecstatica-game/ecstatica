@@ -1,0 +1,90 @@
+name: Bug report
+description: Something crashes, renders wrong, or behaves incorrectly
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing: can you reproduce this on the latest `main` or the
+        latest tagged release? If it only happens with the original DOS/Win95
+        binaries, this isn't the place — that's upstream, not this port.
+
+  - type: dropdown
+    id: game
+    attributes:
+      label: Game
+      options:
+        - Ecstatica 1
+        - Ecstatica 2
+        - Both
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - macOS
+        - Linux
+        - Windows
+        - Steam Deck
+        - DOS (Open Watcom / DOSBox)
+        - Win9x (Open Watcom)
+        - PlayStation Portable
+        - PlayStation Vita
+        - Analogue Pocket / MiSTer
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      description: Tagged release (e.g. v0.8.1) or commit hash. Run `git rev-parse HEAD` if built from source.
+    validations:
+      required: true
+
+  - type: textarea
+    id: build
+    attributes:
+      label: How you built/installed it
+      description: e.g. `make e2`, a downloaded release artifact, a specific CI build
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Relevant lines from `ecstatica_debug.log`, a crash backtrace, or a screenshot/video. Not required but very helpful.
+      render: shell
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues and this isn't a duplicate
+          required: true

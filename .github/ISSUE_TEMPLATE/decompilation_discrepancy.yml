@@ -1,0 +1,50 @@
+name: Decompilation / behavior discrepancy
+description: This port behaves differently from the original DOS/Win95 binary
+labels: [decompilation]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For a mismatch between this reimplementation and the *original game
+        binary's actual behavior* — not for general bugs or crashes, which
+        should use the regular bug report template instead.
+
+  - type: dropdown
+    id: game
+    attributes:
+      label: Game
+      options:
+        - Ecstatica 1
+        - Ecstatica 2
+    validations:
+      required: true
+
+  - type: input
+    id: original-build
+    attributes:
+      label: Original build you compared against
+      description: e.g. E2WIN95.EXE unpatched, E1 DOS release, E1 Win95 — and how you ran it (DOSBox-X, real hardware, etc.)
+    validations:
+      required: true
+
+  - type: textarea
+    id: original-behavior
+    attributes:
+      label: What the original does
+    validations:
+      required: true
+
+  - type: textarea
+    id: port-behavior
+    attributes:
+      label: What this port does instead
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: An IDA address or Watcom debug symbol for the relevant function, a side-by-side screenshot/video, or disassembly excerpt. This is the part that actually lets someone fix it.
+    validations:
+      required: true
