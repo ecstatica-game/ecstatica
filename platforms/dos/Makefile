@@ -6,16 +6,16 @@
 #   export WATCOM=$HOME/watcom
 #   export PATH=$WATCOM/bino64:$PATH
 #   export INCLUDE=$WATCOM/h
-#   cd dos && wmake
+#   cd platforms/dos && wmake
 #
-# Output is dos/ecstatic.exe, a DOS/4GW protected-mode binary. Copy it next to
-# the game data along with DOS4GW.EXE from $(WATCOM)/binw.
+# Output is platforms/dos/ecstatic.exe, a DOS/4GW protected-mode binary. Copy
+# it next to the game data along with DOS4GW.EXE from $(WATCOM)/binw.
 #
-# Like pocket/, this compiles ../src directly rather than going through CMake —
-# the toolchain and target are fixed, so there is nothing to configure.
+# Like pocket/, this compiles ../../src directly rather than going through
+# CMake — the toolchain and target are fixed, so there is nothing to configure.
 
 WATCOM_H = $(%WATCOM)/h
-SRC      = ../src
+SRC      = ../../src
 
 CC     = wcc386
 

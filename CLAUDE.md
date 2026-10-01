@@ -16,26 +16,32 @@ make clean    # remove build/
 ```
 
 CMake project in `src/CMakeLists.txt`. C99 + ObjC (macOS platform layer).
-DOS and Win9x: Open Watcom `wmake` builds in `dos/` and `win9x/` (`make dos`, `make win9x`).
+DOS and Win9x: Open Watcom `wmake` builds in `platforms/dos/` and
+`platforms/win9x/` (`make dos`, `make win9x`).
 Binary output: `build/bin/ecstatica`.
 
-**Analogue Pocket / MiSTer:** a separate build under `pocket/` targets
-openfpgaOS (rv32 soft CPU inside an openFPGA core) via the openfpgaSDK; see
-`pocket/README.md`. It stages a flat copy of `src/` into the SDK tree, so edit
-`src/`, never the staged copy.
+All non-desktop platform build trees (DOS, Win9x, Analogue Pocket, PSP, Vita,
+Steam Deck packaging art) live under `platforms/`.
 
-**PlayStation Portable:** a separate build under `psp/` targets the pspdev
-toolchain; see `psp/README.md`. GNU make on top of the SDK's `build.mak`, and
-it compiles `src/` in place — objects go to `psp/obj/`. Video goes through
-sceGu as a T8 texture + CLUT; music is silent (no OS synth).
+**Analogue Pocket / MiSTer:** a separate build under `platforms/pocket/`
+targets openfpgaOS (rv32 soft CPU inside an openFPGA core) via the
+openfpgaSDK; see `platforms/pocket/README.md`. It stages a flat copy of
+`src/` into the SDK tree, so edit `src/`, never the staged copy.
 
-**PlayStation Vita:** a separate build under `vita/` targets VitaSDK; see
-`vita/README.md`. CMake on VitaSDK's toolchain file (`make vita`, needs
-`$VITASDK`) → `vita/build/ecstatica-e1.vpk` and `-e2.vpk`, one LiveArea
-bubble per game (`VITA_GAME_DIR`). SceDisplay framebuffer with a CPU
-palette-expand + 4:3 scale; game data lives in `ux0:data/ecstatica/e1|e2`,
-not the VPK. Tested in Vita3K. Both handheld builds take `PROFILE=1` / `-DPROFILE=ON`
-for `prof.log` (frame phases, see `src/prof.h`).
+**PlayStation Portable:** a separate build under `platforms/psp/` targets the
+pspdev toolchain; see `platforms/psp/README.md`. GNU make on top of the
+SDK's `build.mak`, and it compiles `src/` in place — objects go to
+`platforms/psp/obj/`. Video goes through sceGu as a T8 texture + CLUT; music
+is silent (no OS synth).
+
+**PlayStation Vita:** a separate build under `platforms/vita/` targets
+VitaSDK; see `platforms/vita/README.md`. CMake on VitaSDK's toolchain file
+(`make vita`, needs `$VITASDK`) → `platforms/vita/build/ecstatica-e1.vpk` and
+`-e2.vpk`, one LiveArea bubble per game (`VITA_GAME_DIR`). SceDisplay
+framebuffer with a CPU palette-expand + 4:3 scale; game data lives in
+`ux0:data/ecstatica/e1|e2`, not the VPK. Tested in Vita3K. Both handheld
+builds take `PROFILE=1` / `-DPROFILE=ON` for `prof.log` (frame phases, see
+`src/prof.h`).
 
 **Linux music (optional):** macOS and Windows get a General MIDI synth from the
 OS (`AVMIDIPlayer` / MCI `sequencer`); Linux has no equivalent, so tunes are
@@ -46,9 +52,9 @@ soundfont; searched in order: `$ECSTATICA_SOUNDFONT`, game data dir,
 `~/.local/share/soundfonts`, `/usr/share/soundfonts`, `/usr/share/sounds/sf2`.
 On Arch/SteamOS: `pacman -S fluidsynth soundfont-fluid`.
 
-**Steam Deck:** just the Linux build above, no packaging step. `steamdeck/`
-holds Steam library art (grid/hero/logo/icon) for adding it as a non-Steam
-game; see `steamdeck/README.md`.
+**Steam Deck:** just the Linux build above, no packaging step.
+`platforms/steamdeck/` holds Steam library art (grid/hero/logo/icon) for
+adding it as a non-Steam game; see `platforms/steamdeck/README.md`.
 
 **Packaging art:** `assets/` holds the two real screenshots the Vita, PSP,
 Pocket and Steam Deck packaging art is generated from, plus the script that
@@ -96,8 +102,8 @@ src/
   platforms/desktop_common.c — data dir / save paths shared by macOS, Linux, Windows
   platforms/macos.m  — Cocoa NSView framebuffer, input, timing
   platforms/linux.c  — X11/GLX, ALSA, FluidSynth music
-  platforms/windows.c — Win32 (also Win9x via Open Watcom build in win9x/)
-  platforms/dos.c    — DOS/4GW (Open Watcom build in dos/)
+  platforms/windows.c — Win32 (also Win9x via the root platforms/win9x/ Open Watcom build)
+  platforms/dos.c    — DOS/4GW (the root platforms/dos/ Open Watcom build)
   platforms/openfpga.c — openfpgaOS (Analogue Pocket / MiSTer) backend
   platforms/psp.c    — PlayStation Portable backend (sceGu / sceCtrl / sceAudio)
   platforms/vita.c   — PlayStation Vita backend (SceDisplay / SceCtrl / SceTouch / SceAudio)

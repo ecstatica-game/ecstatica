@@ -1,7 +1,7 @@
 /**
  * platforms/psp.c
  *
- * PlayStation Portable backend (PSPSDK), built by psp/Makefile.
+ * PlayStation Portable backend (PSPSDK), built by platforms/psp/Makefile.
  *
  *   Video     sceGu, 480x272 16-bit. The 8-bit frame is a GU_PSM_T8 texture
  *             with a 256-entry CLUT, so palette expansion and scaling happen

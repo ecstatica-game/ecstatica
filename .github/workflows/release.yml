@@ -243,7 +243,7 @@ jobs:
       - name: Package
         run: |
           mkdir -p dist/ecstatica-dos
-          cp dos/ecstatic.exe dist/ecstatica-dos/ECSTATIC.EXE
+          cp platforms/dos/ecstatic.exe dist/ecstatica-dos/ECSTATIC.EXE
           # DOS/4GW is the extender this binary is linked against; without it
           # the executable cannot start. Open Watcom ships it for exactly this
           # purpose.
@@ -286,7 +286,7 @@ jobs:
       - name: Package
         run: |
           mkdir -p dist/ecstatica-win9x
-          cp win9x/ecstatica.exe dist/ecstatica-win9x/
+          cp platforms/win9x/ecstatica.exe dist/ecstatica-win9x/
           cat > dist/ecstatica-win9x/README.TXT << 'EOF'
           Ecstatica — Win9x build
 
@@ -315,12 +315,12 @@ jobs:
       - name: Build
         run: |
           docker run --rm -v "$PWD:/src" -w /src pspdev/pspdev:latest \
-            sh -c 'command -v make >/dev/null || apk add --no-cache make; make -C psp'
+            sh -c 'command -v make >/dev/null || apk add --no-cache make; make -C platforms/psp'
 
       - name: Package
         run: |
           mkdir -p dist/PSP/GAME/ECSTATICA
-          cp psp/EBOOT.PBP dist/PSP/GAME/ECSTATICA/
+          cp platforms/psp/EBOOT.PBP dist/PSP/GAME/ECSTATICA/
           cat > dist/README.TXT << 'EOF'
           Ecstatica — PSP build (Ecstatica 1 and 2)
 
@@ -353,8 +353,8 @@ jobs:
           docker run --rm -v "$PWD:/src" -w /src vitasdk/vitasdk:latest \
             sh -c 'make vita'
           # One VPK per game; each is its own LiveArea bubble.
-          cp vita/build/ecstatica-e1.vpk ecstatica-vita-e1-${{ needs.version.outputs.version }}.vpk
-          cp vita/build/ecstatica-e2.vpk ecstatica-vita-e2-${{ needs.version.outputs.version }}.vpk
+          cp platforms/vita/build/ecstatica-e1.vpk ecstatica-vita-e1-${{ needs.version.outputs.version }}.vpk
+          cp platforms/vita/build/ecstatica-e2.vpk ecstatica-vita-e2-${{ needs.version.outputs.version }}.vpk
 
       - uses: actions/upload-artifact@v4
         with:
@@ -363,8 +363,8 @@ jobs:
             ecstatica-vita-e1-${{ needs.version.outputs.version }}.vpk
             ecstatica-vita-e2-${{ needs.version.outputs.version }}.vpk
 
-  # The openfpgaOS SDK artifacts are committed under pocket/vendor/, so this
-  # builds against exactly the runtime that was tested on hardware.
+  # The openfpgaOS SDK artifacts are committed under platforms/pocket/vendor/,
+  # so this builds against exactly the runtime that was tested on hardware.
   build-pocket:
     needs: version
     runs-on: ubuntu-latest
@@ -379,15 +379,15 @@ jobs:
           test -f "$(riscv64-unknown-elf-gcc -march=rv32imafc -mabi=ilp32f -print-libgcc-file-name)"
 
       - name: Build
-        run: make -C pocket release
+        run: make -C platforms/pocket release
 
       - name: Package
         run: |
           mkdir -p dist/tools
-          cp -R pocket/build/Cores pocket/build/Platforms pocket/build/Assets dist/
-          cp pocket/mkiso.sh dist/tools/
-          cp pocket/core/instance.e1.json dist/tools/Ecstatica.json
-          cp pocket/core/instance.e2.json dist/tools/Ecstatica2.json
+          cp -R platforms/pocket/build/Cores platforms/pocket/build/Platforms platforms/pocket/build/Assets dist/
+          cp platforms/pocket/mkiso.sh dist/tools/
+          cp platforms/pocket/core/instance.e1.json dist/tools/Ecstatica.json
+          cp platforms/pocket/core/instance.e2.json dist/tools/Ecstatica2.json
           cat > dist/README.TXT << 'EOF'
           Ecstatica — Analogue Pocket build (openfpgaOS, Ecstatica 1 and 2)
 

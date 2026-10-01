@@ -28,19 +28,19 @@ the smallest mode that holds it, or downscales into the largest if none does.
 
 ```bash
 brew install riscv-gnu-toolchain            # or your distro's equivalent
-cd pocket
-make                                        # -> pocket/build/obj/ecstatica.elf
+cd platforms/pocket
+make                                        # -> platforms/pocket/build/obj/ecstatica.elf
 ```
 
-The SDK artifacts are committed in `pocket/vendor/`, so no SDK checkout is
-needed. Building, `release` and `deploy` all read from there. The toolchain
-needs an `rv32imafc/ilp32f` multilib; on Ubuntu, `gcc-riscv64-unknown-elf`
-has one, and CI uses it.
+The SDK artifacts are committed in `platforms/pocket/vendor/`, so no SDK
+checkout is needed. Building, `release` and `deploy` all read from there. The
+toolchain needs an `rv32imafc/ilp32f` multilib; on Ubuntu,
+`gcc-riscv64-unknown-elf` has one, and CI uses it.
 
 Everything compiles in this tree. The SDK's build system is not invoked and
-nothing is copied into the SDK checkout — `pocket/Makefile` compiles
-`../src/*.c` and `../src/tools/*.c` plus `../src/platforms/openfpga.c`
-directly, against the SDK's
+nothing is copied into the SDK checkout — `platforms/pocket/Makefile`
+compiles `../../src/*.c` and `../../src/tools/*.c` plus
+`../../src/platforms/openfpga.c` directly, against the SDK's
 headers, musl and linker script. Override the toolchain prefix with `CROSS=`.
 
 ### Why the SDK is a dependency at all
@@ -63,7 +63,7 @@ What the build consumes, none of it optional on this target:
 
 ### Vendoring
 
-`make vendor` copies all of the above into `pocket/vendor/` (~7 MB), after
+`make vendor` copies all of the above into `platforms/pocket/vendor/` (~7 MB), after
 which no SDK checkout is required. The copy in the repository is the runtime
 tested on hardware. It predates upstream's current layout, which splits
 `runtime/` into `pocket/` and `mister/` and ships one bitstream per variant
@@ -148,10 +148,10 @@ read-only at `/game`; `file_set_data_root()` points the file layer at the mount
 so `fopen_ci()` works unchanged.
 
 ```bash
-./mkiso.sh ../data/e1 ecstatica.iso             # Ecstatica 1  (~200 MB)
-./mkiso.sh ../data/e2 ecstatica2.iso            # Ecstatica 2  (~140 MB)
-./mkiso.sh ../data/e1 ecstatica.iso --dos-only  # E1 without the enhanced set
-./mkiso.sh ../data/e2 ecstatica2.iso --hires    # + E2's 640x480 backgrounds
+./mkiso.sh ../../data/e1 ecstatica.iso             # Ecstatica 1  (~200 MB)
+./mkiso.sh ../../data/e2 ecstatica2.iso            # Ecstatica 2  (~140 MB)
+./mkiso.sh ../../data/e1 ecstatica.iso --dos-only  # E1 without the enhanced set
+./mkiso.sh ../../data/e2 ecstatica2.iso --hires    # + E2's 640x480 backgrounds
 ```
 
 The script copies only the asset directories and root data files — the source

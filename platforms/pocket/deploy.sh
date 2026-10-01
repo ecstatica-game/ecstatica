@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Sync pocket/build/ onto an Analogue Pocket SD card.
+# Sync platforms/pocket/build/ onto an Analogue Pocket SD card.
 #
 #   ./deploy.sh build            auto-detect the card
 #   ./deploy.sh build /Volumes/AP  explicit mount point

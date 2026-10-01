@@ -1,8 +1,8 @@
 # Ecstatica on the PlayStation Vita
 
 This is a PS Vita build of the C99 port. It uses the same engine as every
-other target. All the Vita-specific code is in `../src/platforms/vita.c`, which
-the engine reaches through `platform.h`.
+other target. All the Vita-specific code is in `../../src/platforms/vita.c`,
+which the engine reaches through `platform.h`.
 
 The build makes two VPKs from the same code, one for each game. Each one is a
 separate LiveArea bubble and reads its own data folder:
@@ -20,8 +20,8 @@ You need [VitaSDK](https://vitasdk.org) with `VITASDK` set:
 export VITASDK=/usr/local/vitasdk
 export PATH=$VITASDK/bin:$PATH
 
-make vita                              # → vita/build/ecstatica-e1.vpk, -e2.vpk
-cmake -S vita -B vita/build -DPROFILE=ON && cmake --build vita/build
+make vita                              # → platforms/vita/build/ecstatica-e1.vpk, -e2.vpk
+cmake -S platforms/vita -B platforms/vita/build -DPROFILE=ON && cmake --build platforms/vita/build
                                        # the same, and they write prof.log
 ```
 

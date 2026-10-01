@@ -1,7 +1,7 @@
 /**
  * platforms/vita.c
  *
- * PlayStation Vita backend (VitaSDK), built by vita/CMakeLists.txt.
+ * PlayStation Vita backend (VitaSDK), built by platforms/vita/CMakeLists.txt.
  *
  *   Video     SceDisplay, 960x544 32-bit, triple-buffered in CDRAM. The 8-bit
  *             frame is palette-expanded and scaled on the CPU through per-row

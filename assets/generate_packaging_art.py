@@ -141,7 +141,7 @@ def quantize_for_vita(img):
 
 def build_vita():
     for game, focus_hero in (("e1", (0.5, 0.55)), ("e2", (0.5, 0.40))):
-        d = f"{ROOT}/vita/sce_sys/{game}"
+        d = f"{ROOT}/platforms/vita/sce_sys/{game}"
         save(quantize_for_vita(key_art(game, 840, 500, focus_hero)), f"{d}/livearea/contents/bg.png")
         save(quantize_for_vita(key_art(game, 280, 158, focus_hero)), f"{d}/livearea/contents/startup.png")
         save(quantize_for_vita(monogram_icon(game, 128, 128)), f"{d}/icon0.png")
@@ -151,9 +151,9 @@ def build_vita():
 def build_psp():
     # One shared EBOOT for both games (runtime-detected), so one generic set
     # that reads as "Ecstatica" rather than favouring either game.
-    save(key_art("e1", 480, 272, (0.5, 0.5)), f"{ROOT}/psp/PIC1.PNG")
+    save(key_art("e1", 480, 272, (0.5, 0.5)), f"{ROOT}/platforms/psp/PIC1.PNG")
     icon0 = cover(SRC["e1_hero"], 144, 80, focus=(0.5, 0.55))
-    save(ImageOps.autocontrast(icon0, cutoff=1), f"{ROOT}/psp/ICON0.PNG")
+    save(ImageOps.autocontrast(icon0, cutoff=1), f"{ROOT}/platforms/psp/ICON0.PNG")
 
 
 # --------------------------------------------------------------- Pocket ---
@@ -180,16 +180,16 @@ def build_pocket():
     # (already reads as a title card at a glance); the icon is the "E2"
     # monogram, since 36px is too small for a full wordmark either way.
     banner = ImageOps.autocontrast(key_art("e2", 521, 165, (0.5, 0.42)).convert("L"), cutoff=1)
-    encode_of_gray(banner.convert("RGB"), f"{ROOT}/pocket/core/platform_image.bin")
+    encode_of_gray(banner.convert("RGB"), f"{ROOT}/platforms/pocket/core/platform_image.bin")
 
     icon = ImageOps.autocontrast(monogram_icon("e2", 36, 36).convert("L"), cutoff=0)
-    encode_of_gray(icon.convert("RGB"), f"{ROOT}/pocket/core/icon.bin")
+    encode_of_gray(icon.convert("RGB"), f"{ROOT}/platforms/pocket/core/icon.bin")
 
 
 # ------------------------------------------------------------ Steam Deck --
 def build_steam():
     for game, focus in (("e1", (0.5, 0.5)), ("e2", (0.5, 0.40))):
-        d = f"{ROOT}/steamdeck/{game}"
+        d = f"{ROOT}/platforms/steamdeck/{game}"
         save(key_art(game, 460, 215, focus), f"{d}/grid_landscape.png")
         save(key_art(game, 1920, 620, focus), f"{d}/hero.png")
         save(monogram_icon(game, 600, 900), f"{d}/grid_portrait.png")

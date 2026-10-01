@@ -9,19 +9,19 @@
 #
 # Common overrides:
 #   PSPSDK=<path>   PSP SDK path        (default: `psp-config --pspsdk-path`)
-#   GAME_DATA=<dir> data to ship        (default ../data/e2)
+#   GAME_DATA=<dir> data to ship        (default ../../data/e2)
 #   MSTICK=<path>   Memory Stick mount  (default /Volumes/PSP on macOS)
 #
-# Like dos/ and pocket/, this compiles ../src directly instead of going through
-# CMake — the toolchain and the target are both fixed, so there is nothing to
-# configure. Objects land in obj/, never beside the sources.
+# Like dos/ and pocket/, this compiles ../../src directly instead of going
+# through CMake — the toolchain and the target are both fixed, so there is
+# nothing to configure. Objects land in obj/, never beside the sources.
 #
 # Toolchain: pspdev/psptoolchain (psp-gcc, newlib, pspsdk). On macOS:
 #   brew install pspdev/pspdev/pspdev     # or build psptoolchain from source
 #   export PSPDEV=/usr/local/pspdev; export PATH=$PSPDEV/bin:$PATH
 
 TARGET      = ecstatica
-SRC_DIR    := ../src
+SRC_DIR    := ../../src
 OBJ        := obj
 
 PSPSDK := $(shell psp-config --pspsdk-path 2>/dev/null)
@@ -65,7 +65,7 @@ PSP_EBOOT_PIC1   = PIC1.PNG
 include $(PSPSDK)/lib/build.mak
 
 # build.mak has its own %.o: %.c rule that would write objects next to the
-# sources in ../src. This more specific pattern wins for everything in OBJS.
+# sources in ../../src. This more specific pattern wins for everything in OBJS.
 $(OBJ)/%.o: $(SRC_DIR)/%.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c -o $@ $<
@@ -74,7 +74,7 @@ $(OBJ)/%.o: $(SRC_DIR)/%.c
 # A PSP game is a folder under PSP/GAME containing EBOOT.PBP. The engine reads
 # every asset relative to the folder the EBOOT was launched from, so the game
 # data goes in beside it — exactly the layout the desktop builds run from.
-GAME_DATA ?= ../data/e1
+GAME_DATA ?= ../../data/e1
 STAGE     := build/PSP/GAME/ECSTATICA
 
 release: EBOOT.PBP

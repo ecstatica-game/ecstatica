@@ -1,7 +1,7 @@
 # Ecstatica on the PlayStation Portable
 
 A PSP build of the C99 port. Same engine as every other target — the whole
-platform-specific surface is `../src/platforms/psp.c`, reached through
+platform-specific surface is `../../src/platforms/psp.c`, reached through
 `platform.h`, the way `macos.m` reaches Cocoa.
 
 ## Building
@@ -14,9 +14,9 @@ brew install pspdev/pspdev/pspdev      # macOS; or build psptoolchain yourself
 export PSPDEV=/usr/local/pspdev
 export PATH=$PSPDEV/bin:$PATH
 
-make -C psp                            # → psp/EBOOT.PBP
-make -C psp release GAME_DATA=data/e2  # → psp/build/PSP/GAME/ECSTATICA/
-make -C psp install MSTICK=/Volumes/PSP
+make -C platforms/psp                            # → platforms/psp/EBOOT.PBP
+make -C platforms/psp release GAME_DATA=data/e2  # → platforms/psp/build/PSP/GAME/ECSTATICA/
+make -C platforms/psp install MSTICK=/Volumes/PSP
 ```
 
 From the repository root, `make psp`, `make psp-release`, `make psp-install`

@@ -2,13 +2,13 @@
 # Ecstatica — PlayStation Vita build
 #------------------------------------------------------------------------------
 #
-#   cmake -S vita -B vita/build && cmake --build vita/build
+#   cmake -S platforms/vita -B platforms/vita/build && cmake --build platforms/vita/build
 #       → ecstatica-e1.vpk (ECST00001, "Ecstatica",    ux0:data/ecstatica/e1)
 #       → ecstatica-e2.vpk (ECST00002, "Ecstatica II", ux0:data/ecstatica/e2)
-#   cmake -S vita -B vita/build -DPROFILE=ON   → both, writing prof.log
+#   cmake -S platforms/vita -B platforms/vita/build -DPROFILE=ON   → both, writing prof.log
 #
-# Needs VitaSDK with $VITASDK set. Like psp/ and dos/, this compiles ../src
-# directly; the whole platform surface is ../src/platforms/vita.c.
+# Needs VitaSDK with $VITASDK set. Like psp/ and dos/, this compiles ../../src
+# directly; the whole platform surface is ../../src/platforms/vita.c.
 
 cmake_minimum_required(VERSION 3.16)
 
@@ -27,7 +27,7 @@ set(VITA_VERSION "01.00")
 
 option(PROFILE "Frame-phase profiler writing prof.log" OFF)
 
-set(SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../src)
+set(SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../src)
 file(GLOB ENGINE_SRCS ${SRC_DIR}/*.c ${SRC_DIR}/tools/*.c)
 
 # One VPK per game, each its own LiveArea bubble opening its own data folder.

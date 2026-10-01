@@ -3,10 +3,10 @@
 # Pack an Ecstatica data directory into an ISO 9660 image for an
 # openfpgaOS data slot. The app mounts it read-only at /game.
 #
-#   ./mkiso.sh ../data/e1  ecstatica.iso            # DOS database + W/ enhanced set
-#   ./mkiso.sh ../data/e2  ecstatica2.iso           # E2, 320x200 assets only
-#   ./mkiso.sh ../data/e2  ecstatica2.iso --hires   # + E2's 640x480 backgrounds
-#   ./mkiso.sh ../data/e1  ecstatica.iso --dos-only # skip W/, smaller image
+#   ./mkiso.sh ../../data/e1  ecstatica.iso            # DOS database + W/ enhanced set
+#   ./mkiso.sh ../../data/e2  ecstatica2.iso           # E2, 320x200 assets only
+#   ./mkiso.sh ../../data/e2  ecstatica2.iso --hires   # + E2's 640x480 backgrounds
+#   ./mkiso.sh ../../data/e1  ecstatica.iso --dos-only # skip W/, smaller image
 #
 # Only the game's own assets go in — the source trees carry IDA databases,
 # disassembly listings, installers and frame dumps that would add gigabytes.

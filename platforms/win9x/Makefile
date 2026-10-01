@@ -2,14 +2,14 @@
 #
 # A wmake makefile, not GNU make. Driven from the root Makefile:
 #
-#   make win9x        — build win9x/ecstatica.exe
+#   make win9x        — build platforms/win9x/ecstatica.exe
 #   make win9x-e2     — build + run under Wine against data/e2
 #
 # or directly:
 #
 #   export WATCOM=$HOME/watcom
 #   export PATH=$WATCOM/bino64:$PATH
-#   cd win9x && wmake
+#   cd platforms/win9x && wmake
 #
 # Produces a 32-bit PE that targets Win95 through modern Windows, and runs
 # under Wine for testing. The backend is src/platforms/windows.c, the same one
@@ -19,11 +19,11 @@
 
 WATCOM_H  = $(%WATCOM)/h
 WATCOM_NT = $(%WATCOM)/h/nt
-SRC       = ../src
+SRC       = ../../src
 
 CC     = wcc386
 
-# Overridable, as in dos/Makefile: `make win9x OPT=-od` builds unoptimised.
+# Overridable, as in platforms/dos/Makefile: `make win9x OPT=-od` builds unoptimised.
 !ifndef OPT
 OPT = -otexan
 !endif

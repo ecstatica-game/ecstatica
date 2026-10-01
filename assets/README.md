@@ -17,10 +17,10 @@ two images into every platform's required sizes and formats in one pass:
 
 | Platform | Output |
 |---|---|
-| Vita | `vita/sce_sys/{e1,e2}/icon0.png`, `.../livearea/contents/{bg,startup}.png` |
-| PSP | `psp/ICON0.PNG`, `psp/PIC1.PNG` (one shared EBOOT for both games) |
-| Pocket | `pocket/core/icon.bin`, `pocket/core/platform_image.bin` (openfpgaOS's 2-bytes-per-pixel grayscale format — see the script) |
-| Steam Deck | `steamdeck/{e1,e2}/{hero,grid_landscape,grid_portrait,icon,logo}.png` |
+| Vita | `platforms/vita/sce_sys/{e1,e2}/icon0.png`, `.../livearea/contents/{bg,startup}.png` |
+| PSP | `platforms/psp/ICON0.PNG`, `platforms/psp/PIC1.PNG` (one shared EBOOT for both games) |
+| Pocket | `platforms/pocket/core/icon.bin`, `platforms/pocket/core/platform_image.bin` (openfpgaOS's 2-bytes-per-pixel grayscale format — see the script) |
+| Steam Deck | `platforms/steamdeck/{e1,e2}/{hero,grid_landscape,grid_portrait,icon,logo}.png` |
 
 Re-run it after swapping in different source screenshots, or after tuning a
 crop `focus` in the script:

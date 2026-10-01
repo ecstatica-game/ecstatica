@@ -1,7 +1,7 @@
 /**
  * openfpga.c
  *
- * openfpgaOS backend (Analogue Pocket / MiSTer), built by pocket/Makefile
+ * openfpgaOS backend (Analogue Pocket / MiSTer), built by platforms/pocket/Makefile
  * against the openfpgaSDK: rv32imafc @ 100 MHz, 64 MB SDRAM, 320x240 8-bit
  * video, 32-voice PCM mixer, sample-based MIDI synth. Game data is an ISO 9660
  * image in an APF data slot, mounted read-only at /game.

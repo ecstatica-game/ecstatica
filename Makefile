@@ -17,30 +17,30 @@
 #   make dump       — regenerate wdump text for E2WIN95P.EXE
 #
 # DOS target (Open Watcom + DOS/4GW, run under DOSBox-X):
-#   make dos        — build dos/ecstatic.exe
+#   make dos        — build platforms/dos/ecstatic.exe
 #   make dos-e1     — build + run the E1 DOS data in DOSBox-X
 #   make dos-e2     — build + run the E2 data in DOSBox-X
 #   make dos-clean  — remove DOS build artifacts
 #
 # Win9x target (Open Watcom, 32-bit PE, run under Wine):
-#   make win9x      — build win9x/ecstatica.exe
+#   make win9x      — build platforms/win9x/ecstatica.exe
 #   make win9x-e1   — build + run the E1 Win95 data under Wine
 #   make win9x-e2   — build + run the E2 data under Wine
 #   make win9x-clean
 #
 # PSP target (pspdev toolchain, runs on hardware or PPSSPP):
-#   make psp          — build psp/EBOOT.PBP
-#   make psp-release  — stage psp/build/PSP/GAME/ECSTATICA with the game data
+#   make psp          — build platforms/psp/EBOOT.PBP
+#   make psp-release  — stage platforms/psp/build/PSP/GAME/ECSTATICA with the game data
 #   make psp-install  — copy that onto a Memory Stick
 #   make psp-clean
 #
 # PS Vita target (VitaSDK, runs on hardware or Vita3K):
-#   make vita         — build vita/build/ecstatica-e1.vpk and ecstatica-e2.vpk
+#   make vita         — build platforms/vita/build/ecstatica-e1.vpk and ecstatica-e2.vpk
 #   make vita-clean
 #
 # Set WATCOM if Open Watcom is not in ~/watcom. Both cross builds live in their
 # own directories and are driven by Watcom's wmake, not by this file. The PSP
-# build lives in psp/ and is GNU make, driven by the PSP SDK's build.mak.
+# build lives in platforms/psp/ and is GNU make, driven by the PSP SDK's build.mak.
 
 TARGET   = ecstatica
 SRCDIR   = src
@@ -61,12 +61,12 @@ WATCOM_BIN  = $(WATCOM)/bino64
 else
 WATCOM_BIN  = $(WATCOM)/binl64
 endif
-DOS_EXE     = dos/ecstatic.exe
+DOS_EXE     = platforms/dos/ecstatic.exe
 DOSBOX     ?= dosbox-x
 # DOS/4GW has to sit next to the executable for the stub to find it.
 DOS4GW      = $(WATCOM)/binw/dos4gw.exe
 
-WIN9X_EXE   = win9x/ecstatica.exe
+WIN9X_EXE   = platforms/win9x/ecstatica.exe
 WINE       ?= wine
 
 .PHONY: all run e1 e2 e1-viewer e2-viewer e1-scenes e2-scenes e1-pointcloud e2-pointcloud build clean dump \
@@ -147,14 +147,14 @@ dump:
 
 # ── DOS build and run ─────────────────────────────────────────
 #
-# dos/Makefile is a wmake makefile, so it is invoked through Watcom's wmake
-# with WATCOM/PATH/INCLUDE set the way the toolchain expects.
+# platforms/dos/Makefile is a wmake makefile, so it is invoked through
+# Watcom's wmake with WATCOM/PATH/INCLUDE set the way the toolchain expects.
 
 dos:
 	@test -x $(WATCOM_BIN)/wmake || { \
 	  echo "Open Watcom not found at $(WATCOM)."; \
 	  echo "Install it or pass WATCOM=/path/to/watcom."; exit 1; }
-	cd dos && WATCOM=$(WATCOM) PATH=$(WATCOM_BIN):$$PATH INCLUDE=$(WATCOM)/h \
+	cd platforms/dos && WATCOM=$(WATCOM) PATH=$(WATCOM_BIN):$$PATH INCLUDE=$(WATCOM)/h \
 	  $(WATCOM_BIN)/wmake
 
 $(DOS_EXE): dos
@@ -184,7 +184,7 @@ dos-e2: dos
 	$(call dos_run,$(E2_DIR))
 
 dos-clean:
-	cd dos && rm -f *.obj *.exe *.map link.lnk
+	cd platforms/dos && rm -f *.obj *.exe *.map link.lnk
 	rm -rf $(BUILDDIR)/dosrun
 
 # ── Win9x build and run ───────────────────────────────────────
@@ -196,7 +196,7 @@ win9x:
 	@test -x $(WATCOM_BIN)/wmake || { \
 	  echo "Open Watcom not found at $(WATCOM)."; \
 	  echo "Install it or pass WATCOM=/path/to/watcom."; exit 1; }
-	cd win9x && WATCOM=$(WATCOM) PATH=$(WATCOM_BIN):$$PATH \
+	cd platforms/win9x && WATCOM=$(WATCOM) PATH=$(WATCOM_BIN):$$PATH \
 	  $(WATCOM_BIN)/wmake
 
 # Wine runs with the data directory as the working directory, matching how the
@@ -215,36 +215,38 @@ win9x-e2: win9x
 	$(call win9x_run,$(E2_DIR))
 
 win9x-clean:
-	cd win9x && rm -f *.obj *.exe *.map link.lnk
+	cd platforms/win9x && rm -f *.obj *.exe *.map link.lnk
 
 # ── PSP build and packaging ───────────────────────────────────
 #
-# psp/Makefile is GNU make on top of the PSP SDK's build.mak, so it is invoked
-# directly. GAME_DATA picks which game gets staged onto the Memory Stick; the
-# 320x200 DOS data is the one worth shipping, see psp/README.md.
+# platforms/psp/Makefile is GNU make on top of the PSP SDK's build.mak, so it
+# is invoked directly. GAME_DATA picks which game gets staged onto the Memory
+# Stick; the 320x200 DOS data is the one worth shipping, see
+# platforms/psp/README.md.
 
 psp:
 	@command -v psp-config >/dev/null || { \
 	  echo "PSP toolchain not found. Install pspdev and put \$$PSPDEV/bin on PATH."; \
 	  exit 1; }
-	$(MAKE) -C psp
+	$(MAKE) -C platforms/psp
 
 psp-release: psp
-	$(MAKE) -C psp release GAME_DATA=$(abspath $(E2_DIR))
+	$(MAKE) -C platforms/psp release GAME_DATA=$(abspath $(E2_DIR))
 
 psp-install: psp
-	$(MAKE) -C psp install GAME_DATA=$(abspath $(E2_DIR)) FORCE_DATA=$(FORCE_DATA)
+	$(MAKE) -C platforms/psp install GAME_DATA=$(abspath $(E2_DIR)) FORCE_DATA=$(FORCE_DATA)
 
 psp-clean:
-	$(MAKE) -C psp clean
+	$(MAKE) -C platforms/psp clean
 
-# vita/ is a CMake project on VitaSDK's toolchain file; the game data is not
-# packed into the VPK but copied to ux0:data/ecstatica, see vita/README.md.
+# platforms/vita/ is a CMake project on VitaSDK's toolchain file; the game
+# data is not packed into the VPK but copied to ux0:data/ecstatica, see
+# platforms/vita/README.md.
 vita:
 	@test -n "$$VITASDK" || { \
 	  echo "VITASDK not set. Install VitaSDK and export VITASDK."; exit 1; }
-	cmake -S vita -B vita/build -DCMAKE_BUILD_TYPE=Release
-	cmake --build vita/build
+	cmake -S platforms/vita -B platforms/vita/build -DCMAKE_BUILD_TYPE=Release
+	cmake --build platforms/vita/build
 
 vita-clean:
-	rm -rf vita/build
+	rm -rf platforms/vita/build

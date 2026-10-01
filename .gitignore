@@ -87,27 +87,27 @@ venv.bak/
 
 .DS_Store
 
-# DOS build output (dos/Makefile is wmake, not GNU make)
-dos/*.obj
-dos/*.exe
-dos/*.map
-dos/link.lnk
+# DOS build output (platforms/dos/Makefile is wmake, not GNU make)
+platforms/dos/*.obj
+platforms/dos/*.exe
+platforms/dos/*.map
+platforms/dos/link.lnk
 
-# Win9x build output (win9x/Makefile is wmake, not GNU make)
-win9x/*.obj
-win9x/*.exe
-win9x/*.map
-win9x/link.lnk
+# Win9x build output (platforms/win9x/Makefile is wmake, not GNU make)
+platforms/win9x/*.obj
+platforms/win9x/*.exe
+platforms/win9x/*.map
+platforms/win9x/link.lnk
 # Watcom writes <name>.err beside any source that produces a diagnostic
 *.err
 
 # PSP build output
-psp/obj/
-psp/build/
-psp/*.elf
-psp/*.PBP
-psp/PARAM.SFO
-vita/build/
+platforms/psp/obj/
+platforms/psp/build/
+platforms/psp/*.elf
+platforms/psp/*.PBP
+platforms/psp/PARAM.SFO
+platforms/vita/build/
 
 # Release packaging output
 dist/
