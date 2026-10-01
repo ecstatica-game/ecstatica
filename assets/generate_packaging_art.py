@@ -8,7 +8,7 @@ Run from anywhere; paths below are all relative to the repo root.
     python3 assets/generate_packaging_art.py
 """
 import os
-from PIL import Image, ImageOps
+from PIL import Image, ImageOps, ImageFilter, ImageEnhance
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCREENSHOTS = f"{ROOT}/assets/screenshots"
@@ -47,6 +47,23 @@ def cover(img, w, h, focus=(0.5, 0.42)):
     x = min(max(0, round(nw * fx - w / 2)), nw - w)
     y = min(max(0, round(nh * fy - h / 2)), nh - h)
     return img.crop((x, y, x + w, y + h))
+
+
+def fit_canvas(img, w, h):
+    """Scale `img` down to fit entirely inside (w,h) with nothing cropped,
+    centered over a blurred/darkened cover() of itself so there is no hard
+    letterbox bar. For target aspects narrower than the source — the header
+    art is 460x215, wider than Vita's bg/startup or PSP's PIC1 — a plain
+    cover() crop would cut into the logo baked across its full width."""
+    bg = cover(img, w, h).filter(ImageFilter.GaussianBlur(w * 0.01))
+    bg = ImageEnhance.Brightness(bg).enhance(0.55)
+
+    sw, sh = img.size
+    scale = min(w / sw, h / sh)
+    nw, nh = round(sw * scale), round(sh * scale)
+    fg = img.resize((nw, nh), Image.LANCZOS)
+    bg.paste(fg, ((w - nw) // 2, (h - nh) // 2))
+    return bg
 
 
 def paste_logo(canvas, logo, w_frac, center):
@@ -105,19 +122,24 @@ def quantize_for_vita(img):
 
 
 def build_vita():
-    for game, focus_hero in (("e1", (0.5, 0.55)), ("e2", (0.5, 0.40))):
+    # bg (840x500, 1.68) and startup (280x158, 1.77) are both narrower than
+    # the 460x215 (2.14) header art — a cover() crop would cut into the
+    # logo, so these go through fit_canvas() instead.
+    for game in ("e1", "e2"):
         d = f"{ROOT}/platforms/vita/sce_sys/{game}"
-        save(quantize_for_vita(key_art(game, 840, 500, focus_hero)), f"{d}/livearea/contents/bg.png")
-        save(quantize_for_vita(key_art(game, 280, 158, focus_hero)), f"{d}/livearea/contents/startup.png")
+        save(quantize_for_vita(fit_canvas(SRC[f"{game}_hero"], 840, 500)), f"{d}/livearea/contents/bg.png")
+        save(quantize_for_vita(fit_canvas(SRC[f"{game}_hero"], 280, 158)), f"{d}/livearea/contents/startup.png")
         save(quantize_for_vita(logo_icon(game, 128, 128)), f"{d}/icon0.png")
 
 
 # ----------------------------------------------------------------- PSP ----
 def build_psp():
     # One shared EBOOT for both games (runtime-detected), so one generic set
-    # that reads as "Ecstatica" rather than favouring either game.
-    save(key_art("e1", 480, 272, (0.5, 0.5)), f"{ROOT}/platforms/psp/PIC1.PNG")
-    icon0 = cover(SRC["e1_hero"], 144, 80, focus=(0.5, 0.55))
+    # that reads as "Ecstatica" rather than favouring either game. PIC1
+    # (480x272, 1.76) and ICON0 (144x80, 1.8) are both narrower than the
+    # header art (2.14) — see the fit_canvas() note in build_vita().
+    save(fit_canvas(SRC["e1_hero"], 480, 272), f"{ROOT}/platforms/psp/PIC1.PNG")
+    icon0 = fit_canvas(SRC["e1_hero"], 144, 80)
     save(ImageOps.autocontrast(icon0, cutoff=1), f"{ROOT}/platforms/psp/ICON0.PNG")
 
 
