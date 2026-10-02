@@ -401,7 +401,7 @@ int do_slot_select(const char *title) {
         for (int i = 0; i < visible && (scroll_top + i) < NUM_SLOTS; i++) {
             int slot = scroll_top + i;
             int y = start_y + i * item_h;
-            char label[32];
+            char label[48];
             char name[28];
             if (get_save_name(slot, name, sizeof(name)))
                 snprintf(label, sizeof(label), "%d: %s", slot + 1, name);
@@ -594,14 +594,17 @@ static void settings_get_value(int id, char *buf, int bufsz) {
     switch (id) {
     case SETT_DIFFICULTY: {
         int d = difficulty;
-        if (d < 0) d = 0; if (d > 2) d = 2;
+        if (d < 0) d = 0;
+        if (d > 2) d = 2;
         snprintf(buf, bufsz, "%s", difficulty_names[d]);
         break;
     }
     case SETT_LANGUAGE: {
         int l = language;
         int mx = (game_version == GAME_VERSION_E1) ? NUM_LANGUAGES_E1 : NUM_LANGUAGES_E2;
-        if (l < 0) l = 0; if (l >= mx) l = mx - 1; if (l == 3) l = 2;
+        if (l < 0) l = 0;
+        if (l >= mx) l = mx - 1;
+        if (l == 3) l = 2;
         snprintf(buf, bufsz, "%s", language_names[l]);
         break;
     }
@@ -613,7 +616,8 @@ static void settings_get_value(int id, char *buf, int bufsz) {
         break;
     case SETT_SUBTITLE_HOLD: {
         int h = subtitle_hold;
-        if (h < 0) h = 0; if (h > 2) h = 2;
+        if (h < 0) h = 0;
+        if (h > 2) h = 2;
         snprintf(buf, bufsz, "%s", subtitle_hold_names[h]);
         break;
     }

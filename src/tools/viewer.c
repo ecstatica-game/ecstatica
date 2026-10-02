@@ -912,6 +912,15 @@ static void draw_list(int x, int y, int cols, int rows,
     }
 }
 
+/* draw_list() deliberately passes a column-width n smaller than a name or
+ * slot number could ever need — the label is meant to be clipped to the
+ * list column, same as the "%-*.*s" it then draws with. GCC can't see that
+ * intent and flags every one of these as a possible truncation. */
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-truncation"
+#endif
+
 static void model_label(int i, char *out, int n) {
     int16_t id = model_ids[i];
     snprintf(out, n, "%4d %s", id, thing_name_of(id));
@@ -938,6 +947,10 @@ static void anim_label(int i, char *out, int n) {
         snprintf(out, n, "%c%-16.16s  -", (e->action == cur_action_idx) ? '>' : ' ',
                  action_name_of(e->action));
 }
+
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 
 static void draw_help(void) {
     static const char *lines[] = {

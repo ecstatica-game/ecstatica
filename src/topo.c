@@ -6,6 +6,7 @@
  */
 
 #include "topo.h"
+#include "compat.h"
 #include "render.h"
 #include "asm_f.h"
 #include "display.h"
@@ -657,22 +658,22 @@ int load_raw(void) {
     }
 
     int16_t signature;
-    fread(&signature, 1, 2, stream);
+    fread_ignore(&signature, 1, 2, stream);
 
     if (signature == 0x686D) {
-        fread(bitmap[3], 1, 0x1E, stream);
-        fread(bitmap[3], 1, 0x300, stream);
-        fread(bitmap[3], 1, screen_height * screen_width, stream);
-        fread(mask_map[2], 1, 2 * screen_height * screen_width, stream);
+        fread_ignore(bitmap[3], 1, 0x1E, stream);
+        fread_ignore(bitmap[3], 1, 0x300, stream);
+        fread_ignore(bitmap[3], 1, screen_height * screen_width, stream);
+        fread_ignore(mask_map[2], 1, 2 * screen_height * screen_width, stream);
     } else {
         int bg_size, hmap_size;
-        fread(&bg_size, 1, 4, stream);
-        fread(&hmap_size, 1, 4, stream);
+        fread_ignore(&bg_size, 1, 4, stream);
+        fread_ignore(&hmap_size, 1, 4, stream);
 
         if (hmap_size + bg_size >= 2 * screen_height * screen_width)
             quit("packed info too big!");
 
-        fread(mask_map[0], 1, hmap_size + bg_size, stream);
+        fread_ignore(mask_map[0], 1, hmap_size + bg_size, stream);
         unpack_bitmap(bitmap[3], (char *)mask_map[0]);
         unpack_mask(mask_map[2], (char *)mask_map[0] + bg_size);
     }
@@ -711,8 +712,8 @@ char *load_raw_graphic(const char *source, int *size_x, int *size_y) {
 
     bitmap_hdr_t header;
     char palette[768];
-    fread(&header, 1, 0x20, stream);
-    fread(palette, 1, 768, stream);
+    fread_ignore(&header, 1, 0x20, stream);
+    fread_ignore(palette, 1, 768, stream);
 
     int16_t sx = reverse_char_word_val(header.size_x);
     int16_t sy = reverse_char_word_val(header.size_y);
@@ -723,7 +724,7 @@ char *load_raw_graphic(const char *source, int *size_x, int *size_y) {
     char *result = (char *)calloc(1, (size_t)*size_y * (size_t)*size_x);
     if (!result) quit("Not enough memory for Graphic");
 
-    fread(result, 1, *size_y * *size_x, stream);
+    fread_ignore(result, 1, *size_y * *size_x, stream);
     fclose(stream);
 
     return result;
@@ -779,9 +780,9 @@ void load_palette(const char *filename) {
                 view_cmap[i].B = fade_cmap[i].B = colour_map[i].B;
             }
         } else {
-            fread(&view_cmap, 1, 2, stream);
-            fread(&palette_control, 1, 24, stream);
-            fread(&view_cmap, 1, 768, stream);
+            fread_ignore(&view_cmap, 1, 2, stream);
+            fread_ignore(&palette_control, 1, 24, stream);
+            fread_ignore(&view_cmap, 1, 768, stream);
             fclose(stream);
 
             if (selected_camera) {

@@ -1,10 +1,22 @@
 #ifndef COMPAT_H
 #define COMPAT_H
 
+#include <stdio.h>
+
 /* M_PI — not guaranteed by C99; MSVC needs _USE_MATH_DEFINES */
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
+
+/* Best-effort fread where the caller deliberately doesn't check how much
+ * came back (truncated/garbage data is handled downstream, or the read is
+ * from a file already known to be the right size). A plain (void) cast on
+ * the call does NOT silence Ubuntu/Debian glibc's warn_unused_result here —
+ * the cast has to land on a named result instead. */
+static inline void fread_ignore(void *ptr, size_t size, size_t n, FILE *f) {
+    size_t rc = fread(ptr, size, n, f);
+    (void)rc;
+}
 
 /* Case-insensitive compare. POSIX spells it strcasecmp in <strings.h>; every
  * other toolchain here has the same function under a different name. Engine

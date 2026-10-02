@@ -88,7 +88,9 @@ static const char *swappable_dirs[] = {
     "TITLE_S.RAW", "TSCREEN.RAW"
 };
 
-static char alt_data_root[256] = "";
+/* Sized to match resolve_ci()'s 512-byte resolved path, which is the
+ * largest thing ever snprintf'd in here. */
+static char alt_data_root[512] = "";
 int32_t enhanced_graphics = 0;
 
 /* Which of the two roots holds the 640x480 set.
@@ -257,7 +259,10 @@ static void join_root(const char *base, const char *rel, char *out, size_t outsz
 }
 
 static FILE *fopen_ci_root(const char *base, const char *path, const char *mode) {
-    char direct[512];
+    /* base and the normalised path (norm/upper below) are each up to 511
+     * chars, so "%s/%s" can reach 1024 with the joining slash and the
+     * terminator — matches join_root()'s worst case exactly. */
+    char direct[1024];
     if (!base || !base[0]) base = data_root;
 
     /* The engine mixes separators and cases ("CODE\\ECSTATIC.FAN",
@@ -710,14 +715,15 @@ const char *rep1_used(void) {
 
 /* file_make_file_name_subdir  E2: 0x447DFC */
 char *make_file_name_subdir(int index) {
-    static char buf[12];
+    /* Sized for any int, not just the 2+4-digit case the format implies. */
+    static char buf[32];
     snprintf(buf, sizeof(buf), "%02d\\%04d.FAN", index / 100, index);
     return buf;
 }
 
 /* file_make_file_dir_name  E2: 0x447E5C */
 char *make_file_dir_name(int index) {
-    static char buf[4];
+    static char buf[16];
     snprintf(buf, sizeof(buf), "%02d", index / 100);
     return buf;
 }
@@ -881,7 +887,8 @@ void open_read_file(const char *filename) {
     if (file_pointer) fclose(file_pointer);
     file_pointer = fopen_ci(path, "rb");
     if (!file_pointer) {
-        char parent_path[260];
+        /* path is at most 259 chars; "../" adds 3 more. */
+        char parent_path[264];
         snprintf(parent_path, sizeof(parent_path), "../%s", path);
         file_pointer = fopen_ci(parent_path, "rb");
     }
@@ -937,7 +944,7 @@ void read_offsets_file(void) {
     fseek(f, 0, SEEK_SET);
     uint8_t *buf = (uint8_t *)malloc(file_size);
     if (!buf) { fclose(f); return; }
-    fread(buf, 1, file_size, f);
+    fread_ignore(buf, 1, file_size, f);
     fclose(f);
 
     const uint8_t *p = buf;
@@ -1091,11 +1098,14 @@ void file_read_thing(FILE *f) {
     char name[26];
     int name_len = fgetc(f);
     if (name_len > 25) name_len = 25;
-    fread(name, 1, name_len, f);
+    fread_ignore(name, 1, name_len, f);
     name[name_len] = '\0';
 
     if (thing_names) {
-        strncpy(thing_names[name_index].field_0, name, 25);
+        /* name is already NUL-terminated within its 26 bytes above, and
+         * field_0 is the same size, so this copies it whole, terminator
+         * included — strncpy's short-source-only termination doesn't apply. */
+        memcpy(thing_names[name_index].field_0, name, sizeof(name));
     }
 
     thing->flags = getw_be(f);
@@ -1371,14 +1381,14 @@ void file_read_sound(FILE *f) {
     /* MyNewDirectSoundBuffer: 32 bytes header first, then sound_length
      * bytes of unsigned 8-bit PCM. */
     if (stored_length >= 32) {
-        fread(sound->header, 1, 32, f);
+        fread_ignore(sound->header, 1, 32, f);
         sound->sample_rate = sound_rate_from_header(sound->header,
                                                     sound->sample_rate);
     }
     if (pcm_length > 0) {
         sound->audio_ptr = (char *)calloc(pcm_length, 1);
         if (sound->audio_ptr) {
-            fread(sound->audio_ptr, 1, pcm_length, f);
+            fread_ignore(sound->audio_ptr, 1, pcm_length, f);
             for (int32_t b = 0; b < pcm_length; b++)
                 sound->audio_ptr[b] = (char)((uint8_t)sound->audio_ptr[b] + 0x80);
         } else {
@@ -1472,7 +1482,7 @@ void file_read_texture(FILE *f) {
     if (size > 0 && size < 0x100000) {
         tex->texture_data = (char *)calloc(size, 1);
         if (tex->texture_data) {
-            fread(tex->texture_data, 1, size, f);
+            fread_ignore(tex->texture_data, 1, size, f);
         } else {
             fseek(f, size, SEEK_CUR);
         }
@@ -2955,14 +2965,14 @@ void read_sounds(FILE *f) {
                 sound->sound_length = pcm_length;
                 sound->volume = volume > 0 ? volume : 100;
                 if (raw_size >= 32) {
-                    fread(sound->header, 1, 32, f);
+                    fread_ignore(sound->header, 1, 32, f);
                     sound->sample_rate = sound_rate_from_header(sound->header,
                                                                sound->sample_rate);
                 }
                 if (pcm_length > 0) {
                     sound->audio_ptr = (char *)calloc(pcm_length, 1);
                     if (sound->audio_ptr) {
-                        fread(sound->audio_ptr, 1, pcm_length, f);
+                        fread_ignore(sound->audio_ptr, 1, pcm_length, f);
                         for (int32_t b = 0; b < pcm_length; b++)
                             sound->audio_ptr[b] = (char)((uint8_t)sound->audio_ptr[b] + 0x80);
                     } else {
@@ -3100,7 +3110,7 @@ void merge_new_map(FILE *f) {
     }
 
     DBG_LOG(2, "[MAP] file_version=%d game_version=%d elems=%d cameras=%d\n",
-            file_version, game_version, top_of_map_elements, num_cameras);
+            file_version, game_version, (int)top_of_map_elements, num_cameras);
 
     if (file_version >= 20) {
         int area_count = 0;

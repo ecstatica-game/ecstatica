@@ -1430,11 +1430,17 @@ void find_positions(actor_t *actor, int skip_first) {
     if (actor->type != 7) {
         actor->flags |= 0x8000;
         /* Transform repertoire vectors from local to world space */
-        for (rephead_t *rep = actor->actor_reperture; rep; rep = *(rephead_t **)&rep->action_slots[18]) {
+        for (rephead_t *rep = actor->actor_reperture; rep; ) {
             vector_t *v1 = (vector_t *)&rep->action_slots[1];  /* vector1 */
             vector_t *v2 = (vector_t *)&rep->action_slots[7];  /* vector2 */
             matrix_vector(v1, v2, &actor->matrix_1);
             add_vector(v2, &actor->position_vector);
+
+            /* action_slots[18] holds the next rephead_t* inline, packed and
+             * possibly misaligned — memcpy instead of a pointer-cast
+             * dereference, which is both unaligned-read and strict-aliasing
+             * UB on this int16_t array. */
+            memcpy(&rep, &rep->action_slots[18], sizeof(rep));
         }
     }
 

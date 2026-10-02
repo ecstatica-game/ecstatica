@@ -358,7 +358,7 @@ void play_tune(int tune_index) {
         free(smf);
     } else {
         DBG_LOG(1, "[TUNE] idx=%d si→smf failed (len=%d)\n",
-                tune_index, tune_buffer_length);
+                tune_index, (int)tune_buffer_length);
     }
 }
 

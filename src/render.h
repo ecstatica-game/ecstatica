@@ -64,7 +64,7 @@ void render_invalidate_palette(void);
 
 /* Stubs consume their arguments to avoid unused warnings at call sites. */
 #define render_available()             false
-#define render_select(want)            ((void)(want), RENDER_SOFTWARE)
+#define render_select(want)            ((void)(want), (void)RENDER_SOFTWARE)
 #define render_init()                  ((void)0)
 #define render_shutdown()              ((void)0)
 #define render_frame_begin()           ((void)0)

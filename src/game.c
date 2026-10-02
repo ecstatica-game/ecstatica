@@ -177,14 +177,19 @@ static int16_t get_value_from_token(int16_t token) {
     return token & 0x0FFF;
 }
 
-/* Check if the token's upper nibble indicates a "no value" marker */
+/* Check if the token's upper nibble indicates a "no value" marker.
+ * token & 0xF000 promotes to a plain non-negative int (0x0000-0xF000), so
+ * the right side must stay a plain int too — casting it to int16_t first
+ * sign-extends it back to negative on the way to the comparison and the
+ * two sides can then never match. */
 static bool check_token_value_exist(int16_t token) {
-    return (token & 0xF000) == (int16_t)0xF000;
+    return (token & 0xF000) == 0xF000;
 }
 
-/* Check if the token's upper nibble indicates a string/second-value marker */
+/* Check if the token's upper nibble indicates a string/second-value marker.
+ * Same int16_t sign-extension trap as check_token_value_exist() above. */
 UNUSED_ATTR static bool check_token_second_value_exist(int16_t token) {
-    return (token & 0xF000) == (int16_t)0xE000;
+    return (token & 0xF000) == 0xE000;
 }
 
 /* skip_to_matching_endif_44E74C — honours nested IF blocks and 0xE000 string tokens. */
@@ -198,7 +203,7 @@ void skip_to_matching_endif(int16_t **pp) {
             skip_to_matching_endif(pp);
             ++(*pp);
         } else {
-            if ((token & 0xF000) == (int16_t)0xE000) {
+            if ((token & 0xF000) == 0xE000) {
                 int len = token & 0xFFF;
                 *pp += (len + 1) / 2 + 1;
             } else {
@@ -219,7 +224,7 @@ void skip_to_matching_if_type(int16_t **pp) {
             skip_to_matching_endif(pp);
             ++(*pp);
         } else {
-            if ((token & 0xF000) == (int16_t)0xE000) {
+            if ((token & 0xF000) == 0xE000) {
                 int len = token & 0xFFF;
                 *pp += (len + 1) / 2 + 1;
             } else {
@@ -2024,7 +2029,7 @@ void check_fade(void) {
         int32_t elapsed = now - fade_start;
         if (fade_log < 5) {
             DBG_LOG(2, "[FADE] fade_in: now=%d start=%d elapsed=%d time=%d\n",
-                now, fade_start, elapsed, fade_time);
+                (int)now, (int)fade_start, (int)elapsed, (int)fade_time);
             fade_log++;
         }
         if (fade_time > 0 && elapsed < fade_time) {
@@ -2950,8 +2955,8 @@ void show_icon_page(void) {
 
     char header[32];
     uint8_t raw_pal[768];
-    fread(header, 1, 32, f);
-    fread(raw_pal, 1, 768, f);
+    fread_ignore(header, 1, 32, f);
+    fread_ignore(raw_pal, 1, 768, f);
 
     palette_entry_t icon_palette[256];
     for (int i = 0; i < 256; i++) {
@@ -2961,7 +2966,7 @@ void show_icon_page(void) {
     }
 
     int pixels = screen_width * screen_height;
-    fread(bitmap[3], 1, pixels, f);
+    fread_ignore(bitmap[3], 1, pixels, f);
     fclose(f);
 
     set_palette(all_black_cmap);
@@ -3213,7 +3218,7 @@ void allocate_ds_buffer(sound_t *sound, FILE *f) {
     if (sound->sound_length > 0) {
         sound->audio_ptr = calloc(1, sound->sound_length);
         if (sound->audio_ptr) {
-            fread(sound->audio_ptr, 1, sound->sound_length, f);
+            fread_ignore(sound->audio_ptr, 1, sound->sound_length, f);
         }
     }
 }
@@ -3226,17 +3231,17 @@ void load_palette_and_set_background(const char *filename) {
     if (!f) return;
 
     char header[32];
-    fread(header, 1, 32, f);
+    fread_ignore(header, 1, 32, f);
 
     unsigned char pal[768];
-    fread(pal, 1, 768, f);
+    fread_ignore(pal, 1, 768, f);
     for (int i = 0; i < 256; i++) {
         colour_map[i].R = pal[i * 3 + 0] >> 2;
         colour_map[i].G = pal[i * 3 + 1] >> 2;
         colour_map[i].B = pal[i * 3 + 2] >> 2;
     }
 
-    fread(bitmap[2], 1, screen_width * screen_height, f);
+    fread_ignore(bitmap[2], 1, screen_width * screen_height, f);
     fclose(f);
 
     clip_blit(2, 0, 0, 0, 0, 0, screen_width, screen_height, 0xC0);

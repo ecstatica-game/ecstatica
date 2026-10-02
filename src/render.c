@@ -439,8 +439,10 @@ static void build_map_mesh(void) {
 
     int r0 = crow - MAP_VIEW_RADIUS, r1 = crow + MAP_VIEW_RADIUS;
     int c0 = ccol - MAP_VIEW_RADIUS, c1 = ccol + MAP_VIEW_RADIUS;
-    if (r0 < 0) r0 = 0; if (r1 >= MAP_GRID) r1 = MAP_GRID - 1;
-    if (c0 < 0) c0 = 0; if (c1 >= MAP_GRID) c1 = MAP_GRID - 1;
+    if (r0 < 0) r0 = 0;
+    if (r1 >= MAP_GRID) r1 = MAP_GRID - 1;
+    if (c0 < 0) c0 = 0;
+    if (c1 >= MAP_GRID) c1 = MAP_GRID - 1;
 
     for (int row = r0; row <= r1; row++) {
         for (int col = c0; col <= c1; col++) {

@@ -94,7 +94,11 @@ int main(int argc, char *argv[]) {
 #endif
     if (debug_log_file) {
         setvbuf(debug_log_file, NULL, _IONBF, 0);
-        fprintf(debug_log_file, "MAIN: debug_log_file=%p debug_verbose=%d\n", (void*)debug_log_file, debug_verbose);
+        /* %p + (void*) on the FILE* we're about to write to trips GCC's
+         * -Wrestrict (it can't see fprintf only reads the pointer's value
+         * here, not through it) — print it as a plain integer instead. */
+        fprintf(debug_log_file, "MAIN: debug_log_file=%lx debug_verbose=%d\n",
+                (unsigned long)(uintptr_t)debug_log_file, debug_verbose);
         fflush(debug_log_file);
         dbg_log_commit();
     }

@@ -93,7 +93,7 @@ void setup(void) {
     FILE *f = fopen_ci("e_config", "rb");
     if (f) {
         config_t config;
-        fread(&config, sizeof(config_t), 1, f);
+        fread_ignore(&config, sizeof(config_t), 1, f);
         fclose(f);
 
         if (memcmp(config.name, "Ecstatica001", 12) == 0) {
@@ -481,17 +481,17 @@ void load_logo(const char *file_name) {
     if (!f) return;
 
     char header[32];
-    fread(header, 1, 32, f);
+    fread_ignore(header, 1, 32, f);
 
     uint8_t pal[768];
-    fread(pal, 1, 768, f);
+    fread_ignore(pal, 1, 768, f);
     for (int i = 0; i < 256; i++) {
         spare_cmap[i].R = pal[i * 3 + 0] >> 2;
         spare_cmap[i].G = pal[i * 3 + 1] >> 2;
         spare_cmap[i].B = pal[i * 3 + 2] >> 2;
     }
 
-    fread(bitmap[3], 1, screen_width * screen_height, f);
+    fread_ignore(bitmap[3], 1, screen_width * screen_height, f);
     fclose(f);
 
     clip_blit(3, 0, 0, 0, 0, 0, screen_width, screen_height, 0xC0);
@@ -508,10 +508,10 @@ void load_def_palette(void) {
     if (!f) return;
 
     char header[32];
-    fread(header, 1, 32, f);
+    fread_ignore(header, 1, 32, f);
 
     uint8_t pal[768];
-    fread(pal, 1, 768, f);
+    fread_ignore(pal, 1, 768, f);
     fclose(f);
 
     for (int i = 0; i < 256; i++) {
@@ -544,17 +544,17 @@ void load_background_title(void) {
     if (!f) return;
 
     char header[32];
-    fread(header, 1, 32, f);
+    fread_ignore(header, 1, 32, f);
 
     uint8_t pal[768];
-    fread(pal, 1, 768, f);
+    fread_ignore(pal, 1, 768, f);
     for (int i = 0; i < 256; i++) {
         spare_cmap[i].R = pal[i * 3 + 0] >> 2;
         spare_cmap[i].G = pal[i * 3 + 1] >> 2;
         spare_cmap[i].B = pal[i * 3 + 2] >> 2;
     }
 
-    fread(bitmap[3], 1, screen_width * screen_height, f);
+    fread_ignore(bitmap[3], 1, screen_width * screen_height, f);
     fclose(f);
 
     clip_blit(3, 0, 0, 0, 0, 0, screen_width, screen_height, 0xC0);
@@ -691,7 +691,7 @@ void fill_in_shadow_tab(void) {
 void load_shadow_tab(void) {
     FILE *f = fopen_ci("SHADOW.DAT", "rb");
     if (!f) return;
-    fread(shadow_tab, 1, sizeof(shadow_tab), f);
+    fread_ignore(shadow_tab, 1, sizeof(shadow_tab), f);
     fclose(f);
 }
 
