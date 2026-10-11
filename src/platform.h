@@ -200,6 +200,24 @@ void platform_save_path(char *buf, int bufsz, int slot, int game_version);
 /* Creates the save directory where one is needed. */
 void platform_save_prepare(void);
 
+/* Threads, for background loading and parallel drawing. Optional: where a
+ * platform has none, platform_thread_start returns false and the caller does
+ * the work inline. A thread runs until the process exits. `core` pins it
+ * where the OS allows (-1 for any); a background thread runs below the game
+ * thread, a worker level with it. */
+typedef struct platform_sem_s platform_sem_t;
+
+enum { PLATFORM_THREAD_BACKGROUND, PLATFORM_THREAD_WORKER };
+
+bool platform_thread_start(const char *name, void (*fn)(void *), void *arg,
+                           int priority, int core);
+/* Cores the game may use; 1 where there are no threads. */
+int  platform_cpu_count(void);
+/* NULL on failure. A semaphore created with 1 is a mutex. */
+platform_sem_t *platform_sem_create(int initial);
+void platform_sem_wait(platform_sem_t *s);
+void platform_sem_post(platform_sem_t *s);
+
 /* Hardware rendering (render.h). Backends without it return false from
  * platform_gfx_create and stub the rest. */
 

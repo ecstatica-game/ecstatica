@@ -14,6 +14,7 @@
 #include "menu.h"
 #include "move.h"
 #include "render.h"
+#include "prefetch.h"
 #include "req.h"
 #include "topo.h"
 #include <string.h>
@@ -148,6 +149,8 @@ void check_hot_spots(void) {
 /* map_check_camera  E1: 0x441560 | E2: 0x44C174 */
 void check_camera(void) {
     if (!selected_thing) return;
+
+    prefetch_views_near(&selected_thing->position_vector);
 
     int16_t camera_idx;
     int map_elem_idx = find_map_element(&selected_thing->position_vector);

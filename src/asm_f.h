@@ -43,6 +43,9 @@ int file_dir_has_database(const char *dir);
  * swapped underneath a running game. */
 void file_flush_path_cache(void);
 
+/* Call before a second thread opens files; the path walk is then locked. */
+void file_enable_threads(void);
+
 /* VGA plane control (no-op) */
 void set_read_plane(int plane);
 

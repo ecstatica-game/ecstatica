@@ -28,6 +28,7 @@ set(C_SRCS
     chars.c
     main.c
     render.c
+    prefetch.c
     render_gl.c
     gl_loader.c
 )

@@ -422,6 +422,30 @@ void platform_delay(uint32_t ms) {
         usleep(ms * 1000u);
 }
 
+/* openfpgaOS has no threads; callers do the work inline. */
+bool platform_thread_start(const char *name, void (*fn)(void *), void *arg,
+                           int priority, int core) {
+    (void)name; (void)fn; (void)arg; (void)priority; (void)core;
+    return false;
+}
+
+int platform_cpu_count(void) {
+    return 1;
+}
+
+platform_sem_t *platform_sem_create(int initial) {
+    (void)initial;
+    return NULL;
+}
+
+void platform_sem_wait(platform_sem_t *s) {
+    (void)s;
+}
+
+void platform_sem_post(platform_sem_t *s) {
+    (void)s;
+}
+
 void platform_shutdown(platform_t *p) {
     (void)p;
     of_mixer_stop_all();

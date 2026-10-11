@@ -542,6 +542,63 @@ void platform_delay(uint32_t ms) {
         sceKernelDelayThread(ms * 1000u);
 }
 
+/* ── Threads ────────────────────────────────────────────────── */
+
+struct platform_sem_s {
+    SceUID id;
+};
+
+typedef struct {
+    void (*fn)(void *);
+    void *arg;
+} thread_start_t;
+
+static int thread_entry(SceSize args, void *argp) {
+    (void)args;
+    thread_start_t *start = (thread_start_t *)argp;
+    start->fn(start->arg);
+    return 0;
+}
+
+bool platform_thread_start(const char *name, void (*fn)(void *), void *arg,
+                           int priority, int core) {
+    /* The game thread runs at 0x10000100; a larger number is lower. */
+    int prio = priority == PLATFORM_THREAD_BACKGROUND ? 0x10000100 + 16 : 0x10000100;
+    int mask = (core >= 0 && core < 3) ? CPU_CORE(core) : 0;
+    SceUID th = sceKernelCreateThread(name, thread_entry, prio, 64 * 1024, 0, mask, NULL);
+    if (th < 0)
+        return false;
+    thread_start_t start = { fn, arg };
+    /* The kernel copies the arguments onto the new thread's stack. */
+    sceKernelStartThread(th, sizeof(start), &start);
+    return true;
+}
+
+/* Cores 0-2 are the application's; the fourth belongs to the system. */
+int platform_cpu_count(void) {
+    return 3;
+}
+
+platform_sem_t *platform_sem_create(int initial) {
+    platform_sem_t *s = (platform_sem_t *)malloc(sizeof(*s));
+    if (!s)
+        return NULL;
+    s->id = sceKernelCreateSema("ecs_sem", 0, initial, 0x7FFFFFFF, NULL);
+    if (s->id < 0) {
+        free(s);
+        return NULL;
+    }
+    return s;
+}
+
+void platform_sem_wait(platform_sem_t *s) {
+    sceKernelWaitSema(s->id, 1, NULL);
+}
+
+void platform_sem_post(platform_sem_t *s) {
+    sceKernelSignalSema(s->id, 1);
+}
+
 #ifdef ECS_PROFILE
 #include "../prof.h"
 

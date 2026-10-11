@@ -93,6 +93,7 @@ src/
   chars.c       — font bitmap glyphs
   win.c         — window/platform glue, page flip, window_proc input mapping
   render.c      — backend-independent hardware-renderer draw lists (render.h seam)
+  prefetch.c    — background reads of the views around the hero; not in the original
   render_gl.c   — optional OpenGL 3.3 backend (ECS_ENABLE_GL, desktop only)
   gl_loader.c   — GL entry-point resolver
   debug_overlay.c — runtime debug overlay
@@ -115,6 +116,8 @@ src/
 Framebuffer: 8-bit indexed palette. `platform_blit` does palette expansion + scale.
 Game version detected at runtime via `game_version` (E1=1, E2=2).
 Gamepad: `platform_gamepad_poll()` per platform, mapped to key globals in `window_proc()`.
+Threads: optional `platform_thread_start` / `platform_sem_*` (none on DOS and
+Pocket, where callers do the work inline).
 
 ## Decompilation Workflow (IDA MCP)
 

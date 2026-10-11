@@ -600,6 +600,35 @@ void platform_delay(uint32_t ms)
         ;
 }
 
+/* No threads under DOS/4GW; callers do the work inline. */
+bool platform_thread_start(const char *name, void (*fn)(void *), void *arg,
+                           int priority, int core)
+{
+    (void)name; (void)fn; (void)arg; (void)priority; (void)core;
+    return false;
+}
+
+int platform_cpu_count(void)
+{
+    return 1;
+}
+
+platform_sem_t *platform_sem_create(int initial)
+{
+    (void)initial;
+    return NULL;
+}
+
+void platform_sem_wait(platform_sem_t *s)
+{
+    (void)s;
+}
+
+void platform_sem_post(platform_sem_t *s)
+{
+    (void)s;
+}
+
 /* ── Audio ──────────────────────────────────────────────────────
  * Sound Blaster, 8-bit mono at 22050 Hz, auto-init DMA over a double buffer.
  * The IRQ at each half-buffer mixes the next half in software. `pan` is

@@ -192,15 +192,35 @@ static const char *dircache_match(const char *dir, const char *name) {
     return NULL;
 }
 
+/* The view prefetch thread opens files too; this guards the listings. NULL
+ * until file_enable_threads, so a single-threaded run never locks. */
+static platform_sem_t *path_lock;
+
+void file_enable_threads(void) {
+    if (!path_lock)
+        path_lock = platform_sem_create(1);
+}
+
 void file_flush_path_cache(void) {
+    if (path_lock) platform_sem_wait(path_lock);
     for (int i = 0; i < DIRCACHE_SLOTS; i++)
         dircache_drop(&dir_cache[i]);
     dir_cache_next = 0;
+    if (path_lock) platform_sem_post(path_lock);
 }
+
+static int resolve_ci_unlocked(const char *base, const char *path, char *out, size_t outsz);
 
 /* Walk each path component under base, resolving case at every level.
  * Returns 1 and fills out on success. */
 static int resolve_ci(const char *base, const char *path, char *out, size_t outsz) {
+    if (path_lock) platform_sem_wait(path_lock);
+    int found = resolve_ci_unlocked(base, path, out, outsz);
+    if (path_lock) platform_sem_post(path_lock);
+    return found;
+}
+
+static int resolve_ci_unlocked(const char *base, const char *path, char *out, size_t outsz) {
     char buf[512];
     if (!base || !base[0]) base = data_root;
     if (strlen(path) >= sizeof(buf)) return 0;

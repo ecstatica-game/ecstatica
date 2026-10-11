@@ -16,6 +16,7 @@
 #include "init.h"
 #include "map.h"
 #include "move.h"
+#include "prefetch.h"
 #include "req.h"
 #include <string.h>
 #include <stdlib.h>
@@ -623,6 +624,24 @@ void flush_backgrounds(void) {
 }
 
 /* topo_load_raw_449B4C — packed background for the current camera. */
+/* load_raw reads from the file, or from a copy the prefetcher already holds. */
+typedef struct {
+    FILE *f;
+    const uint8_t *p;
+    size_t left;
+} raw_src_t;
+
+static void raw_read(raw_src_t *src, void *dst, size_t n) {
+    if (src->f) {
+        fread_ignore(dst, 1, n, src->f);
+        return;
+    }
+    size_t k = n < src->left ? n : src->left;
+    memcpy(dst, src->p, k);
+    src->p += k;
+    src->left -= k;
+}
+
 int load_raw(void) {
     if (selected_camera < 0) {
         do_info_req("Can't load negative camera");
@@ -639,46 +658,59 @@ int load_raw(void) {
      * the image tiles. A camera with no HIRES entry fails so the caller can
      * reload in VGA and upscale with copy_vga_to_svga(). */
     FILE *stream = NULL;
+    size_t cached_len = 0;
+    const uint8_t *cached = NULL;
     if (mode_svga) {
         snprintf(source, sizeof(source), "HIRES/%04d.RAW", selected_camera);
-        stream = fopen_ci(source, "rb");
-        if (!stream) {
+        cached = prefetch_get(source, &cached_len);
+        if (!cached) stream = fopen_ci(source, "rb");
+        if (!stream && !cached) {
             DBG_LOG(2, "[LR] cam=%d no HIRES view, deferring to VGA upscale\n",
                     selected_camera);
             return -1;
         }
     } else {
         snprintf(source, sizeof(source), "VIEWS/%04d.RAW", selected_camera);
-        stream = fopen_ci(source, "rb");
+        cached = prefetch_get(source, &cached_len);
+        if (!cached) stream = fopen_ci(source, "rb");
     }
-    if (!stream) {
+    if (!stream && !cached) {
         DBG_LOG(1, "[LR] cam=%d FAILED open '%s'\n", selected_camera, source);
         do_info2_req("Can't load view", source);
         return -1;
     }
 
-    int16_t signature;
-    fread_ignore(&signature, 1, 2, stream);
+    raw_src_t src;
+    src.f = stream;
+    src.p = cached;
+    src.left = cached_len;
+    int16_t signature = 0;
+    raw_read(&src, &signature, 2);
 
     if (signature == 0x686D) {
-        fread_ignore(bitmap[3], 1, 0x1E, stream);
-        fread_ignore(bitmap[3], 1, 0x300, stream);
-        fread_ignore(bitmap[3], 1, screen_height * screen_width, stream);
-        fread_ignore(mask_map[2], 1, 2 * screen_height * screen_width, stream);
+        raw_read(&src, bitmap[3], 0x1E);
+        raw_read(&src, bitmap[3], 0x300);
+        raw_read(&src, bitmap[3], screen_height * screen_width);
+        raw_read(&src, mask_map[2], 2 * screen_height * screen_width);
     } else {
-        int bg_size, hmap_size;
-        fread_ignore(&bg_size, 1, 4, stream);
-        fread_ignore(&hmap_size, 1, 4, stream);
+        int bg_size = 0, hmap_size = 0;
+        raw_read(&src, &bg_size, 4);
+        raw_read(&src, &hmap_size, 4);
 
         if (hmap_size + bg_size >= 2 * screen_height * screen_width)
             quit("packed info too big!");
 
-        fread_ignore(mask_map[0], 1, hmap_size + bg_size, stream);
-        unpack_bitmap(bitmap[3], (char *)mask_map[0]);
-        unpack_mask(mask_map[2], (char *)mask_map[0] + bg_size);
+        /* A whole prefetched file is unpacked in place, without the copy. */
+        const char *packed = (const char *)mask_map[0];
+        if (!stream && src.left >= (size_t)(hmap_size + bg_size))
+            packed = (const char *)src.p;
+        else
+            raw_read(&src, mask_map[0], hmap_size + bg_size);
+        unpack_bitmap(bitmap[3], (char *)packed);
+        unpack_mask(mask_map[2], (char *)packed + bg_size);
     }
 
-    fclose(stream);
+    if (stream) fclose(stream);
 
     load_visibility_map();
     load_palette(NULL);
