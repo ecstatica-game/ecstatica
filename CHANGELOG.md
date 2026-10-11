@@ -6,6 +6,44 @@ All notable changes to this project are documented in this file.
 
 Nothing yet.
 
+## [0.9.0] - 2026-10-11
+
+### Changed
+- The frame wait sleeps until the next game tick instead of spinning, so
+  a fast frame no longer holds a core at 100%. Desktop CPU use at the
+  title sequence drops from about 100% to 38%.
+- Vita: the palette expand and scale to 960x544 runs on cores 1 and 2
+  while the game thread, pinned to core 0, starts the next frame.
+- PSP: the GPU copies the frame into video memory and draws it while the
+  CPU goes on with the next frame. Frames are triple-buffered and only
+  shown once fully drawn.
+- The backgrounds of the cameras around the hero are read from disk on a
+  background thread, so a camera cut no longer waits on the memory card.
+- Characters are drawn in horizontal screen bands, one per core, with the
+  same pixels as before. PSP, DOS and Pocket have one core and draw as
+  before.
+- `platform.h` has an optional thread and semaphore API. DOS and Pocket
+  have no threads and do the work inline.
+
+## [0.8.4] - 2026-10-02
+
+### Fixed
+- Compiler warnings on the Linux, PSP, Vita and Pocket builds.
+
+## [0.8.3] - 2026-10-02
+
+### Added
+- Tagged releases publish the Vita VPKs to VitaDB.
+
+## [0.8.2] - 2026-10-01
+
+### Added
+- Circle cycles E1's speed mode during play on PSP and Vita.
+
+### Changed
+- Packaging art uses the finished header, cover and logo art, and the
+  Vita and PSP wide art no longer crops the logo.
+
 ## [0.8.1] - 2026-09-30
 
 ### Fixed
@@ -207,7 +245,12 @@ Nothing yet.
 ### Added
 - Initial public release: C99 reimplementation of Ecstatica 1 & 2 with macOS, Linux, and Windows platform layers.
 
-[Unreleased]: https://github.com/ecstatica-game/ecstatica/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/ecstatica-game/ecstatica/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/ecstatica-game/ecstatica/compare/v0.8.4...v0.9.0
+[0.8.4]: https://github.com/ecstatica-game/ecstatica/compare/v0.8.3...v0.8.4
+[0.8.3]: https://github.com/ecstatica-game/ecstatica/compare/v0.8.2...v0.8.3
+[0.8.2]: https://github.com/ecstatica-game/ecstatica/compare/v0.8.1...v0.8.2
+[0.8.1]: https://github.com/ecstatica-game/ecstatica/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/ecstatica-game/ecstatica/compare/v0.7.1...v0.8.0
 [0.7.1]: https://github.com/ecstatica-game/ecstatica/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/ecstatica-game/ecstatica/compare/v0.6.1...v0.7.0
