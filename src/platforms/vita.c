@@ -5,7 +5,8 @@
  *
  *   Video     SceDisplay, 960x544 32-bit, triple-buffered in CDRAM. The 8-bit
  *             frame is palette-expanded and scaled on the CPU through per-row
- *             and per-column source tables.
+ *             and per-column source tables, by two worker threads on cores 1
+ *             and 2 while the game thread (core 0) goes on with the next frame.
  *   Input     SceCtrl buttons and sticks. The front panel is a pointer for
  *             menus; the rear panel halves are the missing second shoulder
  *             row (E1 per-hand pick-up, E2 magic).
@@ -132,6 +133,98 @@ int platform_crop_inset_y(platform_t *p, int render_h) {
     return off * render_h / full_h;
 }
 
+/* ── Blit workers ───────────────────────────────────────────
+ * platform_blit snapshots the frame and returns; worker 0 expands the top
+ * half, worker 1 the bottom, and worker 0 queues the buffer once both are
+ * done. The next platform_blit waits for that before touching any shared
+ * state, so at most one frame is in flight. */
+
+#define CPU_CORE(n) (0x10000 << (n))
+
+static uint8_t   __attribute__((aligned(64))) s_stage[MAX_RENDER_W * MAX_RENDER_H];
+static SceUID    s_blit_go[2] = { -1, -1 };
+static SceUID    s_half_done = -1;
+static SceUID    s_frame_done = -1;
+static bool      s_blit_threads;
+static bool      s_blit_pending;
+static uint32_t *s_job_fb;
+
+static void expand_rows(uint32_t *fb, const uint8_t *framebuffer, int y0, int y1) {
+    const uint16_t *cols = s_col_src;
+    const int dw = s_dst_w;
+
+    for (int y = y0; y < y1; y++) {
+        uint32_t *row = fb + y * SCREEN_W;
+        /* Re-black the bars, which a crop/stretch frame may have painted. */
+        if (s_dst_x > 0) {
+            memset(row, 0, (size_t)s_dst_x * sizeof(uint32_t));
+            memset(row + s_dst_x + dw, 0, (size_t)(SCREEN_W - s_dst_x - dw) * sizeof(uint32_t));
+        }
+        const uint8_t *src = framebuffer + s_row_off[y];
+        uint32_t *dst = row + s_dst_x;
+        for (int x = 0; x < dw; x++)
+            dst[x] = s_lut[src[cols[x]]];
+    }
+}
+
+static void queue_frame(uint32_t *fb) {
+    SceDisplayFrameBuf param;
+    memset(&param, 0, sizeof(param));
+    param.size = sizeof(param);
+    param.base = fb;
+    param.pitch = SCREEN_W;
+    param.pixelformat = SCE_DISPLAY_PIXELFORMAT_A8B8G8R8;
+    param.width = SCREEN_W;
+    param.height = SCREEN_H;
+    sceDisplaySetFrameBuf(&param, SCE_DISPLAY_SETBUF_NEXTFRAME);
+}
+
+static int blit_worker(SceSize args, void *argp) {
+    (void)args;
+    const int half = *(const int *)argp;
+    const int mid = SCREEN_H / 2;
+
+    for (;;) {
+        sceKernelWaitSema(s_blit_go[half], 1, NULL);
+        if (half) {
+            expand_rows(s_job_fb, s_stage, mid, SCREEN_H);
+            sceKernelSignalSema(s_half_done, 1);
+        } else {
+            expand_rows(s_job_fb, s_stage, 0, mid);
+            sceKernelWaitSema(s_half_done, 1, NULL);
+            queue_frame(s_job_fb);
+            sceKernelSignalSema(s_frame_done, 1);
+        }
+    }
+    return 0;
+}
+
+static void blit_wait(void) {
+    if (s_blit_pending) {
+        sceKernelWaitSema(s_frame_done, 1, NULL);
+        s_blit_pending = false;
+    }
+}
+
+/* On failure the blit stays on the game thread. */
+static void blit_threads_init(void) {
+    s_blit_go[0]  = sceKernelCreateSema("ecs_blit_go0", 0, 0, 1, NULL);
+    s_blit_go[1]  = sceKernelCreateSema("ecs_blit_go1", 0, 0, 1, NULL);
+    s_half_done   = sceKernelCreateSema("ecs_blit_half", 0, 0, 1, NULL);
+    s_frame_done  = sceKernelCreateSema("ecs_blit_done", 0, 0, 1, NULL);
+    if (s_blit_go[0] < 0 || s_blit_go[1] < 0 || s_half_done < 0 || s_frame_done < 0)
+        return;
+
+    for (int i = 0; i < 2; i++) {
+        SceUID th = sceKernelCreateThread(i ? "ecs_blit1" : "ecs_blit0", blit_worker,
+                                          0x10000100, 16 * 1024, 0, CPU_CORE(1 + i), NULL);
+        if (th < 0)
+            return;
+        sceKernelStartThread(th, sizeof(i), &i);
+    }
+    s_blit_threads = true;
+}
+
 static void upload_lut(const uint8_t *palette) {
     for (int i = 0; i < 256; i++) {
         uint32_t r = (uint32_t)(palette[i * 3 + 0] & 0x3F) << 2;
@@ -165,6 +258,8 @@ static bool video_init(void) {
     param.height = SCREEN_H;
     sceDisplaySetFrameBuf(&param, SCE_DISPLAY_SETBUF_NEXTFRAME);
     s_fb_next = 1;
+
+    blit_threads_init();
     return true;
 }
 
@@ -175,6 +270,8 @@ platform_t *platform_init(const char *title, int fb_width, int fb_height, int sc
     platform_t *p = &g_plat;
     memset(p, 0, sizeof(*p));
 
+    /* Cores 1 and 2 belong to the blit workers and the audio mixer. */
+    sceKernelChangeThreadCpuAffinityMask(sceKernelGetThreadId(), CPU_CORE(0));
     scePowerSetArmClockFrequency(444);
     scePowerSetBusClockFrequency(222);
 
@@ -229,6 +326,10 @@ void platform_blit(platform_t *p, const uint8_t *framebuffer, const uint8_t *pal
     int sw = p->render_w, sh = p->render_h;
     if (sw <= 0 || sh <= 0 || sw > MAX_RENDER_W || sh > MAX_RENDER_H)
         return;
+
+    /* The workers read the maps, the LUT and the stage. */
+    blit_wait();
+
     if (sw != s_map_w || sh != s_map_h || s_scale_mode != s_map_mode)
         build_scale_maps(sw, sh);
 
@@ -240,33 +341,21 @@ void platform_blit(platform_t *p, const uint8_t *framebuffer, const uint8_t *pal
 
     /* Triple buffering: this buffer is neither on screen nor queued. */
     uint32_t *fb = s_fb[s_fb_next];
-    const uint16_t *cols = s_col_src;
-    const int dw = s_dst_w;
+    s_fb_next = (s_fb_next + 1) % FB_COUNT;
 
-    for (int y = 0; y < SCREEN_H; y++) {
-        uint32_t *row = fb + y * SCREEN_W;
-        /* Re-black the bars, which a crop/stretch frame may have painted. */
-        if (s_dst_x > 0) {
-            memset(row, 0, (size_t)s_dst_x * sizeof(uint32_t));
-            memset(row + s_dst_x + dw, 0, (size_t)(SCREEN_W - s_dst_x - dw) * sizeof(uint32_t));
-        }
-        const uint8_t *src = framebuffer + s_row_off[y];
-        uint32_t *dst = row + s_dst_x;
-        for (int x = 0; x < dw; x++)
-            dst[x] = s_lut[src[cols[x]]];
+    if (!s_blit_threads) {
+        expand_rows(fb, framebuffer, 0, SCREEN_H);
+        queue_frame(fb);
+        return;
     }
 
-    SceDisplayFrameBuf param;
-    memset(&param, 0, sizeof(param));
-    param.size = sizeof(param);
-    param.base = fb;
-    param.pitch = SCREEN_W;
-    param.pixelformat = SCE_DISPLAY_PIXELFORMAT_A8B8G8R8;
-    param.width = SCREEN_W;
-    param.height = SCREEN_H;
-    sceDisplaySetFrameBuf(&param, SCE_DISPLAY_SETBUF_NEXTFRAME);
-
-    s_fb_next = (s_fb_next + 1) % FB_COUNT;
+    /* Menus and dialogs redraw the plane right after a flip, so the workers
+     * get a copy rather than the game's plane. */
+    memcpy(s_stage, framebuffer, (size_t)sw * (size_t)sh);
+    s_job_fb = fb;
+    s_blit_pending = true;
+    sceKernelSignalSema(s_blit_go[0], 1);
+    sceKernelSignalSema(s_blit_go[1], 1);
 }
 
 void platform_blit_rgba(platform_t *p, const uint8_t *framebuffer) {
@@ -586,9 +675,10 @@ void platform_audio_init(void) {
     }
 
     s_audio_quit = false;
-    /* Above the main thread, so a long frame cannot starve the mixer. */
+    /* Shares core 2 with a blit worker, above it so a long blit cannot
+     * starve the mixer. */
     s_audio_thread = sceKernelCreateThread("ecs_audio", audio_thread,
-                                           0x10000100 - 16, 64 * 1024, 0, 0, NULL);
+                                           0x10000100 - 16, 64 * 1024, 0, CPU_CORE(2), NULL);
     if (s_audio_thread < 0) {
         sceKernelDeleteSema(s_voice_sema);
         s_voice_sema = -1;
@@ -747,6 +837,7 @@ void platform_save_prepare(void) {
 void platform_shutdown(platform_t *p) {
     (void)p;
     platform_audio_shutdown();
+    blit_wait();
     if (s_fb_block >= 0) {
         sceKernelFreeMemBlock(s_fb_block);
         s_fb_block = -1;
