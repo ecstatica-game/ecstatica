@@ -180,6 +180,7 @@ void load_shade_map(void);
 /* Timing */
 int32_t biostime(void);
 int32_t my_time(void);
+int32_t wait_for_tick_after(int32_t t);
 
 /* Clear operations */
 void clear_mask_rect(int mask, int x, int y, int w, int h);

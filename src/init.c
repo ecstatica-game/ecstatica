@@ -719,6 +719,23 @@ int32_t my_time(void) {
 #endif
 }
 
+/* Not in the original, which spun on my_time. Sleeping frees the core for the
+ * other threads and keeps the handhelds cool; the last millisecond is still
+ * polled because a sleep may overshoot by its timer granularity. */
+int32_t wait_for_tick_after(int32_t t) {
+#ifndef MY_TIME_DETERMINISTIC
+    uint32_t rate = (game_version == GAME_VERSION_E1) ? 60 : 70;
+    uint32_t next_ms = ((uint32_t)(t + 1) * 1000u + rate - 1) / rate;
+    int32_t left = (int32_t)(next_ms - platform_ticks(NULL));
+    if (left > 1)
+        platform_delay((uint32_t)(left - 1));
+#endif
+    int32_t now;
+    while ((now = my_time()) == t)
+        ;
+    return now;
+}
+
 /* init_add_keyboard_handler  E1: 0x4184D4 | E2: 0x41BA4C */
 void add_keyboard_handler(void) {
 }

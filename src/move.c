@@ -124,10 +124,7 @@ void do_movement(void) {
     PROF_FRAME();
 
     PROF_BEGIN(PROF_WAIT);
-    int wait_time = my_time();
-    while (wait_time == some_time)
-        wait_time = my_time();
-    x_time = wait_time;
+    x_time = wait_for_tick_after(some_time);
     PROF_END(PROF_WAIT);
     PROF_BEGIN(PROF_LOGIC);
 

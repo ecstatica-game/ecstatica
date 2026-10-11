@@ -263,6 +263,9 @@ platform_t *platform_init(const char *title, int fb_width, int fb_height, int sc
 
     QueryPerformanceFrequency(&p->freq);
     QueryPerformanceCounter(&p->start_ticks);
+    /* The frame wait sleeps between 70 Hz ticks; the default 15.6 ms timer
+     * would oversleep past one. */
+    timeBeginPeriod(1);
 
     s_platform = p;
 
@@ -621,6 +624,7 @@ void platform_shutdown(platform_t *p) {
         free(p->rgba_buffer);
         p->rgba_buffer = NULL;
     }
+    timeEndPeriod(1);
     if (s_platform == p) s_platform = NULL;
     free(p);
 }
