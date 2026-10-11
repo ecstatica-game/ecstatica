@@ -3,9 +3,10 @@
  *
  * PlayStation Portable backend (PSPSDK), built by platforms/psp/Makefile.
  *
- *   Video     sceGu, 480x272 16-bit. The 8-bit frame is a GU_PSM_T8 texture
- *             with a 256-entry CLUT, so palette expansion and scaling happen
- *             on the GPU.
+ *   Video     sceGu, 480x272 16-bit, triple-buffered. The 8-bit frame is
+ *             copied to VRAM by the GE and drawn as a GU_PSM_T8 texture with a
+ *             256-entry CLUT, so palette expansion and scaling happen on the
+ *             GPU while the CPU goes on with the next frame.
  *   Input     sceCtrl only; everything reaches the engine through the gamepad
  *             path in win.c, and the stick doubles as the requester pointer.
  *   Timing    sceKernelGetSystemTimeWide.
@@ -23,6 +24,7 @@
 #include <pspdisplay.h>
 #include <pspctrl.h>
 #include <pspgu.h>
+#include <pspge.h>
 #include <pspaudio.h>
 #include <psppower.h>
 
@@ -91,11 +93,66 @@ typedef struct {
     short x, y, z;
 } blit_vertex_t;
 
+/* VRAM layout, offsets from its base: three colour buffers, the depth buffer
+ * sceGu insists on (never written), then the frame as a texture. 1.4 MB of
+ * 2 MB. */
+#define FB_COUNT        3
+#define FB_BYTES        (SCREEN_STRIDE * SCREEN_H * 2)
+#define ZBUF_OFFSET     (FB_BYTES * FB_COUNT)
+#define TEX_OFFSET      (ZBUF_OFFSET + FB_BYTES)
+#define TEX_BYTES       (640 * 480)
+
+static int s_fb_next;
+
+/* The draw list runs on the GE after platform_blit returns. This thread waits
+ * for it and only then shows the buffer, so a frame is never displayed half
+ * drawn. */
+static SceUID s_present_go = -1;
+static SceUID s_present_done = -1;
+static volatile int s_present_fb;
+static bool s_present_pending;
+
+static int present_thread(SceSize args, void *argp) {
+    (void)args;
+    (void)argp;
+    for (;;) {
+        sceKernelWaitSema(s_present_go, 1, NULL);
+        sceGuSync(GU_SYNC_FINISH, GU_SYNC_WAIT);
+        sceDisplaySetFrameBuf((uint8_t *)sceGeEdramGetAddr() + s_present_fb * FB_BYTES,
+                              SCREEN_STRIDE, PSP_DISPLAY_PIXEL_FORMAT_565,
+                              PSP_DISPLAY_SETBUF_NEXTFRAME);
+        sceKernelSignalSema(s_present_done, 1);
+    }
+    return 0;
+}
+
+/* Waits for the previous frame's draw list and present; after this the GE is
+ * idle and the display list, CLUT and texture may be reused. */
+static void present_wait(void) {
+    if (s_present_pending) {
+        sceKernelWaitSema(s_present_done, 1, NULL);
+        s_present_pending = false;
+    }
+}
+
+static void present_init(void) {
+    s_present_go   = sceKernelCreateSema("ecs_present_go", 0, 0, 1, NULL);
+    s_present_done = sceKernelCreateSema("ecs_present_done", 0, 0, 1, NULL);
+    if (s_present_go < 0 || s_present_done < 0)
+        return;
+    /* Above the main thread (0x11), so a finished frame is shown promptly. */
+    SceUID th = sceKernelCreateThread("ecs_present", present_thread, 0x10,
+                                      4 * 1024, THREAD_ATTR_USER, NULL);
+    if (th >= 0)
+        sceKernelStartThread(th, 0, NULL);
+    else
+        s_present_go = -1;
+}
+
 static void gu_init(void) {
-    /* Two draw buffers and an unused depth buffer: 835 KB of 2 MB VRAM. */
     void *buf0 = (void *)0;
-    void *buf1 = (void *)(SCREEN_STRIDE * SCREEN_H * 2);
-    void *zbuf = (void *)(SCREEN_STRIDE * SCREEN_H * 4);
+    void *buf1 = (void *)FB_BYTES;
+    void *zbuf = (void *)ZBUF_OFFSET;
 
     sceGuInit();
     sceGuStart(GU_DIRECT, s_gu_list);
@@ -117,6 +174,10 @@ static void gu_init(void) {
 
     sceDisplayWaitVblankStart();
     sceGuDisplay(GU_TRUE);
+    /* buf1 is on screen. */
+    s_fb_next = 0;
+
+    present_init();
 }
 
 /* 6-bit VGA components, << 2. Re-uploaded only when the palette changed. */
@@ -222,6 +283,8 @@ void platform_blit(platform_t *p, const uint8_t *framebuffer, const uint8_t *pal
     if (sw <= 0 || sh <= 0)
         return;
 
+    present_wait();
+
     if (palette && (!p->pal_valid || memcmp(p->last_pal, palette, 768) != 0)) {
         memcpy(p->last_pal, palette, 768);
         p->pal_valid = true;
@@ -230,7 +293,7 @@ void platform_blit(platform_t *p, const uint8_t *framebuffer, const uint8_t *pal
 
     /* The GE addresses T8 textures in 16-byte units; both games render 320 or
      * 640 wide. */
-    if ((sw & 15) != 0 || sh > 512)
+    if ((sw & 15) != 0 || sh > 512 || (size_t)sw * (size_t)sh > TEX_BYTES)
         return;
 
     const uint8_t *src = framebuffer;
@@ -251,11 +314,26 @@ void platform_blit(platform_t *p, const uint8_t *framebuffer, const uint8_t *pal
     /* The GE is not coherent with the CPU data cache. */
     sceKernelDcacheWritebackRange(src, frame_bytes);
 
+    /* Menus and dialogs redraw the plane straight after a flip, so the GE
+     * takes a copy into VRAM first (as 32-bit pixels, a quarter as wide) and
+     * only that copy is waited for. */
+    uint8_t *tex = (uint8_t *)sceGeEdramGetAddr() + TEX_OFFSET;
+    sceGuStart(GU_DIRECT, s_gu_list);
+    sceGuCopyImage(GU_PSM_8888, 0, 0, sw / 4, sh, sw / 4, (void *)src,
+                   0, 0, sw / 4, tex);
+    sceGuFinish();
+    sceGuSync(GU_SYNC_FINISH, GU_SYNC_WAIT);
+
     int dst_x0, dst_x1, v0, v1;
     compute_dst_rect(sw, sh, &dst_x0, &dst_x1, &v0, &v1);
     int dst_w = dst_x1 - dst_x0;
 
+    int fb = s_fb_next;
+    s_fb_next = (s_fb_next + 1) % FB_COUNT;
+
     sceGuStart(GU_DIRECT, s_gu_list);
+    sceGuDrawBufferList(GU_PSM_5650, (void *)(fb * FB_BYTES), SCREEN_STRIDE);
+    sceGuTexFlush();
 
     /* Re-black the pillarbox bars, which a stretch/crop frame may have painted. */
     if (dst_x0 > 0) {
@@ -294,16 +372,24 @@ void platform_blit(platform_t *p, const uint8_t *framebuffer, const uint8_t *pal
         v[1].y = SCREEN_H;
         v[1].z = 0;
 
-        sceGuTexImage(0, 512, 512, sw, src + sx - u0);
+        sceGuTexImage(0, 512, 512, sw, tex + sx - u0);
         sceGuDrawArray(GU_SPRITES,
                        GU_TEXTURE_16BIT | GU_VERTEX_16BIT | GU_TRANSFORM_2D,
                        2, 0, v);
     }
 
     sceGuFinish();
-    sceGuSync(0, 0);
-    /* Latches at vblank on its own; no need to block. */
-    sceGuSwapBuffers();
+
+    if (s_present_go >= 0) {
+        s_present_fb = fb;
+        s_present_pending = true;
+        sceKernelSignalSema(s_present_go, 1);
+    } else {
+        sceGuSync(GU_SYNC_FINISH, GU_SYNC_WAIT);
+        sceDisplaySetFrameBuf((uint8_t *)sceGeEdramGetAddr() + fb * FB_BYTES,
+                              SCREEN_STRIDE, PSP_DISPLAY_PIXEL_FORMAT_565,
+                              PSP_DISPLAY_SETBUF_NEXTFRAME);
+    }
 }
 
 void platform_blit_rgba(platform_t *p, const uint8_t *framebuffer) {
@@ -790,6 +876,7 @@ static __attribute__((constructor)) void setup_callbacks(void) {
 void platform_shutdown(platform_t *p) {
     (void)p;
     platform_audio_shutdown();
+    present_wait();
     sceGuTerm();
     sceKernelExitGame();
 }
