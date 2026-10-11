@@ -16,6 +16,7 @@
 #include "map.h"
 #include "move.h"
 #include "music.h"
+#include "raster.h"
 #include "render.h"
 #include "topo.h"
 #include "tri.h"
@@ -95,16 +96,6 @@ int16_t graphic_size_x[GRAPHICS_MAX];
 int16_t graphic_size_y[GRAPHICS_MAX];
 graphic_name_t graphic_name_arr[GRAPHICS_MAX];
 int16_t background_status = 0;
-
-int32_t z_scale = 0;
-int16_t *depth_mask = NULL;
-char *shade_lut = NULL;
-int32_t fb_pitch = 0;
-int32_t shade_dy = 0;
-int32_t z_dy = 0;
-char *beam_tab1 = NULL;
-char *beam_tab2 = NULL;
-char *shadow_lut = NULL;
 
 int16_t max_fps = 30;
 int16_t fps = 0;
@@ -716,6 +707,10 @@ void draw_parts(void) {
         find_view_positions(actor);
     }
 
+    /* Passes 2-4 are recorded and drawn in bands, a band per core. */
+    if (render_backend != RENDER_HARDWARE)
+        raster_begin();
+
     /* Pass 2: shadows. */
     for (actor_t *actor = root_thing; actor; actor = actor->next_in_display_list) {
         if (!(actor->flags & 0x08)) continue;
@@ -740,6 +735,8 @@ void draw_parts(void) {
         if (make_backgrounds && actor == selected_thing) continue;
         put_smoke(actor);
     }
+
+    raster_end();
 
     /* Pass 5: clamp each area_to_clear to viewport edges. */
     for (actor_t *actor = root_thing; actor; actor = actor->next_in_display_list) {

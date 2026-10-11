@@ -12,6 +12,7 @@
 #include "game.h"
 #include "topo.h"
 #include "asm_f.h"
+#include "raster.h"
 #include <string.h>
 #include <stdint.h>
 
@@ -212,6 +213,15 @@ void draw_new_tex_tri(tri_t *tri, int plane, tri_t *shade) {
 
     check_fade();
 
+    if (raster_recording)
+        raster_record_tri(1, tri, plane, shade);
+    else
+        draw_new_tex_tri_rows(tri, plane, shade, NULL, top_edge, bottom_edge);
+}
+
+/* top_edge and bottom_edge shadow the globals, so the body clips to the band. */
+void draw_new_tex_tri_rows(tri_t *tri, int plane, tri_t *shade, subarea_t *dirty,
+                           int top_edge, int bottom_edge) {
     int x1 = tri->point1->screen_coord.X;
     int y1 = tri->point1->screen_coord.Y;
     int z1 = tri->point1->screen_coord.Z;
@@ -236,12 +246,16 @@ void draw_new_tex_tri(tri_t *tri, int plane, tri_t *shade) {
         return;
 
     if (tri->parent_actor) {
-        subarea_t *area = tri->parent_actor->area_to_clear;
+        subarea_t *area = dirty ? dirty : tri->parent_actor->area_to_clear;
         if (x_left   < area->left)   area->left   = x_left;
         if (x_right  > area->right)  area->right  = x_right;
         if (y_top_b  < area->top)    area->top    = y_top_b;
         if (y_bot_b  > area->bottom) area->bottom = y_bot_b;
     }
+
+    /* Nothing in these rows; the margin covers the rounding of the edges. */
+    if (y_bot_b + 2 < top_edge || y_top_b - 2 >= bottom_edge)
+        return;
 
     /* Cross product for face normal */
     int cross_x = (z2 - z3) * (y1 - y3) - (z1 - z3) * (y2 - y3);

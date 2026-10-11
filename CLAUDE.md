@@ -94,6 +94,7 @@ src/
   win.c         — window/platform glue, page flip, window_proc input mapping
   render.c      — backend-independent hardware-renderer draw lists (render.h seam)
   prefetch.c    — background reads of the views around the hero; not in the original
+  raster.c      — draw_parts' rasterizer calls replayed in horizontal bands, one per core; not in the original
   render_gl.c   — optional OpenGL 3.3 backend (ECS_ENABLE_GL, desktop only)
   gl_loader.c   — GL entry-point resolver
   debug_overlay.c — runtime debug overlay

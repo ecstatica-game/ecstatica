@@ -236,19 +236,19 @@ void tri_line_win95(int draw_height, int draw_data, int draw_height_bias,
 
 /* asm_ellipse_line_win95_45D10E — ellipsoid column with z-buffer; shade_map
  * decides the visibility and shade of each pixel. Uses depth_mask, shade_lut,
- * z_scale, fb_pitch, shade_dy and z_dy. */
-void ellipse_line_win95(int mask_idx, int col_height,
+ * z_scale, fb_pitch, shade_dy and z_dy from cs. */
+void ellipse_line_win95(const column_state_t *cs, int mask_idx, int col_height,
                         int z_interp, char *draw_ptr,
                         int shade_idx) {
     /* Stores through char* may alias any global, so hoist the reads. Same in
      * the three variants below. */
-    const int             pitch       = fb_pitch;
+    const int             pitch       = cs->fb_pitch;
     const int             mask_stride = screen_width;
-    const int32_t         zs          = z_scale;
-    const int32_t         sdy         = shade_dy;
-    const int32_t         zdy         = z_dy;
-    int16_t *const        dm          = depth_mask;
-    const char *const     lut         = shade_lut;
+    const int32_t         zs          = cs->z_scale;
+    const int32_t         sdy         = cs->shade_dy;
+    const int32_t         zdy         = cs->z_dy;
+    int16_t *const        dm          = cs->depth_mask;
+    const char *const     lut         = cs->shade_lut;
     const char *const     smap        = &shade_map[0][0];
     const int16_t *const  prof        = &profile[0][0];
 
@@ -275,17 +275,17 @@ void ellipse_line_win95(int mask_idx, int col_height,
 }
 
 /* asm_beam_line_win95_45D2CC — beam/highlight column; beam_tab1/2. */
-void beam_line_win95(int mask_idx, int col_height,
+void beam_line_win95(const column_state_t *cs, int mask_idx, int col_height,
                         int z_interp, char *draw_ptr,
                         int shade_idx) {
-    const int             pitch       = fb_pitch;
+    const int             pitch       = cs->fb_pitch;
     const int             mask_stride = screen_width;
-    const int32_t         zs          = z_scale;
-    const int32_t         sdy         = shade_dy;
-    const int32_t         zdy         = z_dy;
-    int16_t *const        dm          = depth_mask;
-    const char *const     tab1        = beam_tab1;
-    const char *const     tab2        = beam_tab2;
+    const int32_t         zs          = cs->z_scale;
+    const int32_t         sdy         = cs->shade_dy;
+    const int32_t         zdy         = cs->z_dy;
+    int16_t *const        dm          = cs->depth_mask;
+    const char *const     tab1        = cs->beam_tab1;
+    const char *const     tab2        = cs->beam_tab2;
     const char *const     smap        = &shade_map[0][0];
     const int16_t *const  prof        = &profile[0][0];
 
@@ -313,16 +313,16 @@ void beam_line_win95(int mask_idx, int col_height,
 }
 
 /* asm_shadow_line_win95_45D482 — shadow column; shadow_lut. */
-void shadow_line_win95(int mask_idx, int col_height,
+void shadow_line_win95(const column_state_t *cs, int mask_idx, int col_height,
                           int z_interp, char *draw_ptr,
                           int shade_idx) {
-    const int             pitch       = fb_pitch;
+    const int             pitch       = cs->fb_pitch;
     const int             mask_stride = screen_width;
-    const int32_t         zs          = z_scale;
-    const int32_t         sdy         = shade_dy;
-    const int32_t         zdy         = z_dy;
-    int16_t *const        dm          = depth_mask;
-    const char *const     lut         = shadow_lut;
+    const int32_t         zs          = cs->z_scale;
+    const int32_t         sdy         = cs->shade_dy;
+    const int32_t         zdy         = cs->z_dy;
+    int16_t *const        dm          = cs->depth_mask;
+    const char *const     lut         = cs->shadow_lut;
     const char *const     smap        = &shade_map[0][0];
     const int16_t *const  prof        = &profile[0][0];
 
@@ -349,16 +349,16 @@ void shadow_line_win95(int mask_idx, int col_height,
 }
 
 /* asm_smoke_line_win95_45D5F8 — smoke/transparent column; beam_tab1. */
-void smoke_line_win95(int mask_idx, int col_height,
+void smoke_line_win95(const column_state_t *cs, int mask_idx, int col_height,
                          int z_interp, char *draw_ptr,
                          int shade_idx) {
-    const int             pitch       = fb_pitch;
+    const int             pitch       = cs->fb_pitch;
     const int             mask_stride = screen_width;
-    const int32_t         zs          = z_scale;
-    const int32_t         sdy         = shade_dy;
-    const int32_t         zdy         = z_dy;
-    int16_t *const        dm          = depth_mask;
-    const char *const     tab1        = beam_tab1;
+    const int32_t         zs          = cs->z_scale;
+    const int32_t         sdy         = cs->shade_dy;
+    const int32_t         zdy         = cs->z_dy;
+    int16_t *const        dm          = cs->depth_mask;
+    const char *const     tab1        = cs->beam_tab1;
     const char *const     smap        = &shade_map[0][0];
     const int16_t *const  prof        = &profile[0][0];
 

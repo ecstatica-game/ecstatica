@@ -11,6 +11,7 @@
 #include "display.h"
 #include "game.h"
 #include "init.h"
+#include "raster.h"
 #include "topo.h"
 #include <string.h>
 #include <stdlib.h>
@@ -26,12 +27,21 @@ void shade_ellipse(part_t *part, int plane) {
 /* ellipse_shade_ellipse_win95_430FD8 — column-by-column shade_map ellipsoid;
  * part flags select the shadow, smoke and beam modes. */
 void shade_ellipse_win95(part_t *part, int plane) {
+    if (raster_recording)
+        raster_record_ellipse(part, plane);
+    else
+        shade_ellipse_rows(part, plane, NULL, top_edge, bottom_edge);
+}
+
+/* top_edge and bottom_edge shadow the globals, so the body clips to the band. */
+void shade_ellipse_rows(part_t *part, int plane, subarea_t *dirty, int top_edge, int bottom_edge) {
     const int mask_stride = screen_width;
     if (!part->vector_persp.Z) return;
 
     int pitch;
     char *plane_data = (char *)dd_lock(plane, &pitch);
-    fb_pitch = pitch;
+    column_state_t cs;
+    memset(&cs, 0, sizeof(cs));
 
     int z_off_x = part->depth_offset.X;
     int z_off_y = part->depth_offset.Y;
@@ -88,25 +98,25 @@ void shade_ellipse_win95(part_t *part, int plane) {
         return;
     }
 
-    subarea_t *dirty_rect = part->parent_actor->area_to_clear;
+    subarea_t *dirty_rect = dirty ? dirty : part->parent_actor->area_to_clear;
     int16_t dirty_l = dirty_rect->left;
     int16_t dirty_r = dirty_rect->right;
     int16_t dirty_t = dirty_rect->top;
     int16_t dirty_b = dirty_rect->bottom;
 
-    z_scale = 2 * z_off_z;
-    fb_pitch = pitch;
-    depth_mask = (plane == 2) ? mask_map[1] : mask_map[0];
+    cs.z_scale = 2 * z_off_z;
+    cs.fb_pitch = pitch;
+    cs.depth_mask = (plane == 2) ? mask_map[1] : mask_map[0];
 
     /* Select rendering mode based on part flags */
     if (part->flags & 0x42) {
         if ((part->flags & 0x42) == 0x42) {
-            beam_tab1 = &shadow_tab[0][part->color][0];
-            beam_tab2 = &shadow_tab[2][part->color][0];
+            cs.beam_tab1 = &shadow_tab[0][part->color][0];
+            cs.beam_tab2 = &shadow_tab[2][part->color][0];
         } else if (part->flags & 2) {
-            shadow_lut = &shadow_tab[1][part->color][0];
+            cs.shadow_lut = &shadow_tab[1][part->color][0];
         } else {
-            beam_tab1 = &shadow_tab[0][part->color][0];
+            cs.beam_tab1 = &shadow_tab[0][part->color][0];
         }
     } else {
         /* 0x430FD8: the shade base depends on moving_camera, or ellipses jump
@@ -114,7 +124,7 @@ void shade_ellipse_win95(part_t *part, int plane) {
         int depth_shade = moving_camera ? (159 - (pos_z >> 5)) : (191 - (pos_z >> 7));
         if (depth_shade < 0) depth_shade = 0;
         if (depth_shade > 127) depth_shade = 127;
-        shade_lut = shade_tab[part->color][part->color_shade * depth_shade >> 14];
+        cs.shade_lut = shade_tab[part->color][part->color_shade * depth_shade >> 14];
 
     }
 
@@ -161,23 +171,23 @@ void shade_ellipse_win95(part_t *part, int plane) {
                 if (clip_bottom > dirty_b)
                     dirty_b = clip_bottom;
 
-                shade_dy = step_y;
-                z_dy = z_step_y;
+                cs.shade_dy = step_y;
+                cs.z_dy = z_step_y;
 
                 int col_height = (clip_bottom - clip_top - 1) * 256;
 
                 if (part->flags & 0x42) {
                     if ((part->flags & 0x42) == 0x42)
-                        beam_line_win95(mask_idx, col_height, z_interp,
+                        beam_line_win95(&cs, mask_idx, col_height, z_interp,
                                            draw_ptr, shade_idx);
                     else if (part->flags & 2)
-                        shadow_line_win95(mask_idx, col_height, z_interp,
+                        shadow_line_win95(&cs, mask_idx, col_height, z_interp,
                                              draw_ptr, shade_idx);
                     else
-                        smoke_line_win95(mask_idx, col_height, z_interp,
+                        smoke_line_win95(&cs, mask_idx, col_height, z_interp,
                                             draw_ptr, shade_idx);
                 } else {
-                    ellipse_line_win95(mask_idx, col_height, z_interp,
+                    ellipse_line_win95(&cs, mask_idx, col_height, z_interp,
                                        draw_ptr, shade_idx);
                 }
             }
@@ -204,6 +214,15 @@ void draw_triangle_ell(tri_t *tri, int plane, tri_t *shade) {
 
     check_fade();
 
+    if (raster_recording)
+        raster_record_tri(0, tri, plane, shade);
+    else
+        draw_triangle_ell_rows(tri, plane, shade, NULL, top_edge, bottom_edge);
+}
+
+/* top_edge and bottom_edge shadow the globals, so the body clips to the band. */
+void draw_triangle_ell_rows(tri_t *tri, int plane, tri_t *shade, subarea_t *dirty,
+                            int top_edge, int bottom_edge) {
     int x1 = tri->point1->screen_coord.X;
     int y1 = tri->point1->screen_coord.Y;
     int z1 = tri->point1->screen_coord.Z;
@@ -228,12 +247,16 @@ void draw_triangle_ell(tri_t *tri, int plane, tri_t *shade) {
         return;
 
     if (tri->parent_actor) {
-        subarea_t *area = tri->parent_actor->area_to_clear;
+        subarea_t *area = dirty ? dirty : tri->parent_actor->area_to_clear;
         if (x_left   < area->left)   area->left   = x_left;
         if (x_right  > area->right)  area->right  = x_right;
         if (y_top_b  < area->top)    area->top    = y_top_b;
         if (y_bot_b  > area->bottom) area->bottom = y_bot_b;
     }
+
+    /* Nothing in these rows; the margin covers the rounding of the edges. */
+    if (y_bot_b + 2 < top_edge || y_top_b - 2 >= bottom_edge)
+        return;
 
     int cross_x = (z2 - z3) * (y1 - y3) - (z1 - z3) * (y2 - y3);
     int cross_z = (y2 - y3) * (x1 - x3) - (y1 - y3) * (x2 - x3);

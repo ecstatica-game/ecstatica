@@ -9,11 +9,25 @@ void matrix_long_vector(long_vector_t *in, long_vector_t *out, matrix3x3_t *mat)
 void unpack_bitmap(char *output, char *input);
 void unpack_mask(int16_t *output, char *input);
 
+/* What the ellipse column renderers read. The original set these as globals
+ * before each call; a struct per call lets the bands draw in parallel. */
+typedef struct {
+    int32_t fb_pitch;
+    int32_t z_scale;
+    int32_t shade_dy;
+    int32_t z_dy;
+    int16_t *depth_mask;
+    const char *shade_lut;
+    const char *shadow_lut;
+    const char *beam_tab1;
+    const char *beam_tab2;
+} column_state_t;
+
 /* Ellipse column renderers */
-void ellipse_line_win95(int mask_idx, int col_height, int z_interp, char *draw_ptr, int shade_idx);
-void beam_line_win95(int mask_idx, int col_height, int z_interp, char *draw_ptr, int shade_idx);
-void shadow_line_win95(int mask_idx, int col_height, int z_interp, char *draw_ptr, int shade_idx);
-void smoke_line_win95(int mask_idx, int col_height, int z_interp, char *draw_ptr, int shade_idx);
+void ellipse_line_win95(const column_state_t *cs, int mask_idx, int col_height, int z_interp, char *draw_ptr, int shade_idx);
+void beam_line_win95(const column_state_t *cs, int mask_idx, int col_height, int z_interp, char *draw_ptr, int shade_idx);
+void shadow_line_win95(const column_state_t *cs, int mask_idx, int col_height, int z_interp, char *draw_ptr, int shade_idx);
+void smoke_line_win95(const column_state_t *cs, int mask_idx, int col_height, int z_interp, char *draw_ptr, int shade_idx);
 
 /* Random number generator */
 int my_rand(void);

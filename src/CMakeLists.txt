@@ -29,6 +29,7 @@ set(C_SRCS
     main.c
     render.c
     prefetch.c
+    raster.c
     render_gl.c
     gl_loader.c
 )

@@ -52,7 +52,7 @@ CFLAGS_SAFE = -bt=dos -6s -od -zp1 -zq -za99 -j -i=$(SRC) -i=$(WATCOM_H)
 OBJS = init.obj asm_f.obj display.obj debug_overlay.obj edit.obj game.obj &
        file.obj move.obj menu.obj req.obj music.obj topo.obj map.obj &
        anim.obj ellipse.obj tri.obj icon.obj win.obj chars.obj main.obj &
-       render.obj prefetch.obj viewer.obj pointcloud.obj dos.obj
+       render.obj prefetch.obj raster.obj viewer.obj pointcloud.obj dos.obj
 
 # option stack: 64 KB is the DOS/4GW default, and an overflow there is silent —
 # the frame simply runs off the end. Give the engine room rather than shave it.
@@ -116,6 +116,8 @@ render.obj: $(SRC)/render.c
 	$(CC) $(CFLAGS) $(SRC)/render.c -fo=$^@
 prefetch.obj: $(SRC)/prefetch.c
 	$(CC) $(CFLAGS) $(SRC)/prefetch.c -fo=$^@
+raster.obj: $(SRC)/raster.c
+	$(CC) $(CFLAGS) $(SRC)/raster.c -fo=$^@
 viewer.obj: $(SRC)/tools/viewer.c
 	$(CC) $(CFLAGS) $(SRC)/tools/viewer.c -fo=$^@
 pointcloud.obj: $(SRC)/tools/pointcloud.c
