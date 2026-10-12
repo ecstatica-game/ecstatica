@@ -449,30 +449,6 @@ jobs:
             artifacts/pocket-build/ecstatica-pocket-${{ needs.version.outputs.version }}.zip
           generate_release_notes: true
 
-      # VitaDB's own listing for each of the two games, pointed at this
-      # release's VPK — tagged releases only, never the rolling edge
-      # pre-release below. One secret per entry (generated on each game's
-      # own VitaDB page); the endpoint is the same CI webhook VitaDB homebrew
-      # authors use to publish a new build, pointed at a real version instead
-      # of a nightly channel.
-      - name: Publish Ecstatica 1 to VitaDB
-        if: startsWith(github.ref, 'refs/tags/')
-        run: |
-          curl --fail-with-body --show-error \
-            -X POST \
-            -F "secret=${{ secrets.VITADB_SECRET_E1 }}" \
-            -F "vpk_url=https://github.com/${{ github.repository }}/releases/download/${{ needs.version.outputs.version }}/ecstatica-vita-e1-${{ needs.version.outputs.version }}.vpk" \
-            https://www.rinnegatamante.eu/vitadb/publish_nightly.php
-
-      - name: Publish Ecstatica 2 to VitaDB
-        if: startsWith(github.ref, 'refs/tags/')
-        run: |
-          curl --fail-with-body --show-error \
-            -X POST \
-            -F "secret=${{ secrets.VITADB_SECRET_E2 }}" \
-            -F "vpk_url=https://github.com/${{ github.repository }}/releases/download/${{ needs.version.outputs.version }}/ecstatica-vita-e2-${{ needs.version.outputs.version }}.vpk" \
-            https://www.rinnegatamante.eu/vitadb/publish_nightly.php
-
       # Rolling pre-release built from every push to main: one tag/release,
       # force-moved each time, so main always has an installable build of
       # whatever hasn't been cut into a real version yet. Skipped on manual
@@ -513,3 +489,27 @@ jobs:
           prerelease: true
           body_path: edge_notes.md
           files: *release_files
+
+      # VitaDB's own listing for each of the two games, pointed at this run's
+      # VPK: a tagged release, or the edge pre-release on every push to main,
+      # so VitaDB always offers the newest build. It runs after both release
+      # steps so the VPK URL already exists. One secret per entry (generated
+      # on each game's own VitaDB page); the endpoint is the CI webhook VitaDB
+      # homebrew authors use to publish a new build.
+      - name: Publish Ecstatica 1 to VitaDB
+        if: startsWith(github.ref, 'refs/tags/') || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+        run: |
+          curl --fail-with-body --show-error \
+            -X POST \
+            -F "secret=${{ secrets.VITADB_SECRET_E1 }}" \
+            -F "vpk_url=https://github.com/${{ github.repository }}/releases/download/${{ needs.version.outputs.version }}/ecstatica-vita-e1-${{ needs.version.outputs.version }}.vpk" \
+            https://www.rinnegatamante.eu/vitadb/publish_nightly.php
+
+      - name: Publish Ecstatica 2 to VitaDB
+        if: startsWith(github.ref, 'refs/tags/') || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+        run: |
+          curl --fail-with-body --show-error \
+            -X POST \
+            -F "secret=${{ secrets.VITADB_SECRET_E2 }}" \
+            -F "vpk_url=https://github.com/${{ github.repository }}/releases/download/${{ needs.version.outputs.version }}/ecstatica-vita-e2-${{ needs.version.outputs.version }}.vpk" \
+            https://www.rinnegatamante.eu/vitadb/publish_nightly.php
