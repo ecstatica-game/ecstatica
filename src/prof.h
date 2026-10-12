@@ -22,7 +22,7 @@ enum {
 };
 
 /* Events counted per frame. */
-enum { PROF_C_PF_HIT, PROF_C_PF_MISS, PROF_C_COUNT };
+enum { PROF_C_PF_HIT, PROF_C_PF_MISS, PROF_C_DIRLIST, PROF_C_COUNT };
 
 /* Busy time of the helper threads, reported per frame next to the phases. */
 enum {

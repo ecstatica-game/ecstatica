@@ -128,8 +128,11 @@ static int is_swappable_asset(const char *path) {
 /* Cached directory listings for the case-resolving walk below. On openfpgaOS
  * every readdir pass reads the ISO through the SD bridge, and E2 ships 1119
  * files in VIEWS/; one tune probes five extensions across two roots. Asset
- * roots are read-only (saves use plain fopen), so a listing stays valid. */
-#define DIRCACHE_SLOTS 6
+ * roots are read-only (saves use plain fopen), so a listing stays valid.
+ * Enough slots for every asset directory of both E1 roots (about 14): with
+ * fewer, VIEWS/ was evicted and listed again at camera cuts, 100+ ms each on
+ * a Vita. Slots are only filled as directories are visited. */
+#define DIRCACHE_SLOTS 32
 
 typedef struct {
     char dir[512];
@@ -157,6 +160,7 @@ static dircache_t *dircache_get(const char *dir) {
 
     DIR *d = opendir(dir);
     if (!d) return NULL;
+    PROF_COUNT_EVENT(PROF_C_DIRLIST);
 
     dircache_t *e = &dir_cache[dir_cache_next];
     dir_cache_next = (dir_cache_next + 1) % DIRCACHE_SLOTS;

@@ -17,7 +17,7 @@ static const char *const s_prof_names[PROF_COUNT] = {
     "view", "raw", "vtx", "bands", "bwait", "blitwait",
     "rawread", "unpack", "vismap", "pal"
 };
-static const char *const s_count_names[PROF_C_COUNT] = { "pf_hit", "pf_miss" };
+static const char *const s_count_names[PROF_C_COUNT] = { "pf_hit", "pf_miss", "dirlist" };
 static uint32_t s_counts[PROF_C_COUNT], s_win_counts[PROF_C_COUNT];
 static uint32_t s_io_opens, s_io_open_us, s_io_win_opens, s_io_win_open_us;
 static const char *const s_worker_names[PROF_W_COUNT] = {
