@@ -150,21 +150,30 @@ static bool      s_blit_threads;
 static bool      s_blit_pending;
 static uint32_t *s_job_fb;
 
-static void expand_rows(uint32_t *fb, const uint8_t *framebuffer, int y0, int y1) {
+/* One whole display row per worker, in cached RAM. */
+static uint32_t __attribute__((aligned(64))) s_row_scratch[2][SCREEN_W];
+
+/* CDRAM is uncached, and a store per pixel made the expand ~50 ns a pixel.
+ * Each source row is expanded once into cached scratch and copied out with
+ * memcpy's burst stores, once per display row that repeats it (vertical
+ * scaling repeats rows: 200 -> 544 nearly three times each). The scratch
+ * row carries the bars, already black. */
+static void expand_rows(uint32_t *fb, const uint8_t *framebuffer, int y0, int y1,
+                        uint32_t *scratch) {
     const uint16_t *cols = s_col_src;
     const int dw = s_dst_w;
+    uint32_t *dst = scratch + s_dst_x;
+    uint32_t done_off = 0xFFFFFFFFu;
 
+    memset(scratch, 0, SCREEN_W * sizeof(uint32_t));
     for (int y = y0; y < y1; y++) {
-        uint32_t *row = fb + y * SCREEN_W;
-        /* Re-black the bars, which a crop/stretch frame may have painted. */
-        if (s_dst_x > 0) {
-            memset(row, 0, (size_t)s_dst_x * sizeof(uint32_t));
-            memset(row + s_dst_x + dw, 0, (size_t)(SCREEN_W - s_dst_x - dw) * sizeof(uint32_t));
+        if (s_row_off[y] != done_off) {
+            const uint8_t *src = framebuffer + s_row_off[y];
+            for (int x = 0; x < dw; x++)
+                dst[x] = s_lut[src[cols[x]]];
+            done_off = s_row_off[y];
         }
-        const uint8_t *src = framebuffer + s_row_off[y];
-        uint32_t *dst = row + s_dst_x;
-        for (int x = 0; x < dw; x++)
-            dst[x] = s_lut[src[cols[x]]];
+        memcpy(fb + y * SCREEN_W, scratch, SCREEN_W * sizeof(uint32_t));
     }
 }
 
@@ -189,11 +198,11 @@ static int blit_worker(SceSize args, void *argp) {
         sceKernelWaitSema(s_blit_go[half], 1, NULL);
         uint32_t t0 = PROF_CLOCK();
         if (half) {
-            expand_rows(s_job_fb, s_stage, mid, SCREEN_H);
+            expand_rows(s_job_fb, s_stage, mid, SCREEN_H, s_row_scratch[1]);
             PROF_WORKER(PROF_W_BLIT1, PROF_CLOCK() - t0);
             sceKernelSignalSema(s_half_done, 1);
         } else {
-            expand_rows(s_job_fb, s_stage, 0, mid);
+            expand_rows(s_job_fb, s_stage, 0, mid, s_row_scratch[0]);
             PROF_WORKER(PROF_W_BLIT0, PROF_CLOCK() - t0);
             sceKernelWaitSema(s_half_done, 1, NULL);
             queue_frame(s_job_fb);
@@ -355,7 +364,7 @@ void platform_blit(platform_t *p, const uint8_t *framebuffer, const uint8_t *pal
     s_fb_next = (s_fb_next + 1) % FB_COUNT;
 
     if (!s_blit_threads) {
-        expand_rows(fb, framebuffer, 0, SCREEN_H);
+        expand_rows(fb, framebuffer, 0, SCREEN_H, s_row_scratch[0]);
         queue_frame(fb);
         return;
     }
