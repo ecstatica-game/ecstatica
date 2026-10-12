@@ -222,8 +222,12 @@ static void blit_threads_init(void) {
         return;
 
     for (int i = 0; i < 2; i++) {
+        /* Below the raster bands on the same cores: the scheduler does not
+         * time-slice equal priorities, so a band queued behind a 13 ms
+         * expand held up the game thread for all of it. The expand has a
+         * frame of slack; the bands do not. */
         SceUID th = sceKernelCreateThread(i ? "ecs_blit1" : "ecs_blit0", blit_worker,
-                                          0x10000100, 16 * 1024, 0, CPU_CORE(1 + i), NULL);
+                                          0x10000100 + 8, 16 * 1024, 0, CPU_CORE(1 + i), NULL);
         if (th < 0)
             return;
         sceKernelStartThread(th, sizeof(i), &i);
