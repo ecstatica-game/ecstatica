@@ -592,7 +592,8 @@ bool platform_thread_start(const char *name, void (*fn)(void *), void *arg,
                            int priority, int core) {
     /* The game thread runs at 0x10000100; a larger number is lower. */
     int prio = priority == PLATFORM_THREAD_BACKGROUND ? 0x10000100 + 16 : 0x10000100;
-    int mask = (core >= 0 && core < 3) ? CPU_CORE(core) : 0;
+    /* "Any" must not inherit the game thread's core-0 pin. */
+    int mask = (core >= 0 && core < 3) ? CPU_CORE(core) : (CPU_CORE(1) | CPU_CORE(2));
     SceUID th = sceKernelCreateThread(name, thread_entry, prio, 64 * 1024, 0, mask, NULL);
     if (th < 0)
         return false;
