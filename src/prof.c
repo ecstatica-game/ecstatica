@@ -14,8 +14,13 @@
 
 static const char *const s_prof_names[PROF_COUNT] = {
     "wait", "logic", "prep", "stuck", "draw", "show", "blit", "load",
-    "view", "raw"
+    "view", "raw", "vtx", "bands", "bwait", "blitwait"
 };
+static const char *const s_worker_names[PROF_W_COUNT] = {
+    "band1", "band2", "band3", "blit0", "blit1"
+};
+static volatile uint32_t s_worker_us[PROF_W_COUNT];
+static uint32_t s_worker_seen[PROF_W_COUNT];
 static uint32_t s_prof_start[PROF_COUNT];
 static uint32_t s_prof_acc[PROF_COUNT];
 static uint32_t s_prof_win_acc[PROF_COUNT];
@@ -34,6 +39,10 @@ void prof_io_read(uint32_t us, int32_t bytes) {
 
 void prof_io_seek(void) {
     s_io_seeks++;
+}
+
+void prof_worker(int slot, uint32_t us) {
+    s_worker_us[slot] += us;
 }
 
 void prof_begin(int phase) { s_prof_start[phase] = prof_clock_us(); }
@@ -83,6 +92,13 @@ void prof_frame(void) {
     for (int i = 0; i < PROF_COUNT; i++) {
         fprintf(s_prof_log, " %s=%.2f", s_prof_names[i], s_prof_win_acc[i] / 1000.0 / PROF_WINDOW);
         s_prof_win_acc[i] = 0;
+    }
+    fprintf(s_prof_log, " | busy");
+    for (int i = 0; i < PROF_W_COUNT; i++) {
+        uint32_t total = s_worker_us[i];
+        fprintf(s_prof_log, " %s=%.2f", s_worker_names[i],
+                (total - s_worker_seen[i]) / 1000.0 / PROF_WINDOW);
+        s_worker_seen[i] = total;
     }
     fprintf(s_prof_log, " | io reads=%lu seeks=%lu kb=%lu ms=%.1f\n",
             (unsigned long)s_io_win_reads, (unsigned long)s_io_win_seeks,

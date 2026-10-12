@@ -22,6 +22,7 @@
 #include "../platform.h"
 #include "../asm_f.h"
 #include "../types.h"
+#include "../prof.h"
 
 #include <psp2/ctrl.h>
 #include <psp2/touch.h>
@@ -186,11 +187,14 @@ static int blit_worker(SceSize args, void *argp) {
 
     for (;;) {
         sceKernelWaitSema(s_blit_go[half], 1, NULL);
+        uint32_t t0 = PROF_CLOCK();
         if (half) {
             expand_rows(s_job_fb, s_stage, mid, SCREEN_H);
+            PROF_WORKER(PROF_W_BLIT1, PROF_CLOCK() - t0);
             sceKernelSignalSema(s_half_done, 1);
         } else {
             expand_rows(s_job_fb, s_stage, 0, mid);
+            PROF_WORKER(PROF_W_BLIT0, PROF_CLOCK() - t0);
             sceKernelWaitSema(s_half_done, 1, NULL);
             queue_frame(s_job_fb);
             sceKernelSignalSema(s_frame_done, 1);
@@ -201,7 +205,9 @@ static int blit_worker(SceSize args, void *argp) {
 
 static void blit_wait(void) {
     if (s_blit_pending) {
+        PROF_BEGIN(PROF_BLITWAIT);
         sceKernelWaitSema(s_frame_done, 1, NULL);
+        PROF_END(PROF_BLITWAIT);
         s_blit_pending = false;
     }
 }
@@ -223,6 +229,7 @@ static void blit_threads_init(void) {
         sceKernelStartThread(th, sizeof(i), &i);
     }
     s_blit_threads = true;
+    DBG_LOG(1, "[VITA] blit workers on cores 1 and 2\n");
 }
 
 static void upload_lut(const uint8_t *palette) {
@@ -600,8 +607,6 @@ void platform_sem_post(platform_sem_t *s) {
 }
 
 #ifdef ECS_PROFILE
-#include "../prof.h"
-
 uint32_t prof_clock_us(void) {
     return sceKernelGetProcessTimeLow();
 }

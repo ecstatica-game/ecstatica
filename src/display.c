@@ -16,6 +16,7 @@
 #include "map.h"
 #include "move.h"
 #include "music.h"
+#include "prof.h"
 #include "raster.h"
 #include "render.h"
 #include "topo.h"
@@ -687,6 +688,7 @@ void draw_parts(void) {
         }
     }
 
+    PROF_BEGIN(PROF_VTX);
     /* Pass 1: assign area_to_clear + init bbox + find_view_positions. */
     for (actor_t *actor = root_thing; actor; actor = actor->next_in_display_list) {
         if (!(actor->flags & 0x08)) continue;
@@ -706,6 +708,8 @@ void draw_parts(void) {
 
         find_view_positions(actor);
     }
+
+    PROF_END(PROF_VTX);
 
     /* Passes 2-4 are recorded and drawn in bands, a band per core. */
     if (render_backend != RENDER_HARDWARE)
@@ -736,7 +740,9 @@ void draw_parts(void) {
         put_smoke(actor);
     }
 
+    PROF_BEGIN(PROF_BANDS);
     raster_end();
+    PROF_END(PROF_BANDS);
 
     /* Pass 5: clamp each area_to_clear to viewport edges. */
     for (actor_t *actor = root_thing; actor; actor = actor->next_in_display_list) {

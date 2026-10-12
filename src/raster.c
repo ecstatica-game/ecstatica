@@ -14,6 +14,7 @@
 #include "display.h"
 #include "game.h"
 #include "platform.h"
+#include "prof.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -96,7 +97,9 @@ static void band_worker(void *arg) {
     int b = (int)(intptr_t)arg;
     for (;;) {
         platform_sem_wait(band_go[b]);
+        uint32_t t0 = PROF_CLOCK();
         replay_band(b, false);
+        PROF_WORKER(PROF_W_BAND1 + b - 1, PROF_CLOCK() - t0);
         platform_sem_post(band_done);
     }
 }
@@ -118,6 +121,7 @@ static void init_bands(void) {
             break;
         band_count = b + 1;
     }
+    DBG_LOG(1, "[RASTER] %d bands\n", band_count);
 }
 
 void raster_begin(void) {
@@ -258,8 +262,10 @@ static void run_bands(int bands) {
     for (int b = 1; b < bands; b++)
         platform_sem_post(band_go[b]);
     replay_band(0, false);
+    PROF_BEGIN(PROF_BWAIT);
     for (int b = 1; b < bands; b++)
         platform_sem_wait(band_done);
+    PROF_END(PROF_BWAIT);
 
     merge_rects(bands);
 }

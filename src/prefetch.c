@@ -106,6 +106,7 @@ static void start(void) {
     if (platform_thread_start("ecs_prefetch", reader_thread, NULL,
                               PLATFORM_THREAD_BACKGROUND, -1))
         running = 1;
+    DBG_LOG(1, "[PREFETCH] %s\n", running == 1 ? "reader thread running" : "off");
 }
 
 static slot_t *find_slot(const char *path, int enhanced) {
