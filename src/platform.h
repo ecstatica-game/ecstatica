@@ -191,6 +191,10 @@ void platform_set_music_volume(int vol);
  * reads CODE/ECSTATIC.FAN). openfpgaOS mounts the data image here. */
 void platform_early_init(void);
 
+/* True where a file write can stall for 100 ms or more (memory cards); the
+ * debug log is then written from a background thread. */
+bool platform_slow_writes(void);
+
 /* openfpgaOS has a fixed set of nonvolatile slots; desktops have no limit. */
 int platform_save_slot_count(void);
 

@@ -119,6 +119,7 @@ void present_delay(int ms) {
 /* win_window_proc_458110 */
 void window_proc(void) {
     if (!platform_pump_events(g_platform)) {
+        dbg_log_flush();
         ecs_exit_now(0);
     }
 

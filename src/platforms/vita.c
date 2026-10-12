@@ -608,6 +608,11 @@ int platform_cpu_count(void) {
     return 3;
 }
 
+/* Memory Stick / memory card writes can stall a thread for 100+ ms. */
+bool platform_slow_writes(void) {
+    return true;
+}
+
 platform_sem_t *platform_sem_create(int initial) {
     platform_sem_t *s = (platform_sem_t *)malloc(sizeof(*s));
     if (!s)

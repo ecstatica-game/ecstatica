@@ -11,6 +11,8 @@
 #include "layout.h"
 #include "compat.h"
 #include <signal.h>
+#include <stdarg.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 /* HAVE_EXECINFO comes from the build: glibc and macOS have backtrace(),
@@ -35,12 +37,89 @@ void dbg_log_commit(void) {
 }
 #endif
 
+/* Background log writer, used where platform_slow_writes(): on a Vita one
+ * unbuffered log line could hold the game thread for 70-150 ms. Lines go into
+ * the filling half of a double buffer; the writer swaps halves and writes the
+ * full one. A line that does not fit is dropped and counted. */
+#define LOG_BUF_SIZE (32 * 1024)
+
+static char log_buf[2][LOG_BUF_SIZE];
+static int log_fill, log_len;
+static unsigned log_dropped;
+static platform_sem_t *log_lock, *log_ready;
+static bool log_async;
+
+static void log_write_pending(void) {
+    platform_sem_wait(log_lock);
+    int idx = log_fill, len = log_len;
+    unsigned dropped = log_dropped;
+    log_fill ^= 1;
+    log_len = 0;
+    log_dropped = 0;
+    platform_sem_post(log_lock);
+
+    if (len) fwrite(log_buf[idx], 1, (size_t)len, debug_log_file);
+    if (dropped) fprintf(debug_log_file, "[LOG] %u lines dropped\n", dropped);
+    if (len || dropped) fflush(debug_log_file);
+}
+
+static void log_writer(void *arg) {
+    (void)arg;
+    for (;;) {
+        platform_sem_wait(log_ready);
+        log_write_pending();
+    }
+}
+
+static void dbg_log_start_async(void) {
+    log_lock = platform_sem_create(1);
+    log_ready = platform_sem_create(0);
+    if (!log_lock || !log_ready) return;
+    setvbuf(debug_log_file, NULL, _IOFBF, 16 * 1024);
+    log_async = platform_thread_start("ecs_log", log_writer, NULL,
+                                      PLATFORM_THREAD_BACKGROUND, -1);
+    if (!log_async) setvbuf(debug_log_file, NULL, _IONBF, 0);
+}
+
+void dbg_log_printf(const char *fmt, ...) {
+    char line[1024];
+    va_list ap;
+    va_start(ap, fmt);
+    int n = vsnprintf(line, sizeof(line), fmt, ap);
+    va_end(ap);
+    if (n < 0) return;
+    if (n >= (int)sizeof(line)) n = (int)sizeof(line) - 1;
+
+    if (log_async) {
+        platform_sem_wait(log_lock);
+        if (log_len + n <= LOG_BUF_SIZE) {
+            memcpy(log_buf[log_fill] + log_len, line, (size_t)n);
+            log_len += n;
+        } else {
+            log_dropped++;
+        }
+        platform_sem_post(log_lock);
+        platform_sem_post(log_ready);
+        return;
+    }
+
+    fwrite(line, 1, (size_t)n, debug_log_file);
+    fflush(debug_log_file);
+    dbg_log_commit();
+}
+
+void dbg_log_flush(void) {
+    if (log_async && debug_log_file)
+        log_write_pending();
+}
+
 static void crash_handler(int sig) {
     fprintf(stderr, "\n=== CRASH sig=%d ===\n", sig);
 #ifdef HAVE_BACKTRACE
     void *bt[32];
     int n = backtrace(bt, 32);
     backtrace_symbols_fd(bt, n, 2);
+    dbg_log_flush();
     if (debug_log_file) {
         fprintf(debug_log_file, "\n=== CRASH sig=%d ===\n", sig);
         char **syms = backtrace_symbols(bt, n);
@@ -101,6 +180,8 @@ int main(int argc, char *argv[]) {
                 (unsigned long)(uintptr_t)debug_log_file, debug_verbose);
         fflush(debug_log_file);
         dbg_log_commit();
+        if (platform_slow_writes())
+            dbg_log_start_async();
     }
 
     /* The original ran WinMain → do_init → win_main_game. */

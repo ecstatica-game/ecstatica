@@ -590,6 +590,7 @@ void quit(const char *info) {
         printf("%s\n", info);
     }
 
+    dbg_log_flush();
     exit(0);
 }
 

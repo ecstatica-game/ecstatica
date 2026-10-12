@@ -323,16 +323,22 @@ void dbg_log_commit(void);
  * the video mode is set, every trace line is written straight into the visible
  * framebuffer as text, and it is slow on top of that — each character goes out
  * through the BIOS. The file gets everything; the screen gets nothing. */
-#if defined(__WATCOMC__) && defined(__DOS__)
+#if (defined(__WATCOMC__) && defined(__DOS__)) || defined(__vita__) || defined(__PSP__)
+/* The handhelds have no console either; their stderr is a slow kernel write. */
 #define DBG_LOG_STDERR(...) ((void)0)
 #else
 #define DBG_LOG_STDERR(...) fprintf(stderr, __VA_ARGS__)
 #endif
 
+/* Writes and flushes each line, except where platform_slow_writes() moved the
+ * writing to a background thread (main.c). */
+void dbg_log_printf(const char *fmt, ...);
+/* Writes out anything still queued; call before exiting. */
+void dbg_log_flush(void);
+
 #define DBG_LOG(level, ...) do { if (debug_verbose >= (level)) { \
     DBG_LOG_STDERR(__VA_ARGS__); \
-    if (debug_log_file) { fprintf(debug_log_file, __VA_ARGS__); fflush(debug_log_file); \
-                          dbg_log_commit(); } \
+    if (debug_log_file) dbg_log_printf(__VA_ARGS__); \
 } } while(0)
 
 #endif /* TYPES_H */

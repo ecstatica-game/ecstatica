@@ -123,6 +123,10 @@ void platform_early_init(void) {
     exit(2);
 }
 
+bool platform_slow_writes(void) {
+    return false;
+}
+
 /* Matches the original: eleven slots, files in saved/. */
 int platform_save_slot_count(void) {
     return 11;

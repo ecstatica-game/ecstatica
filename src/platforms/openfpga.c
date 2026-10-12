@@ -433,6 +433,10 @@ int platform_cpu_count(void) {
     return 1;
 }
 
+bool platform_slow_writes(void) {
+    return false;
+}
+
 platform_sem_t *platform_sem_create(int initial) {
     (void)initial;
     return NULL;
