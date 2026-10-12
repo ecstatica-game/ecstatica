@@ -598,14 +598,19 @@ void check_actor_loaded_by_index(int16_t actor_index);
 
 /* Deliberate deviation: these one-shot event scenes were authored as
  * CT_REPEAT_SCENE, which replays them on every zone re-entry. Treat them as
- * CT_PLAY_SCENE instead. Scene ids are per-game. */
+ * CT_PLAY_SCENE instead. Matched by name: E1's two databases number scenes
+ * differently (W/ has an extra entry at 0, so skinny2 is 146 there and 145 in
+ * the 320x200 bundle the handhelds load). */
 static int scene_is_play_once(int16_t scene_id) {
-    static const int16_t e1_once[] = { 146 };   /* skinny1 / table6 / head_ski */
+    static const char *const e1_once[] = {
+        "skinny2",      /* the lady dying at the table: skinny1 / table6 / head_ski */
+    };
 
     if (game_version != GAME_VERSION_E1)
         return 0;
+    const char *name = file_find_scene_name(scene_id);
     for (size_t i = 0; i < sizeof(e1_once) / sizeof(e1_once[0]); i++)
-        if (e1_once[i] == scene_id)
+        if (strcasecmp(name, e1_once[i]) == 0)
             return 1;
     return 0;
 }
