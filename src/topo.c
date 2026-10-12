@@ -946,9 +946,12 @@ void load_visibility_map(void) {
             return;
         }
 
-        unsigned char *data = (unsigned char *)mask_map[0];
-        for (int i = 0; i < vis_count * 4; ++i, ++data)
-            *data = fgetc(file_pointer);
+        /* One fread: a locked fgetc per byte cost ~100 ms on a Vita. A short
+         * read is padded with 0xFF, which is what fgetc's EOF stored. */
+        size_t want = (size_t)vis_count * 4;
+        size_t got = fread(mask_map[0], 1, want, file_pointer);
+        if (got < want)
+            memset((unsigned char *)mask_map[0] + got, 0xFF, want - got);
     }
 
     unsigned char *data = (unsigned char *)mask_map[0];
