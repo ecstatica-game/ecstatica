@@ -245,7 +245,8 @@ psp-clean:
 vita:
 	@test -n "$$VITASDK" || { \
 	  echo "VITASDK not set. Install VitaSDK and export VITASDK."; exit 1; }
-	cmake -S platforms/vita -B platforms/vita/build -DCMAKE_BUILD_TYPE=Release
+	cmake -S platforms/vita -B platforms/vita/build -DCMAKE_BUILD_TYPE=Release \
+	  -DGAME_VERSION=$(VERSION)
 	cmake --build platforms/vita/build
 
 vita-clean:

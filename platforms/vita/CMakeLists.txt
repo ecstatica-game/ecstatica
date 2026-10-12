@@ -23,7 +23,29 @@ endif()
 project(ecstatica C)
 include("$ENV{VITASDK}/share/vita.cmake" REQUIRED)
 
+# APP_VER in param.sfo, "XX.YY". The Vita and its updaters compare it, so a
+# release must raise it: GAME_VERSION v0.MINOR.PATCH (CI passes the tag)
+# becomes MINOR.PATCH, v0.9.1 -> 09.01, v0.10.0 -> 10.00. Builds without it
+# keep 01.00, below every release since 0.9. A 1.0 needs a new mapping.
+set(GAME_VERSION "" CACHE STRING "Release version, e.g. v0.9.1")
 set(VITA_VERSION "01.00")
+if(GAME_VERSION MATCHES "^v?([0-9]+)\\.([0-9]+)\\.([0-9]+)")
+    set(ver_minor ${CMAKE_MATCH_2})
+    set(ver_patch ${CMAKE_MATCH_3})
+    if(NOT CMAKE_MATCH_1 EQUAL 0 OR ver_minor GREATER 99 OR ver_patch GREATER 99)
+        message(FATAL_ERROR "${GAME_VERSION} does not fit APP_VER XX.YY; change the mapping")
+    endif()
+    if(ver_minor LESS 10)
+        set(ver_minor "0${ver_minor}")
+    endif()
+    if(ver_patch LESS 10)
+        set(ver_patch "0${ver_patch}")
+    endif()
+    set(VITA_VERSION "${ver_minor}.${ver_patch}")
+elseif(GAME_VERSION)
+    message(WARNING "GAME_VERSION ${GAME_VERSION} is not vX.Y.Z; APP_VER stays ${VITA_VERSION}")
+endif()
+message(STATUS "Vita APP_VER ${VITA_VERSION}")
 
 option(PROFILE "Frame-phase profiler writing prof.log" OFF)
 
