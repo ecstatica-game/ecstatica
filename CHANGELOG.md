@@ -18,6 +18,9 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 - Vita: background threads no longer inherit the game thread's core-0 pin.
+- Crash on exit when the view prefetcher was still reading as newlib freed the heap.
+- E1: the lady-at-the-table scene replayed on every visit with the 320x200 data (scene matched by name now).
+- `quit()` logs its reason, so handheld logs show why a session ended.
 
 ## [0.9.0] - 2026-10-11
 
