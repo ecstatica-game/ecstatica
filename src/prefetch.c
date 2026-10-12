@@ -21,8 +21,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* A HIRES view is up to ~575 KB, so this caps the cache near 1.7 MB. */
-#define PREFETCH_SLOTS  3
+/* A HIRES view is up to ~575 KB. Three slots (1.7 MB) is all a PSP can
+ * spare; with three, a Vita still missed most cuts where several cameras
+ * meet, so a multi-core machine keeps eight (4.6 MB). */
+#define PREFETCH_SLOTS  8
+#define PREFETCH_SLOTS_SMALL 3
 /* Cells (512 units) around the hero whose cameras are candidates. */
 #define PREFETCH_RADIUS 2
 
@@ -35,9 +38,11 @@ typedef struct {
     uint8_t *data;
     size_t   len;
     uint32_t wanted;    /* stamp of the last pass that asked for it */
+    int      rank;      /* place in that pass, nearest first */
 } slot_t;
 
 static slot_t slots[PREFETCH_SLOTS];
+static int slot_count = PREFETCH_SLOTS_SMALL;
 static platform_sem_t *slot_lock;
 static platform_sem_t *work_ready;
 static int running;     /* 0 not tried, 1 running, -1 no threads */
@@ -71,16 +76,17 @@ static void reader_thread(void *arg) {
     for (;;) {
         platform_sem_wait(work_ready);
 
+        /* Nearest first: a read takes ~100 ms on a Vita card, so the queue
+         * is still draining when the hero reaches the next cell. */
         platform_sem_wait(slot_lock);
         slot_t *job = NULL;
         char path[sizeof(slots[0].path)];
-        for (int i = 0; i < PREFETCH_SLOTS; i++) {
-            if (slots[i].state == SLOT_QUEUED) {
+        for (int i = 0; i < slot_count; i++)
+            if (slots[i].state == SLOT_QUEUED && (!job || slots[i].rank < job->rank))
                 job = &slots[i];
-                job->state = SLOT_READING;
-                memcpy(path, job->path, sizeof(path));
-                break;
-            }
+        if (job) {
+            job->state = SLOT_READING;
+            memcpy(path, job->path, sizeof(path));
         }
         platform_sem_post(slot_lock);
         if (!job) continue;     /* taken or replaced before it was reached */
@@ -98,6 +104,8 @@ static void reader_thread(void *arg) {
 
 static void start(void) {
     running = -1;
+    if (platform_cpu_count() > 1)
+        slot_count = PREFETCH_SLOTS;
     slot_lock = platform_sem_create(1);
     work_ready = platform_sem_create(0);
     if (!slot_lock || !work_ready)
@@ -110,7 +118,7 @@ static void start(void) {
 }
 
 static slot_t *find_slot(const char *path, int enhanced) {
-    for (int i = 0; i < PREFETCH_SLOTS; i++)
+    for (int i = 0; i < slot_count; i++)
         if (slots[i].state != SLOT_EMPTY && slots[i].enhanced == enhanced &&
             strcmp(slots[i].path, path) == 0)
             return &slots[i];
@@ -118,18 +126,19 @@ static slot_t *find_slot(const char *path, int enhanced) {
 }
 
 /* Caller holds slot_lock. */
-static void queue_path(const char *path) {
+static void queue_path(const char *path, int rank) {
     slot_t *s = find_slot(path, enhanced_graphics);
     if (s) {
         s->wanted = pass_stamp;     /* a failed read is not retried */
+        s->rank = rank;
         return;
     }
 
     slot_t *victim = NULL;
-    for (int i = 0; i < PREFETCH_SLOTS && !victim; i++)
+    for (int i = 0; i < slot_count && !victim; i++)
         if (slots[i].state == SLOT_EMPTY)
             victim = &slots[i];
-    for (int i = 0; i < PREFETCH_SLOTS; i++) {
+    for (int i = 0; i < slot_count; i++) {
         slot_t *c = &slots[i];
         if (victim || c->state == SLOT_READING || c->wanted == pass_stamp)
             continue;
@@ -143,12 +152,13 @@ static void queue_path(const char *path) {
     snprintf(victim->path, sizeof(victim->path), "%s", path);
     victim->enhanced = enhanced_graphics;
     victim->wanted = pass_stamp;
+    victim->rank = rank;
     victim->state = SLOT_QUEUED;
     platform_sem_post(work_ready);
 }
 
 static int add_camera(int16_t *want, int n, int camera) {
-    if (camera <= 0 || camera == selected_camera || n >= PREFETCH_SLOTS)
+    if (camera <= 0 || camera == selected_camera || n >= slot_count)
         return n;
     for (int i = 0; i < n; i++)
         if (want[i] == camera) return n;
@@ -174,7 +184,7 @@ void prefetch_views_near(const vector_t *pos) {
     /* Nearest rings first, so the slots go to the likeliest cuts. */
     int16_t want[PREFETCH_SLOTS];
     int n = 0;
-    for (int r = 0; r <= PREFETCH_RADIUS && n < PREFETCH_SLOTS; r++) {
+    for (int r = 0; r <= PREFETCH_RADIUS && n < slot_count; r++) {
         for (int dz = -r; dz <= r; dz++) {
             for (int dx = -r; dx <= r; dx++) {
                 if (dx != -r && dx != r && dz != -r && dz != r) continue;
@@ -203,7 +213,7 @@ void prefetch_views_near(const vector_t *pos) {
         char path[sizeof(slots[0].path)];
         snprintf(path, sizeof(path), mode_svga ? "HIRES/%04d.RAW" : "VIEWS/%04d.RAW",
                  want[i]);
-        queue_path(path);
+        queue_path(path, i);
     }
     platform_sem_post(slot_lock);
 }
