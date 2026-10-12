@@ -579,7 +579,10 @@ void quit2(const char *msg1, const char *msg2) {
 void quit(const char *info) {
     /* stdout goes nowhere on the handhelds; the log is the only record. */
     DBG_LOG(1, "[QUIT] %s\n", info && info[0] ? info : "(no message)");
+    /* Every thread that touches the heap stops before exit() frees it: the
+     * prefetch reader allocates, and the mixer reads sample buffers. */
     prefetch_shutdown();
+    platform_audio_shutdown();
 
     sound_t *s = sound_list;
     while (s) {

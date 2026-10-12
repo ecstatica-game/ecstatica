@@ -122,6 +122,7 @@ void window_proc(void) {
     if (!platform_pump_events(g_platform)) {
         DBG_LOG(1, "[QUIT] platform asked to close\n");
         prefetch_shutdown();
+        platform_audio_shutdown();
         dbg_log_flush();
         ecs_exit_now(0);
     }
