@@ -211,6 +211,7 @@ void check_camera(void) {
         clip_mask(2, 0, 0, 0, screen_width, screen_height);
         background_status = 2;
 
+        PROF_BEGIN(PROF_SWAP);
         for (int i = 0; i < THING_TAB_SIZE; ++i)
             if (thing_name_flags[i] & 2)
                 check_thing_name_invis(i);
@@ -218,6 +219,7 @@ void check_camera(void) {
         for (int i = 0; i < THING_TAB_SIZE; ++i)
             if (thing_name_flags[i] & 2)
                 check_thing_name_vis(i);
+        PROF_END(PROF_SWAP);
     }
 
     for (actor_t *actor = root_thing; actor; actor = actor->next_in_display_list)

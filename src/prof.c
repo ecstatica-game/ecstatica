@@ -15,7 +15,8 @@
 static const char *const s_prof_names[PROF_COUNT] = {
     "wait", "logic", "prep", "stuck", "draw", "show", "blit", "load",
     "view", "raw", "vtx", "bands", "bwait", "blitwait",
-    "rawread", "unpack", "vismap", "pal"
+    "rawread", "unpack", "vismap", "pal", "camera", "swap", "hotspot", "rep",
+    "actors"
 };
 static const char *const s_count_names[PROF_C_COUNT] = { "pf_hit", "pf_miss", "dirlist" };
 static uint32_t s_counts[PROF_C_COUNT], s_win_counts[PROF_C_COUNT];

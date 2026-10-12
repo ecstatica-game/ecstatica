@@ -413,16 +413,22 @@ void prepare_parts(void) {
                 check_view(sel->actor_scene->camera_index);
             }
         } else {
+            PROF_BEGIN(PROF_CAMERA);
             if (!moving_camera) check_camera();
+            PROF_END(PROF_CAMERA);
+            PROF_BEGIN(PROF_HOTSPOT);
             check_hot_spots();
+            PROF_END(PROF_HOTSPOT);
         }
         /* check_hero_rep + play_ambients absent in E1 prepare_parts (0x41D740).
          * check_hero_rep writes rep_index values 9..0x10 keyed to E2 magic/held
          * item slots; E1 repertoire_tab has different indexes so hero->
          * actor_reperture ends up NULL → hero has no visual → disappears. */
         if (game_version == GAME_VERSION_E2) {
+            PROF_BEGIN(PROF_REP);
             check_hero_rep();
             play_ambients();
+            PROF_END(PROF_REP);
         }
     }
 
@@ -437,11 +443,13 @@ void prepare_parts(void) {
         t->state_flags &= ~0x80;
     }
 
+    PROF_BEGIN(PROF_ACTORS);
     for (actor_t *t = root_thing; t; t = t->next_in_display_list) {
         if (!(t->state_flags & 0x80)) {
             prepare_an_actor(t);
         }
     }
+    PROF_END(PROF_ACTORS);
 
     /* asm display_prepare_parts_421198+116: expired subtitles are retired here,
      * before the background restore, so their clear_tab rects are honoured by

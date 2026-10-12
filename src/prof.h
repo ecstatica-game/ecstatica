@@ -18,6 +18,11 @@ enum {
     PROF_UNPACK,    /* load_raw: unpack the background and depth */
     PROF_VISMAP,    /* load_raw: load_visibility_map */
     PROF_PAL,       /* load_raw: load_palette */
+    PROF_CAMERA,    /* prepare_parts: check_camera, load_raw included */
+    PROF_SWAP,      /* check_camera: swapping actors out and in at a cut */
+    PROF_HOTSPOT,   /* prepare_parts: check_hot_spots */
+    PROF_REP,       /* prepare_parts: check_hero_rep and play_ambients */
+    PROF_ACTORS,    /* prepare_parts: prepare_an_actor for every actor */
     PROF_COUNT
 };
 
