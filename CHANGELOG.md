@@ -4,7 +4,20 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+- `prof.log` reports threaded work, `load_raw` and `prepare_parts` sub-phases, per-opcode script time and Vita file I/O.
+- Edge builds on `main` are published to VitaDB too, not only tagged releases.
+
+### Changed
+- Vita: the frame copy runs below the raster bands, so the bands no longer wait behind it.
+- Vita: the frame copy expands each source row once and bursts it into display memory.
+- The directory-listing cache holds every asset directory instead of six.
+- E2 visibility maps are read with one `fread` instead of a locked `fgetc` per byte.
+- The view prefetcher keeps eight views on multi-core machines and reads the nearest first.
+- PSP and Vita write the debug log from a background thread and no longer echo it to stderr.
+
+### Fixed
+- Vita: background threads no longer inherit the game thread's core-0 pin.
 
 ## [0.9.0] - 2026-10-11
 
