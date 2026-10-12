@@ -49,7 +49,8 @@ function(ecstatica_vpk game title_id app_name)
     if(PROFILE)
         target_compile_definitions(${exe} PRIVATE ECS_PROFILE)
         target_link_options(${exe} PRIVATE
-            -Wl,--wrap=sceIoOpen -Wl,--wrap=sceIoRead -Wl,--wrap=sceIoLseek)
+            -Wl,--wrap=sceIoOpen -Wl,--wrap=sceIoRead -Wl,--wrap=sceIoLseek
+            -Wl,--wrap=sceIoWrite)
     endif()
 
     target_link_libraries(${exe}

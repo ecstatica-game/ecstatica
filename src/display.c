@@ -426,8 +426,12 @@ void prepare_parts(void) {
          * actor_reperture ends up NULL → hero has no visual → disappears. */
         if (game_version == GAME_VERSION_E2) {
             PROF_BEGIN(PROF_REP);
+            uint32_t t0 = PROF_CLOCK();
             check_hero_rep();
+            uint32_t t1 = PROF_CLOCK();
             play_ambients();
+            PROF_OP(PROF_OP_HERO_REP, t1 - t0);
+            PROF_OP(PROF_OP_AMBIENTS, PROF_CLOCK() - t1);
             PROF_END(PROF_REP);
         }
     }

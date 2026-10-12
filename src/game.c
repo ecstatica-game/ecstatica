@@ -6,6 +6,7 @@
  */
 
 #include "game.h"
+#include "prof.h"
 #include "asm_f.h"
 #include "display.h"
 #include "edit.h"
@@ -243,7 +244,22 @@ static int left_hand_part(void) {
 }
 
 /* execute_boolean_44E810 — advances *pp past the consumed tokens. */
+static int execute_boolean_body(int16_t **pp, actor_t *actor);
+
 int execute_boolean(int16_t **pp, actor_t *actor) {
+#ifdef ECS_PROFILE
+    int16_t *tp0 = *pp;
+    int key = PROF_OP_BOOL + (*tp0 == CT_NOT ? tp0[1] : tp0[0]);
+    uint32_t t0 = prof_clock_us();
+    int r = execute_boolean_body(pp, actor);
+    prof_op(key, prof_clock_us() - t0);
+    return r;
+#else
+    return execute_boolean_body(pp, actor);
+#endif
+}
+
+static int execute_boolean_body(int16_t **pp, actor_t *actor) {
     bool result = false;
     bool inverted = false;
     int16_t *tp = *pp;
@@ -607,9 +623,21 @@ void do_execute_code(code_t *code, actor_t *actor) {
     if (!tokens) return;
 
     int pc = 0;
+#ifdef ECS_PROFILE
+    int prof_prev_op = -1;
+    uint32_t prof_prev_t = 0;
+#endif
 
     for (int safety = 0; safety < 10000; safety++) {
         int16_t opcode = tokens[pc++];
+#ifdef ECS_PROFILE
+        {
+            uint32_t now = prof_clock_us();
+            if (prof_prev_op >= 0) prof_op(prof_prev_op, now - prof_prev_t);
+            prof_prev_op = opcode;
+            prof_prev_t = now;
+        }
+#endif
 
         if (opcode == 0) {
             return;

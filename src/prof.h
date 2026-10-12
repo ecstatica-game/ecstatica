@@ -26,6 +26,15 @@ enum {
     PROF_COUNT
 };
 
+enum {
+    PROF_OP_BOOL = 256,
+    PROF_OP_SOUND_LOAD = 600,   /* play_sound_ecstatica: check_sound_loaded */
+    PROF_OP_SOUND_START,        /* play_sound_ecstatica: start_playing_sample */
+    PROF_OP_HERO_REP,           /* check_hero_rep */
+    PROF_OP_AMBIENTS,           /* play_ambients */
+    PROF_OP_KEYS = 640
+};
+
 /* Events counted per frame. */
 enum { PROF_C_PF_HIT, PROF_C_PF_MISS, PROF_C_DIRLIST, PROF_C_COUNT };
 
@@ -42,6 +51,10 @@ void prof_frame(void);
 /* Any thread; each slot is written by one thread only. */
 void prof_worker(int slot, uint32_t us);
 void prof_count(int counter);
+/* Time spent under a key this frame; the top keys go into the spike line.
+ * Keys: a script opcode, PROF_OP_BOOL + a condition token, or PROF_OP_*. */
+void prof_op(int key, uint32_t us);
+void prof_io_write(uint32_t us);
 /* Supplied by the platform: a free-running microsecond clock. */
 uint32_t prof_clock_us(void);
 /* Optional, for platforms that can see their own file reads. */
@@ -54,7 +67,9 @@ void prof_io_open(uint32_t us);
 #define PROF_WORKER(s, us) prof_worker((s), (us))
 #define PROF_CLOCK()  prof_clock_us()
 #define PROF_COUNT_EVENT(c) prof_count(c)
+#define PROF_OP(k, us) prof_op((k), (us))
 #else
+#define PROF_OP(k, us) ((void)(us))
 #define PROF_COUNT_EVENT(c) ((void)0)
 #define PROF_WORKER(s, us) ((void)(us))
 #define PROF_CLOCK()  0u

@@ -2714,7 +2714,9 @@ void play_sound_ecstatica(actor_t *actor, int sound_index, int volume_flags, int
         if (sound_index == 0) return;
     }
 
+    uint32_t t0 = PROF_CLOCK();
     check_sound_loaded(sound_index);
+    PROF_OP(PROF_OP_SOUND_LOAD, PROF_CLOCK() - t0);
     sound_t *sound = sound_tab[sound_index];
     if (!sound) return;
 
@@ -2723,7 +2725,9 @@ void play_sound_ecstatica(actor_t *actor, int sound_index, int volume_flags, int
     else
         dist_volume = 127;
 
+    uint32_t t1 = PROF_CLOCK();
     start_playing_sample(sound, volume_flags, dist_volume);
+    PROF_OP(PROF_OP_SOUND_START, PROF_CLOCK() - t1);
 }
 
 /* move_see_if_anything_hit_42EFDC — combat collision for a hitting part. */

@@ -653,6 +653,15 @@ SceSSize __wrap_sceIoRead(SceUID fd, void *buf, SceSize nbyte) {
     return r;
 }
 
+SceSSize __real_sceIoWrite(SceUID fd, const void *buf, SceSize nbyte);
+SceSSize __wrap_sceIoWrite(SceUID fd, const void *buf, SceSize nbyte) {
+    uint32_t t = sceKernelGetProcessTimeLow();
+    SceSSize r = __real_sceIoWrite(fd, buf, nbyte);
+    if (sceKernelGetThreadId() == s_game_thread)
+        prof_io_write(sceKernelGetProcessTimeLow() - t);
+    return r;
+}
+
 SceOff __real_sceIoLseek(SceUID fd, SceOff offset, int whence);
 SceOff __wrap_sceIoLseek(SceUID fd, SceOff offset, int whence) {
     if (sceKernelGetThreadId() == s_game_thread)
