@@ -21,6 +21,8 @@ All notable changes to this project are documented in this file.
 - Crash on exit when the view prefetcher was still reading as newlib freed the heap.
 - E1: the lady-at-the-table scene replayed on every visit with the 320x200 data (scene matched by name now).
 - `quit()` logs its reason, so handheld logs show why a session ended.
+- Crash on exit when the audio mixer was still reading freed sample buffers.
+- E2 sessions quitting with "Event heap overflow": a full event pool now evicts old actions, and evicted assets can load again.
 
 ## [0.9.0] - 2026-10-11
 
