@@ -14,8 +14,12 @@
 
 static const char *const s_prof_names[PROF_COUNT] = {
     "wait", "logic", "prep", "stuck", "draw", "show", "blit", "load",
-    "view", "raw", "vtx", "bands", "bwait", "blitwait"
+    "view", "raw", "vtx", "bands", "bwait", "blitwait",
+    "rawread", "unpack", "vismap", "pal"
 };
+static const char *const s_count_names[PROF_C_COUNT] = { "pf_hit", "pf_miss" };
+static uint32_t s_counts[PROF_C_COUNT], s_win_counts[PROF_C_COUNT];
+static uint32_t s_io_opens, s_io_open_us, s_io_win_opens, s_io_win_open_us;
 static const char *const s_worker_names[PROF_W_COUNT] = {
     "band1", "band2", "band3", "blit0", "blit1"
 };
@@ -39,6 +43,15 @@ void prof_io_read(uint32_t us, int32_t bytes) {
 
 void prof_io_seek(void) {
     s_io_seeks++;
+}
+
+void prof_io_open(uint32_t us) {
+    s_io_opens++;
+    s_io_open_us += us;
+}
+
+void prof_count(int counter) {
+    s_counts[counter]++;
 }
 
 void prof_worker(int slot, uint32_t us) {
@@ -68,8 +81,18 @@ void prof_frame(void) {
         fprintf(s_prof_log, "spike %6.1f ms:", frame / 1000.0);
         for (int i = 0; i < PROF_COUNT; i++)
             fprintf(s_prof_log, " %s=%.1f", s_prof_names[i], s_prof_acc[i] / 1000.0);
-        fprintf(s_prof_log, " io=%lu/%.1fms\n", (unsigned long)s_io_reads, s_io_read_us / 1000.0);
+        fprintf(s_prof_log, " io=%lu/%.1fms open=%lu/%.1fms", (unsigned long)s_io_reads,
+                s_io_read_us / 1000.0, (unsigned long)s_io_opens, s_io_open_us / 1000.0);
+        for (int i = 0; i < PROF_C_COUNT; i++)
+            fprintf(s_prof_log, " %s=%lu", s_count_names[i], (unsigned long)s_counts[i]);
+        fputc('\n', s_prof_log);
     }
+    for (int i = 0; i < PROF_C_COUNT; i++) {
+        s_win_counts[i] += s_counts[i];
+        s_counts[i] = 0;
+    }
+    s_io_win_opens += s_io_opens; s_io_win_open_us += s_io_open_us;
+    s_io_opens = s_io_open_us = 0;
     for (int i = 0; i < PROF_COUNT; i++) {
         s_prof_win_acc[i] += s_prof_acc[i];
         s_prof_acc[i] = 0;
@@ -100,9 +123,16 @@ void prof_frame(void) {
                 (total - s_worker_seen[i]) / 1000.0 / PROF_WINDOW);
         s_worker_seen[i] = total;
     }
-    fprintf(s_prof_log, " | io reads=%lu seeks=%lu kb=%lu ms=%.1f\n",
+    fprintf(s_prof_log, " | io reads=%lu seeks=%lu kb=%lu ms=%.1f opens=%lu/%.1fms",
             (unsigned long)s_io_win_reads, (unsigned long)s_io_win_seeks,
-            (unsigned long)(s_io_win_bytes / 1024), s_io_win_us / 1000.0);
+            (unsigned long)(s_io_win_bytes / 1024), s_io_win_us / 1000.0,
+            (unsigned long)s_io_win_opens, s_io_win_open_us / 1000.0);
+    for (int i = 0; i < PROF_C_COUNT; i++) {
+        fprintf(s_prof_log, " %s=%lu", s_count_names[i], (unsigned long)s_win_counts[i]);
+        s_win_counts[i] = 0;
+    }
+    fputc('\n', s_prof_log);
+    s_io_win_opens = s_io_win_open_us = 0;
     s_io_win_reads = s_io_win_us = s_io_win_seeks = s_io_win_bytes = 0;
     fflush(s_prof_log);
     s_prof_n = 0;

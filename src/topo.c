@@ -17,6 +17,7 @@
 #include "map.h"
 #include "move.h"
 #include "prefetch.h"
+#include "prof.h"
 #include "req.h"
 #include <string.h>
 #include <stdlib.h>
@@ -660,6 +661,7 @@ int load_raw(void) {
     FILE *stream = NULL;
     size_t cached_len = 0;
     const uint8_t *cached = NULL;
+    PROF_BEGIN(PROF_RAWREAD);
     if (mode_svga) {
         snprintf(source, sizeof(source), "HIRES/%04d.RAW", selected_camera);
         cached = prefetch_get(source, &cached_len);
@@ -667,6 +669,7 @@ int load_raw(void) {
         if (!stream && !cached) {
             DBG_LOG(2, "[LR] cam=%d no HIRES view, deferring to VGA upscale\n",
                     selected_camera);
+            PROF_END(PROF_RAWREAD);
             return -1;
         }
     } else {
@@ -674,7 +677,9 @@ int load_raw(void) {
         cached = prefetch_get(source, &cached_len);
         if (!cached) stream = fopen_ci(source, "rb");
     }
+    PROF_COUNT_EVENT(cached ? PROF_C_PF_HIT : PROF_C_PF_MISS);
     if (!stream && !cached) {
+        PROF_END(PROF_RAWREAD);
         DBG_LOG(1, "[LR] cam=%d FAILED open '%s'\n", selected_camera, source);
         do_info2_req("Can't load view", source);
         return -1;
@@ -688,6 +693,7 @@ int load_raw(void) {
     raw_read(&src, &signature, 2);
 
     if (signature == 0x686D) {
+        PROF_END(PROF_RAWREAD);
         raw_read(&src, bitmap[3], 0x1E);
         raw_read(&src, bitmap[3], 0x300);
         raw_read(&src, bitmap[3], screen_height * screen_width);
@@ -706,14 +712,21 @@ int load_raw(void) {
             packed = (const char *)src.p;
         else
             raw_read(&src, mask_map[0], hmap_size + bg_size);
+        PROF_END(PROF_RAWREAD);
+        PROF_BEGIN(PROF_UNPACK);
         unpack_bitmap(bitmap[3], (char *)packed);
         unpack_mask(mask_map[2], (char *)packed + bg_size);
+        PROF_END(PROF_UNPACK);
     }
 
     if (stream) fclose(stream);
 
+    PROF_BEGIN(PROF_VISMAP);
     load_visibility_map();
+    PROF_END(PROF_VISMAP);
+    PROF_BEGIN(PROF_PAL);
     load_palette(NULL);
+    PROF_END(PROF_PAL);
     clip_mask(2, 1, 0, 0, screen_width, screen_height);
     clip_mask(2, 0, 0, 0, screen_width, screen_height);
 

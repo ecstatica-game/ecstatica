@@ -29,6 +29,7 @@
 #include <psp2/display.h>
 #include <psp2/audioout.h>
 #include <psp2/power.h>
+#include <psp2/io/fcntl.h>
 #include <psp2/io/stat.h>
 #include <psp2/kernel/processmgr.h>
 #include <psp2/kernel/sysmem.h>
@@ -69,6 +70,10 @@ struct platform_t {
 };
 
 static platform_t g_plat;
+
+#ifdef ECS_PROFILE
+static SceUID s_game_thread = -1;
+#endif
 
 /* ── Video ──────────────────────────────────────────────────── */
 
@@ -292,6 +297,9 @@ platform_t *platform_init(const char *title, int fb_width, int fb_height, int sc
 
     /* Cores 1 and 2 belong to the blit workers and the audio mixer. */
     sceKernelChangeThreadCpuAffinityMask(sceKernelGetThreadId(), CPU_CORE(0));
+#ifdef ECS_PROFILE
+    s_game_thread = sceKernelGetThreadId();
+#endif
     scePowerSetArmClockFrequency(444);
     scePowerSetBusClockFrequency(222);
 
@@ -622,6 +630,33 @@ void platform_sem_post(platform_sem_t *s) {
 #ifdef ECS_PROFILE
 uint32_t prof_clock_us(void) {
     return sceKernelGetProcessTimeLow();
+}
+
+/* Linked with --wrap; only the game thread's calls are counted, since the
+ * prefetch reader's are off the frame. */
+SceUID __real_sceIoOpen(const char *file, int flags, SceMode mode);
+SceUID __wrap_sceIoOpen(const char *file, int flags, SceMode mode) {
+    uint32_t t = sceKernelGetProcessTimeLow();
+    SceUID r = __real_sceIoOpen(file, flags, mode);
+    if (sceKernelGetThreadId() == s_game_thread)
+        prof_io_open(sceKernelGetProcessTimeLow() - t);
+    return r;
+}
+
+SceSSize __real_sceIoRead(SceUID fd, void *buf, SceSize nbyte);
+SceSSize __wrap_sceIoRead(SceUID fd, void *buf, SceSize nbyte) {
+    uint32_t t = sceKernelGetProcessTimeLow();
+    SceSSize r = __real_sceIoRead(fd, buf, nbyte);
+    if (sceKernelGetThreadId() == s_game_thread)
+        prof_io_read(sceKernelGetProcessTimeLow() - t, r);
+    return r;
+}
+
+SceOff __real_sceIoLseek(SceUID fd, SceOff offset, int whence);
+SceOff __wrap_sceIoLseek(SceUID fd, SceOff offset, int whence) {
+    if (sceKernelGetThreadId() == s_game_thread)
+        prof_io_seek();
+    return __real_sceIoLseek(fd, offset, whence);
 }
 #endif
 
