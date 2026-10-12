@@ -15,6 +15,7 @@
 #include "map.h"
 #include "menu.h"
 #include "music.h"
+#include "prefetch.h"
 #include "render.h"
 #include "req.h"
 #include "topo.h"
@@ -576,6 +577,10 @@ void quit2(const char *msg1, const char *msg2) {
 
 /* init_quit  E1: 0x412034 | E2: 0x414E3C */
 void quit(const char *info) {
+    /* stdout goes nowhere on the handhelds; the log is the only record. */
+    DBG_LOG(1, "[QUIT] %s\n", info && info[0] ? info : "(no message)");
+    prefetch_shutdown();
+
     sound_t *s = sound_list;
     while (s) {
         release_sound_buffer_win95(s);

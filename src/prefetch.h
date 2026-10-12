@@ -17,4 +17,8 @@ void prefetch_views_near(const vector_t *pos);
  * the caller. */
 const uint8_t *prefetch_get(const char *path, size_t *len);
 
+/* Stops queueing and waits out a read in flight. Before exit: newlib's exit
+ * frees the heap, and a read still running would allocate from it. */
+void prefetch_shutdown(void);
+
 #endif

@@ -48,6 +48,7 @@ static int log_fill, log_len;
 static unsigned log_dropped;
 static platform_sem_t *log_lock, *log_ready;
 static bool log_async;
+static bool log_writing;    /* the writer has a half out of the lock */
 
 static void log_write_pending(void) {
     platform_sem_wait(log_lock);
@@ -67,7 +68,17 @@ static void log_writer(void *arg) {
     (void)arg;
     for (;;) {
         platform_sem_wait(log_ready);
+        platform_sem_wait(log_lock);
+        bool go = log_async;
+        if (go) log_writing = true;
+        platform_sem_post(log_lock);
+        if (!go) continue;      /* stopped: dbg_log_flush writes the rest */
+
         log_write_pending();
+
+        platform_sem_wait(log_lock);
+        log_writing = false;
+        platform_sem_post(log_lock);
     }
 }
 
@@ -78,7 +89,10 @@ static void dbg_log_start_async(void) {
     setvbuf(debug_log_file, NULL, _IOFBF, 16 * 1024);
     log_async = platform_thread_start("ecs_log", log_writer, NULL,
                                       PLATFORM_THREAD_BACKGROUND, -1);
-    if (!log_async) setvbuf(debug_log_file, NULL, _IONBF, 0);
+    if (!log_async) {
+        log_lock = NULL;
+        setvbuf(debug_log_file, NULL, _IONBF, 0);
+    }
 }
 
 void dbg_log_printf(const char *fmt, ...) {
@@ -90,17 +104,20 @@ void dbg_log_printf(const char *fmt, ...) {
     if (n < 0) return;
     if (n >= (int)sizeof(line)) n = (int)sizeof(line) - 1;
 
-    if (log_async) {
+    if (log_lock) {
         platform_sem_wait(log_lock);
-        if (log_len + n <= LOG_BUF_SIZE) {
-            memcpy(log_buf[log_fill] + log_len, line, (size_t)n);
-            log_len += n;
-        } else {
-            log_dropped++;
+        if (log_async) {
+            if (log_len + n <= LOG_BUF_SIZE) {
+                memcpy(log_buf[log_fill] + log_len, line, (size_t)n);
+                log_len += n;
+            } else {
+                log_dropped++;
+            }
+            platform_sem_post(log_lock);
+            platform_sem_post(log_ready);
+            return;
         }
         platform_sem_post(log_lock);
-        platform_sem_post(log_ready);
-        return;
     }
 
     fwrite(line, 1, (size_t)n, debug_log_file);
@@ -108,9 +125,27 @@ void dbg_log_printf(const char *fmt, ...) {
     dbg_log_commit();
 }
 
+/* Stops the writer for good and writes what is queued from this thread: at
+ * exit newlib flushes and frees every FILE, which must not meet a write in
+ * flight. Later lines are written directly. */
 void dbg_log_flush(void) {
-    if (log_async && debug_log_file)
-        log_write_pending();
+    if (!log_lock || !debug_log_file) return;
+
+    platform_sem_wait(log_lock);
+    bool was_async = log_async;
+    log_async = false;
+    platform_sem_post(log_lock);
+    if (!was_async) return;
+
+    for (;;) {
+        platform_sem_wait(log_lock);
+        bool writing = log_writing;
+        platform_sem_post(log_lock);
+        if (!writing) break;
+        platform_delay(1);
+    }
+    log_write_pending();
+    setvbuf(debug_log_file, NULL, _IONBF, 0);
 }
 
 static void crash_handler(int sig) {

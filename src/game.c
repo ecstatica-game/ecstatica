@@ -1444,6 +1444,7 @@ void do_execute_code(code_t *code, actor_t *actor) {
             break;
 
         case CT_QUIT_TO_DOS:
+            DBG_LOG(1, "[EXEC] QuitToDos in code=%d\n", code->index_code);
             program_up_and_running = 0;
             break;
 

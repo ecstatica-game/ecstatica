@@ -218,6 +218,28 @@ void prefetch_views_near(const vector_t *pos) {
     platform_sem_post(slot_lock);
 }
 
+void prefetch_shutdown(void) {
+    if (running != 1) return;
+
+    platform_sem_wait(slot_lock);
+    running = -1;
+    for (int i = 0; i < slot_count; i++)
+        if (slots[i].state == SLOT_QUEUED)
+            slots[i].state = SLOT_EMPTY;
+    platform_sem_post(slot_lock);
+
+    for (;;) {
+        bool reading = false;
+        platform_sem_wait(slot_lock);
+        for (int i = 0; i < slot_count; i++)
+            if (slots[i].state == SLOT_READING)
+                reading = true;
+        platform_sem_post(slot_lock);
+        if (!reading) break;
+        platform_delay(1);
+    }
+}
+
 const uint8_t *prefetch_get(const char *path, size_t *len) {
     if (running != 1) return NULL;
 
