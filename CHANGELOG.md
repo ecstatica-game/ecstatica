@@ -4,8 +4,13 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [0.9.1] - 2026-10-12
+
 ### Added
 - `prof.log` reports threaded work, `load_raw` and `prepare_parts` sub-phases, per-opcode script time and Vita file I/O.
+- Profiling builds log limb snaps (`[JUMP]`) and changes in what the hero holds (`[HOLD]`).
 - Edge builds on `main` are published to VitaDB too, not only tagged releases.
 
 ### Changed
@@ -263,7 +268,8 @@ All notable changes to this project are documented in this file.
 ### Added
 - Initial public release: C99 reimplementation of Ecstatica 1 & 2 with macOS, Linux, and Windows platform layers.
 
-[Unreleased]: https://github.com/ecstatica-game/ecstatica/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/ecstatica-game/ecstatica/compare/v0.9.1...HEAD
+[0.9.1]: https://github.com/ecstatica-game/ecstatica/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/ecstatica-game/ecstatica/compare/v0.8.4...v0.9.0
 [0.8.4]: https://github.com/ecstatica-game/ecstatica/compare/v0.8.3...v0.8.4
 [0.8.3]: https://github.com/ecstatica-game/ecstatica/compare/v0.8.2...v0.8.3
