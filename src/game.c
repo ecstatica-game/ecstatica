@@ -2289,10 +2289,9 @@ void reset_load_tried(void) {
     memset(actor_load_tried2, 0, sizeof(actor_load_tried2));
 }
 
-/* The "already attempted" latch is what stops a failed load from being retried
- * every frame, so it survives do_delete_action(). Anything that deletes an
- * action it loaded itself has to clear the latch or the slot stays empty
- * forever — the viewer's archive scan does exactly that. */
+/* The "already attempted" latch stops a failed load from being retried every
+ * frame. Deleting an action, scene or repertoire clears its latch, so one
+ * evicted from a full pool can load again when it is next needed. */
 void set_action_load_tried(int16_t index, bool tried) {
     if (index >= 0 && index < ACTION_TAB_SIZE)
         action_load_tried[index] = tried;
@@ -3532,10 +3531,30 @@ void free_t_action(taction_t *ta) {
 }
 
 /* Find-free functions — scan heap for unused slot, try to evict if full */
+/* Like the action and key pools, a full event pool first evicts the oldest
+ * unused action or scene, whose keys hold the events. Quitting at once ended
+ * long sessions on the handhelds with "Event heap overflow". Quits only when
+ * an eviction pass frees nothing. */
+static int resident_actions_and_scenes(void) {
+    int n = 0;
+    for (action_t *a = action_list; a; a = a->next) n++;
+    for (scene_t *s = scene_list; s; s = s->scene_next) n++;
+    return n;
+}
+
 event_t *find_free_event(void) {
-    event_t *event = look_for_free_event();
-    if (!event) quit("Event heap overflow");
-    return event;
+    for (;;) {
+        event_t *event = look_for_free_event();
+        if (event) return event;
+
+        int before = resident_actions_and_scenes();
+        try_to_remove_scene_or_action();
+        if (resident_actions_and_scenes() == before) {
+            quit("Event heap overflow");
+            return NULL;
+        }
+        DBG_LOG(2, "[EVENT] pool full, evicted an action or scene\n");
+    }
 }
 
 event_t *look_for_free_event(void) {
@@ -3802,6 +3821,7 @@ void do_delete_action(action_t *action) {
     }
 
     action_tab[action->action_index] = NULL;
+    set_action_load_tried(action->action_index, false);
     free_action(action);
 }
 
@@ -3828,6 +3848,8 @@ void do_delete_scene(scene_t *scene) {
         scr = next;
     }
 
+    if (scene->scene_index >= 0 && scene->scene_index < SCENE_TAB_SIZE)
+        scene_load_tried[scene->scene_index] = false;
     free_scene(scene);
 }
 
@@ -3850,6 +3872,8 @@ void do_delete_rep(rephead_t *rep) {
     }
 
     repertoire_tab[rep->rep_index] = NULL;
+    if (rep->rep_index < REPERTOIRE_TAB_SIZE)
+        rep_load_tried[rep->rep_index] = false;
     free_rep(rep);
 }
 
