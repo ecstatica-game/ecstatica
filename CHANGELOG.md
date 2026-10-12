@@ -4,7 +4,9 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
-Nothing yet.
+### Changed
+- Vita VPKs carry the release version in `APP_VER` (v0.9.1 -> 09.01) instead of a fixed 01.00.
+- Only tagged releases publish to VitaDB; edge builds stay on the GitHub pre-release.
 
 ## [0.9.1] - 2026-10-12
 
