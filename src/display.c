@@ -399,6 +399,65 @@ void prepare_an_actor(actor_t *actor) {
 }
 
 /* display_prepare_parts_4211C8 — main per-frame display prep. */
+#ifdef ECS_PROFILE
+/* Profiling builds only: logs any part that moves more than 250 units
+ * relative to its actor's body in one frame (a limb snapping between poses),
+ * and any change in what the hero's parts hold. Body-relative, and wrapped to
+ * 16 bits as the world is, so walking, turning and the map edge do not count. */
+static void trace_part_jumps(void) {
+    static int16_t last_x[PART_POOL_SIZE], last_y[PART_POOL_SIZE], last_z[PART_POOL_SIZE];
+    static uint32_t last_frame[PART_POOL_SIZE];
+    static actor_t *last_held[PART_POOL_SIZE];
+    static uint32_t frame;
+    frame++;
+
+    for (actor_t *t = root_thing; t; t = t->next_in_display_list) {
+        if (!(t->flags & 0x08)) continue;
+        int jumps = 0, worst = 0, worst_part = -1, seen = 0;
+        const matrix3x3_t *m = &t->matrix_1;
+
+        for (part_t *p = t->actor_parts_list; p; p = p->next_in_display_list) {
+            int idx = (int)(p - part_heap_arr);
+            if (idx < 0 || idx >= PART_POOL_SIZE) continue;
+
+            int wx = (int16_t)(p->ellipse_center.X - t->position_vector.X);
+            int wy = (int16_t)(p->ellipse_center.Y - t->position_vector.Y);
+            int wz = (int16_t)(p->ellipse_center.Z - t->position_vector.Z);
+            int ox = (m->_11 * wx + m->_21 * wy + m->_31 * wz) >> 14;
+            int oy = (m->_12 * wx + m->_22 * wy + m->_32 * wz) >> 14;
+            int oz = (m->_13 * wx + m->_23 * wy + m->_33 * wz) >> 14;
+
+            if (frame > 2 && last_frame[idx] == frame - 1) {
+                int j = abs(ox - last_x[idx]) + abs(oy - last_y[idx]) + abs(oz - last_z[idx]);
+                seen++;
+                if (j > 250) {
+                    jumps++;
+                    if (j > worst) { worst = j; worst_part = p->name_index; }
+                }
+                if (t == selected_thing && p->actor_2_held != last_held[idx]) {
+                    actor_t *h = p->actor_2_held;
+                    DBG_LOG(1, "[HOLD] gt=%d hero part %d now holds %s\n", game_time, p->name_index,
+                            h && thing_names ? thing_names[h->name_index].field_0 : "nothing");
+                }
+            }
+            last_x[idx] = (int16_t)ox;
+            last_y[idx] = (int16_t)oy;
+            last_z[idx] = (int16_t)oz;
+            last_frame[idx] = frame;
+            last_held[idx] = p->actor_2_held;
+        }
+
+        if (jumps) {
+            const action_t *a = t->actor_act.act_action;
+            DBG_LOG(1, "[JUMP] gt=%d %s %d/%d parts, worst %d (part %d) act=%s kp=%u\n",
+                    game_time, thing_names ? thing_names[t->name_index].field_0 : "?",
+                    jumps, seen, worst, worst_part,
+                    a ? file_find_action_name(a->action_index) : "-", t->actor_act.key_progress);
+        }
+    }
+}
+#endif
+
 void prepare_parts(void) {
     /* Must not depend on prepare_an_actor: during the intro no actor is
      * visible, and fade_in would stall with view_cmap still zeroed. */
@@ -454,6 +513,9 @@ void prepare_parts(void) {
         }
     }
     PROF_END(PROF_ACTORS);
+#ifdef ECS_PROFILE
+    trace_part_jumps();
+#endif
 
     /* asm display_prepare_parts_421198+116: expired subtitles are retired here,
      * before the background restore, so their clear_tab rects are honoured by
