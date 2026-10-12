@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [0.9.2] - 2026-10-12
+
 ### Changed
 - Vita VPKs carry the release version in `APP_VER` (v0.9.1 -> 09.01) instead of a fixed 01.00.
 - Only tagged releases publish to VitaDB; edge builds stay on the GitHub pre-release.
@@ -270,7 +274,8 @@ All notable changes to this project are documented in this file.
 ### Added
 - Initial public release: C99 reimplementation of Ecstatica 1 & 2 with macOS, Linux, and Windows platform layers.
 
-[Unreleased]: https://github.com/ecstatica-game/ecstatica/compare/v0.9.1...HEAD
+[Unreleased]: https://github.com/ecstatica-game/ecstatica/compare/v0.9.2...HEAD
+[0.9.2]: https://github.com/ecstatica-game/ecstatica/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/ecstatica-game/ecstatica/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/ecstatica-game/ecstatica/compare/v0.8.4...v0.9.0
 [0.8.4]: https://github.com/ecstatica-game/ecstatica/compare/v0.8.3...v0.8.4
