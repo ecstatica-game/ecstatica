@@ -6,6 +6,11 @@ All notable changes to this project are documented in this file.
 
 Nothing yet.
 
+## [0.9.5] - 2026-10-13
+
+### Fixed
+- E2: the sceptre that appears on the chest in the orc's room vanishes when the hero walks up to it and gives its treasure, instead of floating there for good. Scripts that name their own actor or target as `SUB`/`OBJ` now reach them; before, those commands went nowhere.
+
 ## [0.9.4] - 2026-10-13
 
 ### Fixed
@@ -291,7 +296,8 @@ Nothing yet.
 ### Added
 - Initial public release: C99 reimplementation of Ecstatica 1 & 2 with macOS, Linux, and Windows platform layers.
 
-[Unreleased]: https://github.com/ecstatica-game/ecstatica/compare/v0.9.4...HEAD
+[Unreleased]: https://github.com/ecstatica-game/ecstatica/compare/v0.9.5...HEAD
+[0.9.5]: https://github.com/ecstatica-game/ecstatica/compare/v0.9.4...v0.9.5
 [0.9.4]: https://github.com/ecstatica-game/ecstatica/compare/v0.9.3...v0.9.4
 [0.9.3]: https://github.com/ecstatica-game/ecstatica/compare/v0.9.2...v0.9.3
 [0.9.2]: https://github.com/ecstatica-game/ecstatica/compare/v0.9.1...v0.9.2
