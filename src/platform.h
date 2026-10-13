@@ -106,6 +106,11 @@ void platform_set_render_size(platform_t *p, int w, int h);
  * VESA 2.0 linear framebuffer. */
 bool platform_hires_supported(platform_t *p);
 
+/* True to start in 320x200 even when 640x480 data and display are there, for
+ * targets too slow for the larger mode. Unlike a false hires_supported, the
+ * session can still switch up. */
+bool platform_boot_low_res(platform_t *p);
+
 /* How the 4:3 image fits a wider fixed panel. Only PSP and Vita act on it. */
 enum {
     SCALE_PILLARBOX = 0,   /* full height, 4:3-correct width, bars either side */
@@ -157,6 +162,9 @@ typedef struct {
     bool btn_lt, btn_rt;
     bool btn_start, btn_select;
     bool btn_lstick, btn_rstick;
+    /* Built-in pad with no L3 (PSP, Vita, bare Pocket): B / Circle takes over
+     * E1's speed cycle during gameplay. */
+    bool east_cycles_speed;
 } platform_gamepad_state_t;
 
 /* First connected gamepad; all zero when none is connected. */

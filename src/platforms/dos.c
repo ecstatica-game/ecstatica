@@ -377,6 +377,12 @@ bool platform_hires_supported(platform_t *p)
     return p ? p->hires_ok : false;
 }
 
+bool platform_boot_low_res(platform_t *p)
+{
+    (void)p;
+    return false;
+}
+
 /* Mode set owns the aspect ratio; only PSP and Vita offer fit modes. */
 bool platform_scale_mode_supported(platform_t *p)
 {

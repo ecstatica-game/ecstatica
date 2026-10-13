@@ -151,6 +151,14 @@ bool platform_hires_supported(platform_t *p) {
     return true;
 }
 
+/* A quarter of the pixels to rasterize, unpack and blit on a 100 MHz core.
+ * 640x480 stays reachable: E2's inventory page needs it, and E1's enhanced
+ * set is still a Settings toggle away. */
+bool platform_boot_low_res(platform_t *p) {
+    (void)p;
+    return true;
+}
+
 /* The core's scaler owns the aspect ratio; only PSP and Vita offer fit modes. */
 bool platform_scale_mode_supported(platform_t *p) {
     (void)p;
@@ -369,6 +377,7 @@ void platform_gamepad_poll(platform_t *p, platform_gamepad_state_t *state) {
     of_input_state(0, &st);
 
     state->connected   = true;
+    state->east_cycles_speed = true;
     state->dpad_up     = (st.buttons & OF_BTN_UP)    != 0;
     state->dpad_down   = (st.buttons & OF_BTN_DOWN)  != 0;
     state->dpad_left   = (st.buttons & OF_BTN_LEFT)  != 0;
@@ -476,15 +485,40 @@ static size_t s_pcm_cache_bytes;
 
 #define VOICE_SLOTS 16
 
+/* Handles, not voice indices: a finished voice's index is soon reused by
+ * another sound or by the MIDI synth, and stopping it would cut that off. */
 typedef struct {
     bool used;
-    int voice;
     of_mixer_handle_t handle;
+    const uint8_t *pcm;
+    uint32_t seq;
 } voice_slot_t;
 
 static voice_slot_t s_voices[VOICE_SLOTS];
+static uint32_t s_voice_seq;
 static uint8_t *s_midi_blob;
 static bool s_audio_ready;
+
+/* of_mixer_handle_active() is also what reaps the mixer's end queue. Nothing
+ * else does when no tune is playing (the MIDI synth reaps once per tick), and
+ * unreaped voices stay allocated: after 32 effects every play failed and the
+ * game went silent. */
+static bool voice_live(voice_slot_t *v) {
+    if (!v->used)
+        return false;
+    if (of_mixer_handle_active(v->handle))
+        return true;
+    v->used = false;
+    v->pcm = NULL;
+    return false;
+}
+
+static bool pcm_busy(const uint8_t *conv) {
+    for (int i = 0; i < VOICE_SLOTS; i++)
+        if (s_voices[i].pcm == conv && voice_live(&s_voices[i]))
+            return true;
+    return false;
+}
 
 static void pcm_cache_evict(int idx) {
     if (!s_pcm_cache[idx].conv)
@@ -496,32 +530,55 @@ static void pcm_cache_evict(int idx) {
     s_pcm_cache[idx].len = 0;
 }
 
+/* A freed sound buffer can come back at the same address with the same
+ * length and other contents; spot-check the copy against the source. */
+static bool pcm_cache_matches(const pcm_cache_t *e, const uint8_t *in) {
+    int step = e->len / 64 + 1;
+    for (int i = 0; i < e->len; i += step)
+        if ((uint8_t)(in[i] ^ 0x80) != e->conv[i])
+            return false;
+    return (uint8_t)(in[e->len - 1] ^ 0x80) == e->conv[e->len - 1];
+}
+
 static const uint8_t *pcm_to_signed(const void *src, int len) {
-    for (int i = 0; i < PCM_CACHE_ENTRIES; i++)
-        if (s_pcm_cache[i].conv && s_pcm_cache[i].src == src &&
-            s_pcm_cache[i].len == len)
-            return s_pcm_cache[i].conv;
+    const uint8_t *in = (const uint8_t *)src;
+    for (int i = 0; i < PCM_CACHE_ENTRIES; i++) {
+        pcm_cache_t *e = &s_pcm_cache[i];
+        if (!e->conv || e->src != src || e->len != len)
+            continue;
+        if (pcm_cache_matches(e, in))
+            return e->conv;
+        if (!pcm_busy(e->conv))
+            pcm_cache_evict(i);
+    }
+
+    /* A buffer still being played must never be freed under the mixer's DMA. */
+    int idx = -1;
+    for (int n = 0; n < PCM_CACHE_ENTRIES; n++) {
+        int i = (s_pcm_cache_next + n) % PCM_CACHE_ENTRIES;
+        if (!s_pcm_cache[i].conv || !pcm_busy(s_pcm_cache[i].conv)) {
+            idx = i;
+            break;
+        }
+    }
+    if (idx < 0)
+        return NULL;
+    s_pcm_cache_next = (idx + 1) % PCM_CACHE_ENTRIES;
+    pcm_cache_evict(idx);
+
+    /* Over budget: drop idle entries, oldest first. */
+    for (int n = 1; n < PCM_CACHE_ENTRIES &&
+                    s_pcm_cache_bytes + (size_t)len > PCM_CACHE_BUDGET; n++) {
+        int i = (idx + n) % PCM_CACHE_ENTRIES;
+        if (s_pcm_cache[i].conv && !pcm_busy(s_pcm_cache[i].conv))
+            pcm_cache_evict(i);
+    }
 
     uint8_t *conv = (uint8_t *)malloc((size_t)len);
     if (!conv)
         return NULL;
-    const uint8_t *in = (const uint8_t *)src;
     for (int i = 0; i < len; i++)
         conv[i] = (uint8_t)(in[i] ^ 0x80);
-
-    /* Round-robin eviction; also drop entries until the budget fits. */
-    int idx = s_pcm_cache_next;
-    s_pcm_cache_next = (s_pcm_cache_next + 1) % PCM_CACHE_ENTRIES;
-    pcm_cache_evict(idx);
-    while (s_pcm_cache_bytes + (size_t)len > PCM_CACHE_BUDGET) {
-        int victim = s_pcm_cache_next;
-        s_pcm_cache_next = (s_pcm_cache_next + 1) % PCM_CACHE_ENTRIES;
-        if (victim == idx)
-            continue;
-        if (!s_pcm_cache[victim].conv)
-            break;
-        pcm_cache_evict(victim);
-    }
 
     s_pcm_cache[idx].src = src;
     s_pcm_cache[idx].len = len;
@@ -550,31 +607,39 @@ int platform_audio_play_pcm(const void *data, int length, int rate,
     if (!s_audio_ready || !data || length <= 0)
         return -1;
 
+    int slot = -1;
+    for (int i = 0; i < VOICE_SLOTS; i++)
+        if (!voice_live(&s_voices[i]) && slot < 0)
+            slot = i;
+    if (slot < 0) {
+        /* All slots taken: recycle the oldest. */
+        slot = 0;
+        for (int i = 1; i < VOICE_SLOTS; i++)
+            if ((int32_t)(s_voices[i].seq - s_voices[slot].seq) < 0)
+                slot = i;
+        of_mixer_stop_h(s_voices[slot].handle);
+        s_voices[slot].used = false;
+        s_voices[slot].pcm = NULL;
+    }
+
     const uint8_t *pcm = pcm_to_signed(data, length);
     if (!pcm)
         return -1;
-
-    int slot = -1;
-    for (int i = 0; i < VOICE_SLOTS; i++) {
-        if (!s_voices[i].used) { slot = i; break; }
-    }
-    if (slot < 0) {
-        /* All slots taken — recycle the oldest still-running one. */
-        slot = 0;
-        of_mixer_stop(s_voices[0].voice);
-    }
 
     int vol = volume * 2;
     if (vol > 255) vol = 255;
     if (vol < 0) vol = 0;
 
-    int voice = of_mixer_play_8bit(pcm, (uint32_t)length, (uint32_t)rate, 0, vol);
-    if (voice < 0)
+    of_mixer_handle_t h = of_mixer_play_8bit_h(pcm, (uint32_t)length,
+                                               (uint32_t)rate, 0, vol);
+    if (h == OF_MIXER_HANDLE_INVALID)
         return -1;
 
-    of_mixer_set_group(voice, OF_MIXER_GROUP_SFX);
+    int voice = of_mixer_handle_voice(h);
+    if (voice >= 0)
+        of_mixer_set_group(voice, OF_MIXER_GROUP_SFX);
     if (loop)
-        of_mixer_set_loop(voice, 0, length);
+        of_mixer_set_loop_h(h, 0, length);
 
     /* pan is -128..127; convert to per-channel 0..255 gains. */
     if (pan != 0) {
@@ -582,26 +647,28 @@ int platform_audio_play_pcm(const void *data, int length, int rate,
         int left = 255 - right;
         if (left < 0) left = 0;
         if (right > 255) right = 255;
-        of_mixer_set_vol_lr(voice, vol * left / 255, vol * right / 255);
+        of_mixer_set_vol_lr_h(h, vol * left / 255, vol * right / 255);
     }
 
     s_voices[slot].used = true;
-    s_voices[slot].voice = voice;
-    s_voices[slot].handle = OF_MIXER_HANDLE_INVALID;
+    s_voices[slot].handle = h;
+    s_voices[slot].pcm = pcm;
+    s_voices[slot].seq = ++s_voice_seq;
     return slot;
 }
 
 void platform_audio_stop_voice(int slot) {
-    if (slot < 0 || slot >= VOICE_SLOTS || !s_voices[slot].used)
+    if (slot < 0 || slot >= VOICE_SLOTS || !voice_live(&s_voices[slot]))
         return;
-    of_mixer_stop(s_voices[slot].voice);
+    of_mixer_stop_h(s_voices[slot].handle);
     s_voices[slot].used = false;
+    s_voices[slot].pcm = NULL;
 }
 
+/* Only our own voices: of_mixer_stop_all() would also kill the tune's. */
 void platform_audio_stop_all(void) {
-    of_mixer_stop_all();
     for (int i = 0; i < VOICE_SLOTS; i++)
-        s_voices[i].used = false;
+        platform_audio_stop_voice(i);
 }
 
 void platform_audio_shutdown(void) {

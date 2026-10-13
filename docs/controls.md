@@ -211,7 +211,7 @@ modifiers instead.
 | Left stick | Arrows / WASD | Walk and turn, eight directions |
 | D-pad | Arrows / WASD | Same as the left stick |
 | A / Cross (south) | Space | Reach out — pick up, interact, confirm a menu or dialogue |
-| B / Circle (east) | Escape | Back / cancel. **On Vita/PSP, during E1 gameplay** this instead cycles speed mode — see [Handhelds](#handhelds-vita-psp-analogue-pocket-mister) |
+| B / Circle (east) | Escape | Back / cancel. **On Vita/PSP/Pocket, during E1 gameplay** this instead cycles speed mode — see [Handhelds](#handhelds-vita-psp-analogue-pocket-mister) |
 | X / Square (west) | Left Alt | Use what is held (empty-handed: flip / roll) |
 | Y / Triangle (north) | Enter | Open the inventory screen |
 | LB / L1 | Left Shift | Jump |
@@ -249,7 +249,7 @@ the free hand, and either can be holding something. Each trigger is that hand.
 | A / Cross | Space | Pick up without choosing a hand |
 
 L3 needs a clickable stick, which not every pad this engine targets has.
-Vita and PSP instead cycle speed mode on B/Circle during gameplay (Circle
+Vita, PSP and Pocket instead cycle speed mode on B/Circle during gameplay (Circle
 keeps its usual back/cancel job in menus); any platform can also reach the
 same three steps from Settings → Enhanced → Speed Mode. See
 [Handhelds](#handhelds-vita-psp-analogue-pocket-mister).
@@ -430,9 +430,10 @@ MiSTer, and a docked Pocket, aren't a fixed row in this table — see below.
   included, are reachable the same way PSP's are — four inputs at once
   (R, Select, L, direction) is awkward but not impossible. E1's right-stick
   quick swings are still unbound, but redundant: `move.c`'s `BH_JOYSTICK`
-  sends them to the same move codes as R+Up / R+Right. R3's graphics toggle
-  and E1's L3 speed-cycle both go through Settings → Enhanced, same as the
-  other two handhelds; E2's L3→HUD toggle was never a unique gap since
+  sends them to the same move codes as R+Up / R+Right. E1's L3 speed-cycle
+  moves to B during gameplay, as on the other two handhelds (B is still
+  back/cancel in menus and under E2; Start always pauses). R3's graphics
+  toggle goes through Settings → Enhanced; E2's L3→HUD toggle was never a unique gap since
   Select already does the same thing on its own. It also leaves the
   mouse-driven requester dialogs in `req.c` with no cursor: `pump_pointer()`'s
   fallback (right stick moves it, R3 clicks) assumes a stick and a click

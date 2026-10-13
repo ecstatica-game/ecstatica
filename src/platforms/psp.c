@@ -221,6 +221,11 @@ bool platform_hires_supported(platform_t *p) {
     return true;
 }
 
+bool platform_boot_low_res(platform_t *p) {
+    (void)p;
+    return false;
+}
+
 bool platform_scale_mode_supported(platform_t *p) {
     (void)p;
     return true;
@@ -514,6 +519,7 @@ void platform_gamepad_poll(platform_t *p, platform_gamepad_state_t *state) {
     unsigned int b = s_pad.Buttons;
 
     state->connected  = true;
+    state->east_cycles_speed = true;
     state->dpad_up    = (b & PSP_CTRL_UP)    != 0;
     state->dpad_down  = (b & PSP_CTRL_DOWN)  != 0;
     state->dpad_left  = (b & PSP_CTRL_LEFT)  != 0;

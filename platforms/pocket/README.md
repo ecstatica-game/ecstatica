@@ -17,8 +17,8 @@ from the archives, so the game you get is decided by which data ISO you load.
 | Audio | 48 kHz stereo, 32-voice PCM mixer, sample-based MIDI synth |
 | Input | 2 controllers; dock USB keyboard and mouse when docked |
 
-Ecstatica 1 runs in its 320x200 VGA mode; Ecstatica 2 runs at 640x480
-(see "E2 runs at 640x480"). `apply_video_mode()` enumerates the modes the OS
+Both games boot in their 320x200 VGA mode (see "Both games boot at
+320x200"). `apply_video_mode()` enumerates the modes the OS
 advertises and takes an exact match where one exists — the stock `video.json`
 lists both 320x200 and 640x480, so each game gets a native scanout and the
 Pocket scaler fills the panel. A source with no exact match letterboxes into
@@ -165,9 +165,9 @@ add gigabytes.
 becomes a second search root, with `enhanced_graphics` deciding which root wins
 for the swappable presentation directories.
 
-The root database stays authoritative either way. Its FAN is version 30, which
-puts `vga_data` true, so E1 boots at 320x200 and the in-game graphics toggle
-(G, or R3 on the pad) switches the backgrounds to the 640x480 set at runtime.
+The root database stays authoritative either way. E1 boots at 320x200, and
+the in-game graphics toggle (Settings → Enhanced, or G on a docked keyboard)
+switches the backgrounds to the 640x480 set at runtime.
 That is why `E1_DATA` defaults to `data/e1` and not `data/e1-dos` — the latter
 has no `W/`, so `hires_available` stays false and the toggle does nothing.
 
@@ -177,32 +177,31 @@ of the image: ~40 MB of database that is never consulted cross-root.
 Note that enhanced mode means the renderer works at 640x480 — four times the
 pixels, on a 100 MHz soft core. Expect it to be a slideshow until the
 rasterizers are optimised. It is off at boot, so it costs nothing until asked
-for.
+for. On desktops the W/ set would make E1 boot enhanced; the Pocket does not,
+because `platform_boot_low_res()` returns true.
 
-### E2 runs at 640x480, and has to
+### Both games boot at 320x200
 
-`init()` derives `vga_data` as `game_version == GAME_VERSION_E1 && fan_ver <= 30`,
-so E2 boots SVGA. Forcing it to VGA to save fill rate does not work, and the
-reason is not the backgrounds: `VIEWS/` is a genuine 320x200 set (1119 files,
-~44 KB compressed each, against ~209 KB in `HIRES/`).
+`platform_boot_low_res()` returns true here, so `init()` starts both games in
+VGA even when 640x480 data is present. That is a quarter of the pixels to
+rasterize, unpack and copy per frame, and a camera cut loads a ~44 KB
+background instead of a ~209 KB one.
 
-It is the interface. `LOWGRAPH/` is a partial set — 48 entries against 90 in
-`GRAPHICS/`, and the 44 with no low-res twin are the HUD: `ICONPAGE`,
-`NUMBER0`-`NUMBER9`, `MAGIBAR`, `POWGEM*`, `SHIELD*`, and every inventory icon.
-`load_raw_graphic()` tries `LOWGRAPH/<name>` first and falls through to
-`GRAPHICS/<name>`, so at 320x200 the whole HUD draws from 640x480 art.
+E2 has a complete 320x200 mode, ported from the original. `VIEWS/` is a full
+320x200 background set (1119 files). With `mode_svga` clear, the HUD code draws
+the L-prefixed art in `LOWGRAPH/` (`llife*`, `larmour*`, `lmagic*`, `lmbar`,
+`lhand*`, `lsword1`, `lrod1`) at VGA positions. The inventory page has no
+low-res version, so `show_icon_page()` switches to 640x480 while it is open and
+goes back to VGA when it closes. `apply_video_mode()` follows, so the core
+scans out 640x480 for that one screen.
 
-E2 is therefore the heavier of the two on this hardware. `apply_video_mode()`
-asks for a 640x480 scanout; if the core advertises one, the Pocket's scaler
-does the reduction to the panel in RGB after the palette lookup, at no CPU
-cost. If it does not, `platform_blit()` falls back to a nearest-neighbour
-downscale — see `blit_downscale()`, which cannot filter because averaging
-palette indices produces unrelated colours.
+That round trip is why the preference does not set `low_res_only`: the
+screen planes stay sized for 640x480, and `go_svga()` stays available.
 
-Shipping E2 without `HIRES/` is supported: `load_raw()` returns -1, and `map.c`
-reloads the 320x200 background and `copy_vga_to_svga()`s it up. That saves
-447 MB at the cost of soft backgrounds. Add `--hires` if you would rather have
-the sharp set.
+E2 does not need `HIRES/`, and the default ISO leaves it out. Without
+`HIRES/`, Settings → Enhanced has nothing to switch to. With `--hires`, the
+toggle works, and the game then renders at 640x480 with the cost that comes
+with it.
 
 The mount code tries `ecstatica.iso`, `ecstatica2.iso`, `game.iso`, `e1.iso`,
 `e2.iso`, `data.iso` in that order and uses the first slot that exists.
@@ -272,7 +271,8 @@ until a real controller is attached through the Dock's second port.
 |---|---|
 | D-pad | move (8-way) |
 | A | interact / pick up |
-| B, Start | back / pause |
+| B | E1 gameplay: cycle speed (walk → run → sneak). Menus and E2: back |
+| Start | pause menu |
 | X | use held item / flip / roll |
 | Y | inventory |
 | L | jump |
@@ -284,9 +284,9 @@ Select is the shift for the second shoulder row, same as on PSP — held with L
 or R it reaches LT/RT instead of its own HUD toggle. E1's right-stick quick
 swings are the one thing left unbound, and they were only ever a shortcut:
 `move.c`'s `BH_JOYSTICK` sends them to the same move codes as R + Up / R +
-Right, so nothing is actually lost. The R3 graphics toggle and, on E1, the L3
-speed-mode cycle have no stick-click to sit on; both are always reachable from
-Settings → Enhanced in the pause menu instead.
+Right, so nothing is actually lost. E1's L3 speed-mode cycle moves to B during
+gameplay, as on PSP and Vita. The R3 graphics toggle has no stick-click to sit
+on; it is reachable from Settings → Enhanced in the pause menu instead.
 
 The requester dialogs in `req.c` are mouse-driven. A docked USB mouse drives the
 cursor directly; without one the right stick moves it and **R3** clicks — both

@@ -311,6 +311,11 @@ bool platform_hires_supported(platform_t *p) {
     return true;
 }
 
+bool platform_boot_low_res(platform_t *p) {
+    (void)p;
+    return false;
+}
+
 /* The window owns its aspect ratio; only PSP and Vita offer fit modes. */
 bool platform_scale_mode_supported(platform_t *p) {
     (void)p;
