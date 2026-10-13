@@ -47,6 +47,8 @@ bool female = false;
 int16_t difficulty = 1;
 int16_t language = 0;
 bool stop_the_clock = false;
+/* InitScene skips scenes already started: set while replay_skipped_startups runs. */
+static bool startup_repair = false;
 bool no_wanderers = false;
 int16_t no_icons = 0;
 bool slow_motion = false;
@@ -839,6 +841,9 @@ void do_execute_code(code_t *code, actor_t *actor) {
              * actor_last_act = (scene_idx+1) | 0xC000 so subsequent swap_in_actor
              * runs the scene action without firing events. */
             int16_t scene_id = tokens[pc++] & 0x0FFF;
+            if (startup_repair && scene_id < SCENE_TAB_SIZE
+                && (scene_name_flags[scene_id] & 6))
+                break;
             if (scene_id < SCENE_TAB_SIZE) {
                 check_scene_loaded(scene_id);
                 scene_t *scene = scene_tab[scene_id];
@@ -2339,6 +2344,29 @@ void initialise_game(void) {
 }
 
 /* menu_start_game_medium  E1: 0x430184 | E2: 0x43A31C */
+static bool is_startup_code(const code_t *c) {
+    if (c->index_code < 0) return false;
+    const char *name = file_find_code_name(c->index_code);
+    return name && strlen(name) == 11 && strcmp(name + 4, "StartUp") == 0;
+}
+
+/* Saves before v9 come from builds that ran only the first xxx:StartUp, so
+ * the scenes the others InitScene (the stable horse, the sewer guard, ...)
+ * were never put in the world. Replay those blocks, skipping any scene the
+ * save already has started. Only InitScene lines live in them; the first
+ * block, which also sets MapAreaHeight, already ran and is left alone. */
+void replay_skipped_startups(void) {
+    if (game_version != GAME_VERSION_E2) return;
+    bool first = true;
+    startup_repair = true;
+    for (code_t *c = code_list; c; c = c->next_code) {
+        if (!is_startup_code(c)) continue;
+        if (!first) execute_code(c, NULL);
+        first = false;
+    }
+    startup_repair = false;
+}
+
 void start_game_medium(int notUsed1, int notUsed2) {
 
     stop_the_clock = true;
@@ -2378,16 +2406,12 @@ void start_game_medium(int notUsed1, int notUsed2) {
     intro_flag = true;
 
     if (game_version == GAME_VERSION_E2) {
-        for (code_t *c = code_list; c; c = c->next_code) {
-            if (c->index_code < 0) continue;
-            char *name = file_find_code_name(c->index_code);
-            if (!name || !*name) continue;
-            int len = (int)strlen(name);
-            if (len == 11 && strcmp(name + 4, "StartUp") == 0) {
+        /* 0x43A3A3: every author's xxx:StartUp runs (mar, ken, dav, nea, gre),
+         * not just the first. ken:StartUp holds the InitScene list that puts
+         * the stable horse, the sewer guard and the like into the world. */
+        for (code_t *c = code_list; c; c = c->next_code)
+            if (is_startup_code(c))
                 execute_code(c, NULL);
-                break;
-            }
-        }
 
         active_camera = NULL;
 
@@ -3503,6 +3527,7 @@ void free_part(part_t *part) {
 }
 
 void free_scene(scene_t *scene) {
+
     if (scene) scene->scene_use_flag = 0x8000u;
 }
 

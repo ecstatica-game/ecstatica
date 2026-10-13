@@ -8,6 +8,7 @@ void clear_sub_items(void);
 void show_menu_bar(void);
 void initialise_game(void);
 void start_game_medium(int not_used1, int not_used2);
+void replay_skipped_startups(void);
 void play_dead_scene(int scene_index);
 void do_delete_thing(actor_t *actor);
 void delete_parts(part_t *part);

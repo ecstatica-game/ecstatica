@@ -1640,11 +1640,11 @@ void save_port_settings(void) {
  * (4800), actor events (terminated by NO_EVENT), repertoire list (-1), scene
  * list (-1), per-thing state (-1), per-actor arrays, map areas (-1), globals,
  * cameras (150), ambients, settings, sentinel 0x1234, then scene flags (v5+)
- * and hero gender (v6+). */
+ * hero gender (v6+) and the swap-out tables (v8+). */
 
 /* Bump when appending to the save stream. Older files stay loadable as long
  * as new sections are appended after the sentinel and read version-gated. */
-#define SAVE_VERSION 7
+#define SAVE_VERSION 9
 #define SAVE_VERSION_MIN 4   /* oldest layout load_game can still read */
 #define SAVE_NAME_LEN 26
 #define THUMB_W 80
@@ -1927,6 +1927,17 @@ void save_game(int slot) {
      * CT_FEMALE scripts and the E1 death scenes read it. */
     putwLoHi(female ? 1 : 0, f);
 
+    /* 18. Swap-out tables (v8+): pending scene replays and who holds an actor
+     * that is swapped out. Sparse, as the 256 KB Pocket slots are near full. */
+    for (int i = 0; i < THING_TAB_SIZE; i++) {
+        if (!actor_last_act[i] && actor_held_by_actor[i] < 0) continue;
+        putwLoHi((int16_t)i, f);
+        putwLoHi(actor_last_act[i], f);
+        putwLoHi(actor_held_by_actor[i], f);
+        putwLoHi(actor_held_by_part[i], f);
+    }
+    putwLoHi(-1, f);
+
     fclose(f);
 }
 
@@ -1959,7 +1970,22 @@ void load_game(int slot) {
     for (int i = 0; i < SCENE_TAB_SIZE; i++)
         scene_name_flags[i] &= (int16_t)0xFFF1;
 
+    /* Nor the swap-out tables. A leftover actor_last_act from the session
+     * before the load (a CT_INIT_SCENE prime at its start) made the first
+     * visibility pass swap a held weapon back in at its pickup spot. */
+    for (int i = 0; i < THING_TAB_SIZE; i++) {
+        actor_last_act[i] = 0;
+        actor_held_by_actor[i] = -1;
+        actor_held_by_part[i] = -1;
+    }
+
     free_all_heaps();
+    /* Both point into the pools just freed. A stale root_scene kept the scene
+     * running at load time in the active list; when the save had no active
+     * scenes nothing replaced it, the slot was reused, and evicting that
+     * reused scene quit with "Can't remove Scene in active list". */
+    root_scene = NULL;
+    stuck_thing_list = NULL;
     active_camera = NULL;
     clear_subtitles = 1;
     fade_to_black = false;
@@ -2206,7 +2232,21 @@ void load_game(int slot) {
         have_female = 1;
     }
 
+    /* 18. Swap-out tables (v8+) */
+    if (version >= 8) {
+        for (;;) {
+            int16_t i = getwLoHi(f);
+            if (i < 0 || i >= THING_TAB_SIZE || feof(f)) break;
+            actor_last_act[i] = getwLoHi(f);
+            actor_held_by_actor[i] = getwLoHi(f);
+            actor_held_by_part[i] = getwLoHi(f);
+        }
+    }
+
     fclose(f);
+
+    if (version < 9)
+        replay_skipped_startups();
 
     /* Post-load: apply positions from per-actor arrays to loaded actors */
     for (actor_t *actor = root_thing; actor; actor = actor->next_in_display_list) {
