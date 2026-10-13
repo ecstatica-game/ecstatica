@@ -308,7 +308,7 @@ int  execute_boolean(int16_t **pp, actor_t *actor);
 void execute_code(code_t *code, actor_t *actor);
 void execute_thing_code(actor_t *actor, int16_t code_index);
 void execute_part_code(part_t *part, int16_t code_index);
-void execute_sub_obj_code(void);
+void execute_sub_obj_code(code_t *code, actor_t *actor, actor_t *sub, actor_t *obj);
 void do_execute_code(code_t *code, actor_t *actor);
 int  get_next_char(void);
 int  get_next_token(void);

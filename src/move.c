@@ -2010,13 +2010,13 @@ void smart_bomb(actor_t *attacker, int range, int damage) {
         } else {
             if (attacker->actor_hit_code >= 0 && attacker->actor_hit_code < CODE_TAB_SIZE) {
                 code_t *hc = code_tab[attacker->actor_hit_code];
-                if (hc) execute_code(hc, victim);
+                if (hc) execute_sub_obj_code(hc, victim, attacker, victim);
             }
         }
 
         if (victim->code_at_hp_change >= 0 && victim->code_at_hp_change < CODE_TAB_SIZE) {
             code_t *hpc = code_tab[victim->code_at_hp_change];
-            if (hpc) execute_code(hpc, victim);
+            if (hpc) execute_sub_obj_code(hpc, victim, attacker, victim);
         }
 
         if (victim == selected_thing)
@@ -2867,7 +2867,7 @@ void see_if_anything_hit(part_t *part, int16_t hit_param) {
         if (effective_hitter->actor_hit_code >= 0) {
             code_t *code = code_tab[effective_hitter->actor_hit_code];
             if (code) {
-                execute_code(code, target);
+                execute_sub_obj_code(code, target, effective_hitter, target);
             } else {
                 do_info3_req("Can't find HitCode",
                     thing_names[effective_hitter->name_index].field_0,
@@ -2934,7 +2934,7 @@ void see_if_anything_hit(part_t *part, int16_t hit_param) {
         if (target->code_at_hp_change >= 0) {
             code_t *code = code_tab[target->code_at_hp_change];
             if (code) {
-                execute_code(code, target);
+                execute_sub_obj_code(code, target, effective_hitter, target);
             } else {
                 do_info3_req("Can't find GetHitCode",
                     thing_names[target->name_index].field_0,
@@ -3676,7 +3676,7 @@ void check_pick_up(part_t *part, int16_t param) {
     } else {
         int16_t code_id = target->picked_up_code;
         if (code_id >= 0 && code_id < CODE_TAB_SIZE && code_tab[code_id])
-            execute_code(code_tab[code_id], target);
+            execute_sub_obj_code(code_tab[code_id], target, part->parent_actor, target);
     }
 
     if (selected_thing == part->parent_actor) {

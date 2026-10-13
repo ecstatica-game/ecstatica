@@ -32,6 +32,14 @@
 /* Part context for CT_SPAWN_LIVE dispatch — set by execute_part_code. */
 static part_t *g_execute_part = NULL;
 
+/* E2 scripts name the code's subject and object as the pseudo-things SUB (2)
+ * and OBJ (3); DoExecuteCode (0x44F3A0) receives both as arguments. E1 has no
+ * such names and reads the index as-is. */
+#define THING_SUB 2
+#define THING_OBJ 3
+static actor_t *g_code_sub = NULL;
+static actor_t *g_code_obj = NULL;
+
 bool game_up_and_running = false;
 bool program_up_and_running = false;
 int32_t game_timer = 0;
@@ -157,10 +165,26 @@ int32_t extra_life_time = 0;
 
 UNUSED_ATTR static int find_empty_actor_slot(void);
 
+static void execute_with_sub_obj(code_t *code, actor_t *actor, actor_t *sub, actor_t *obj) {
+    actor_t *prev_sub = g_code_sub, *prev_obj = g_code_obj;
+    g_code_sub = sub;
+    g_code_obj = obj;
+    do_execute_code(code, actor);
+    g_code_sub = prev_sub;
+    g_code_obj = prev_obj;
+}
+
 /* game_execute_code_425678 — main script interpreter */
 void execute_code(code_t *code, actor_t *actor) {
     if (!code) return;
-    do_execute_code(code, actor);
+    execute_with_sub_obj(code, actor, NULL, NULL);
+}
+
+/* game_execute_sub_obj_code  E1: 0x443D4C | E2: 0x44F1C4 — pick-up and hit
+ * codes, which name the actor acting (SUB) and the one acted on (OBJ). */
+void execute_sub_obj_code(code_t *code, actor_t *actor, actor_t *sub, actor_t *obj) {
+    if (!code) return;
+    execute_with_sub_obj(code, actor, sub, obj);
 }
 
 /* Unpack a signed 12-bit value from a token word */
@@ -174,6 +198,18 @@ static int unpack_token(int16_t token) {
 /* Get unsigned 12-bit value from a token (name/index reference) */
 static int16_t get_value_from_token(int16_t token) {
     return token & 0x0FFF;
+}
+
+/* An absent SUB/OBJ resolves to THING_TAB_SIZE, which every caller already
+ * rejects (the original uses 5000 the same way). */
+static int16_t resolve_sub_obj(int16_t thing_index) {
+    if (game_version == GAME_VERSION_E1)
+        return thing_index;
+    if (thing_index == THING_SUB)
+        return g_code_sub ? g_code_sub->name_index : THING_TAB_SIZE;
+    if (thing_index == THING_OBJ)
+        return g_code_obj ? g_code_obj->name_index : THING_TAB_SIZE;
+    return thing_index;
 }
 
 /* Check if the token's upper nibble indicates a "no value" marker.
@@ -442,7 +478,7 @@ static int execute_boolean_body(int16_t **pp, actor_t *actor) {
         tp += 3;
     }
     else if (token == CT_REPIS) {
-        int16_t actor_index = get_value_from_token(tp[1]);
+        int16_t actor_index = resolve_sub_obj(get_value_from_token(tp[1]));
         int16_t rep_index = get_value_from_token(tp[2]);
         result = false;
         if (actor_index < THING_TAB_SIZE) {
@@ -549,7 +585,9 @@ static int execute_boolean_body(int16_t **pp, actor_t *actor) {
     }
     else if (token == CT_OBJECT_IS) {
         int16_t actor_index = get_value_from_token(tp[1]);
-        result = (actor != NULL && actor->name_index == actor_index);
+        /* E2 0x44EEB5 tests the code's object, not the actor running it. */
+        actor_t *obj = (game_version == GAME_VERSION_E1) ? actor : g_code_obj;
+        result = (obj != NULL && obj->name_index == actor_index);
         tp += 2;
     }
     else if (token == CT_RANDOM) {
@@ -736,7 +774,7 @@ void do_execute_code(code_t *code, actor_t *actor) {
             break;
 
         case CT_FORCE_ACTION: {
-            int16_t actor_index = get_value_from_token(tokens[pc++]);
+            int16_t actor_index = resolve_sub_obj(get_value_from_token(tokens[pc++]));
             int16_t action_index = get_value_from_token(tokens[pc++]);
             if (actor_index < THING_TAB_SIZE) {
                 actor_t *target = thing_tab[actor_index];
@@ -950,7 +988,7 @@ void do_execute_code(code_t *code, actor_t *actor) {
         }
 
         case CT_MAKE_REP: {
-            int16_t actor_index = get_value_from_token(tokens[pc++]);
+            int16_t actor_index = resolve_sub_obj(get_value_from_token(tokens[pc++]));
             int16_t rep_index = get_value_from_token(tokens[pc++]);
             if (actor_index < THING_TAB_SIZE) {
                 actor_t *target = thing_tab[actor_index];
@@ -1154,8 +1192,9 @@ void do_execute_code(code_t *code, actor_t *actor) {
                 actor_t *target_actor = thing_tab[actor_index];
                 if (target_actor && code_index < CODE_TAB_SIZE) {
                     code_t *target_code = code_tab[code_index];
+                    /* 0x44F52D: the target becomes the subject. */
                     if (target_code)
-                        do_execute_code(target_code, target_actor);
+                        execute_with_sub_obj(target_code, target_actor, target_actor, NULL);
                 }
             }
             break;
@@ -4082,7 +4121,7 @@ void execute_thing_code(actor_t *actor, int16_t code_index) {
     if (code_index < 0 || code_index >= CODE_TAB_SIZE) return;
     code_t *code = code_tab[code_index];
     if (!code) return;
-    do_execute_code(code, actor);
+    execute_with_sub_obj(code, actor, actor, NULL);
 }
 
 part_t *get_execute_part(void) { return g_execute_part; }
@@ -4097,7 +4136,7 @@ void execute_part_code(part_t *part, int16_t code_index) {
     if (!code) return;
     part_t *prev = g_execute_part;
     g_execute_part = part;
-    do_execute_code(code, part->parent_actor);
+    execute_with_sub_obj(code, part->parent_actor, part->parent_actor, NULL);
     g_execute_part = prev;
 }
 
