@@ -278,7 +278,7 @@ vita:
 	  echo "VITASDK not set. Install VitaSDK and export VITASDK."; exit 1; }
 	cmake -S platforms/vita -B platforms/vita/build -DCMAKE_BUILD_TYPE=Release \
 	  -DGAME_VERSION=$(VERSION)
-	cmake --build platforms/vita/build
+	cmake --build platforms/vita/build --parallel
 
 vita-clean:
 	rm -rf platforms/vita/build

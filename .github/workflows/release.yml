@@ -315,7 +315,7 @@ jobs:
       - name: Build
         run: |
           docker run --rm -v "$PWD:/src" -w /src pspdev/pspdev:latest \
-            sh -c 'command -v make >/dev/null || apk add --no-cache make; make -C platforms/psp'
+            sh -c 'command -v make >/dev/null || apk add --no-cache make; make -j"$(nproc)" -C platforms/psp'
 
       - name: Package
         run: |
@@ -379,7 +379,7 @@ jobs:
           test -f "$(riscv64-unknown-elf-gcc -march=rv32imafc -mabi=ilp32f -print-libgcc-file-name)"
 
       - name: Build
-        run: make -C platforms/pocket release
+        run: make -j"$(nproc)" -C platforms/pocket release
 
       - name: Package
         run: |
