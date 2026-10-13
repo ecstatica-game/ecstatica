@@ -1644,7 +1644,7 @@ void save_port_settings(void) {
 
 /* Bump when appending to the save stream. Older files stay loadable as long
  * as new sections are appended after the sentinel and read version-gated. */
-#define SAVE_VERSION 6
+#define SAVE_VERSION 7
 #define SAVE_VERSION_MIN 4   /* oldest layout load_game can still read */
 #define SAVE_NAME_LEN 26
 #define THUMB_W 80
@@ -1848,10 +1848,11 @@ void save_game(int slot) {
             putwLoHi(ta->taction_index, f);
             putl(ta->taction_time - game_time, f);
         }
-        /* Held-by link */
-        int16_t hba = (actor->part_heap_link && actor->part_heap_link->parent_actor)
-            ? actor->part_heap_link->parent_actor->name_index : -1;
+        /* Held-by link: holder actor, then (v7+) the holding part */
+        part_t *hp = actor->part_heap_link;
+        int16_t hba = (hp && hp->parent_actor) ? hp->parent_actor->name_index : -1;
         putwLoHi(hba, f);
+        putwLoHi(hba >= 0 ? hp->name_index : -1, f);
     }
     putwLoHi(-1, f);
 
@@ -2024,6 +2025,9 @@ void load_game(int slot) {
     }
 
     /* 8. Per-thing runtime state */
+    actor_t *held_thing[ACTOR_POOL_SIZE];
+    int16_t held_by_actor[ACTOR_POOL_SIZE], held_by_part[ACTOR_POOL_SIZE];
+    int n_held = 0;
     for (;;) {
         int16_t idx = getwLoHi(f);
         if (idx < 0) break;
@@ -2036,7 +2040,7 @@ void load_game(int slot) {
             fseek(f, 2 + 6+6+6+6 + 2+2+2+2+2+2+2 + 2+2+2 + 18 + 2+2+2+2 + 2+2 + 2+2+2+2+2 + 6+6+6+6 + 2+2, SEEK_CUR);
             int16_t ta_count = getwLoHi(f);
             fseek(f, ta_count * 6, SEEK_CUR);
-            fseek(f, 2, SEEK_CUR);
+            fseek(f, version >= 7 ? 4 : 2, SEEK_CUR);
             continue;
         }
 
@@ -2094,7 +2098,38 @@ void load_game(int slot) {
         }
 
         int16_t hba = getwLoHi(f);
-        (void)hba;
+        int16_t hbp = version >= 7 ? getwLoHi(f) : -1;
+        if (hba >= 0 && n_held < ACTOR_POOL_SIZE) {
+            held_thing[n_held] = actor;
+            held_by_actor[n_held] = hba;
+            held_by_part[n_held] = hbp;
+            n_held++;
+        }
+    }
+
+    /* Held objects are relinked once every holder exists: without the link
+     * they keep their saved world position and stop following the hand. */
+    for (int i = 0; i < n_held; i++) {
+        actor_t *holder = held_by_actor[i] < THING_TAB_SIZE ? thing_tab[held_by_actor[i]] : NULL;
+        if (!holder || !holder->_PartTab) continue;
+        part_t *hand = NULL;
+        if (held_by_part[i] >= 0) {
+            if (held_by_part[i] < PART_TAB_SIZE)
+                hand = holder->_PartTab->field_0[held_by_part[i]];
+        } else if (holder->actor_behavior == BH_JOYSTICK) {
+            /* Pre-v7 saves name the holder but not the part; the hero only
+             * holds in its hands, so take the first free one, right first. */
+            int e1 = game_version == GAME_VERSION_E1;
+            int16_t hands[2] = { e1 ? E1_RIGHT_HAND_PART : E2_RIGHT_HAND_PART,
+                                 e1 ? E1_LEFT_HAND_PART : E2_LEFT_HAND_PART };
+            for (int h = 0; h < 2 && !hand; h++) {
+                part_t *p = holder->_PartTab->field_0[hands[h]];
+                if (p && !p->actor_2_held) hand = p;
+            }
+        }
+        if (!hand) continue;
+        hand->actor_2_held = held_thing[i];
+        held_thing[i]->part_heap_link = hand;
     }
 
     /* 9. Per-actor arrays */
