@@ -573,6 +573,33 @@ jobs:
           body_path: edge_notes.md
           files: *release_files
 
+      # Only one edge build is ever current: each push to main bumps the
+      # vX.Y.Z-edge version once a release is tagged, which left one stale
+      # pre-release per version behind. Keeps the edge release this run just
+      # published, if any; a tag push keeps none, as the tagged release
+      # supersedes them. Runs after publishing, so a failed publish never
+      # leaves main without an edge build. Tags without a release go too.
+      - name: Prune old edge releases
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CURRENT: ${{ needs.version.outputs.version }}
+        run: |
+          gh release list --limit 1000 --json tagName --jq '.[].tagName' |
+            { grep -E -- '-edge$' || true; } |
+            while read -r tag; do
+              [ "$tag" = "$CURRENT" ] && continue
+              echo "Deleting release $tag"
+              gh release delete "$tag" --yes --cleanup-tag
+            done
+          git ls-remote --tags origin |
+            awk '{ print $2 }' | sed -n 's#^refs/tags/\(.*-edge\)$#\1#p' |
+            while read -r tag; do
+              [ "$tag" = "$CURRENT" ] && continue
+              echo "Deleting tag $tag"
+              git push origin ":refs/tags/$tag"
+            done
+
       # VitaDB's own listing for each of the two games, pointed at this
       # release's VPK. Tagged releases only: VitaDB copies the VPK to its own
       # server, so publishing every push to main replaced the stable download

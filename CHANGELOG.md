@@ -13,6 +13,7 @@ All notable changes to this project are documented in this file.
 - Releases include `ecstatica-web-*.zip`, `ecstatica-android-*.apk` and `ecstatica-ios-*.ipa`.
 
 ### Changed
+- Only the newest edge pre-release is kept: each push to `main` deletes the edge releases and tags of earlier versions, and a tagged release deletes them all.
 - `assets/generate_packaging_art.py` takes platform names, so it can write one platform's art without rewriting the others.
 
 ## [0.9.5] - 2026-10-13
