@@ -120,6 +120,11 @@ bool platform_thread_start(const char *name, void (*fn)(void *), void *arg,
 
 int platform_cpu_count(void) {
     long n = sysconf(_SC_NPROCESSORS_ONLN);
+#ifdef __EMSCRIPTEN__
+    /* Every thread is a Web Worker from a pool sized at link time
+     * (PTHREAD_POOL_SIZE in platforms/web/CMakeLists.txt). */
+    if (n > 4) n = 4;
+#endif
     return n > 0 ? (int)n : 1;
 }
 

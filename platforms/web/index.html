@@ -1,0 +1,541 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Ecstatica</title>
+<link rel="icon" href="icon.png">
+<style>
+  :root { color-scheme: dark; --fg: #e8e2d6; --dim: #9a9284; --accent: #c8412f; --panel: rgba(20, 16, 14, 0.88); }
+  html, body { margin: 0; height: 100%; background: #000; color: var(--fg);
+    font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  [hidden] { display: none !important; }
+  button { font: inherit; color: var(--fg); background: #2b2420; border: 1px solid #5a4d44;
+    border-radius: 6px; padding: 0.45em 0.9em; cursor: pointer; }
+  button:hover:not(:disabled) { background: #3a302a; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button:disabled { opacity: 0.45; cursor: default; }
+
+  #library { min-height: 100%; box-sizing: border-box; padding: max(24px, env(safe-area-inset-top)) 16px 32px;
+    background: linear-gradient(rgba(0,0,0,0.55), #000 70%), url(banner.png) center top / cover no-repeat; }
+  #library main { max-width: 680px; margin: 0 auto; }
+  h1 { font-size: 2rem; margin: 0 0 0.2em; letter-spacing: 0.04em; }
+  .lede { color: var(--dim); margin: 0 0 1.5em; }
+  .game { background: var(--panel); border: 1px solid #3a302a; border-radius: 10px; padding: 14px 16px; margin-bottom: 12px; }
+  .game h2 { font-size: 1.15rem; margin: 0 0 0.25em; }
+  .game .state { color: var(--dim); margin: 0 0 0.7em; font-size: 0.92em; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; }
+  progress { width: 100%; margin-top: 10px; }
+  details { color: var(--dim); margin-top: 1.5em; }
+  details p, details li { font-size: 0.92em; }
+  code { color: var(--fg); }
+  #message { background: #3a1c16; border: 1px solid var(--accent); border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; }
+
+  #game { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: #000; }
+  #canvas { width: min(100vw, calc(100vh * 4 / 3)); height: min(100vh, calc(100vw * 3 / 4));
+    image-rendering: pixelated; touch-action: none; outline: none; }
+  #fullscreen { position: fixed; top: max(8px, env(safe-area-inset-top)); right: 8px; opacity: 0.35; z-index: 3; padding: 0.2em 0.6em; }
+  #fullscreen:hover { opacity: 1; }
+
+  /* On-screen pad: the same layout as src/platforms/touch_controls.c. */
+  #pad { position: fixed; inset: 0; pointer-events: none; z-index: 2; --u: calc(min(100vw, 100vh) / 12); }
+  #pad .c { position: absolute; pointer-events: auto; touch-action: none; user-select: none; -webkit-user-select: none;
+    display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.9);
+    background: rgba(0,0,0,0.35); border: 2px solid rgba(255,255,255,0.55); font-weight: 600; box-sizing: border-box; }
+  #pad .c.on { background: rgba(255,255,255,0.45); }
+  #pad .round { border-radius: 50%; width: calc(var(--u) * 1.5); height: calc(var(--u) * 1.5); font-size: calc(var(--u) * 0.6); }
+  #pad .small { width: calc(var(--u) * 1.2); height: calc(var(--u) * 1.2); font-size: calc(var(--u) * 0.4); }
+  #pad .bar { border-radius: 6px; width: calc(var(--u) * 2.8); height: calc(var(--u) * 1.2); font-size: calc(var(--u) * 0.42); }
+  #stick { border-radius: 50%; width: calc(var(--u) * 4.4); height: calc(var(--u) * 4.4);
+    left: calc(var(--u) * 0.8 + env(safe-area-inset-left)); bottom: calc(var(--u) * 0.8); }
+  #knob { position: absolute; width: calc(var(--u) * 1.8); height: calc(var(--u) * 1.8); border-radius: 50%;
+    background: rgba(255,255,255,0.4); left: 50%; top: 50%; transform: translate(-50%, -50%); pointer-events: none; }
+</style>
+</head>
+<body>
+
+<div id="library">
+  <main>
+    <h1>Ecstatica</h1>
+    <p class="lede">The C99 reimplementation of Ecstatica 1 and 2, running in the browser.
+      You need your own copy of the game. Its files stay in this browser's private storage
+      and are never uploaded.</p>
+    <div id="message" hidden></div>
+
+    <section class="game" data-game="e1">
+      <h2>Ecstatica</h2>
+      <p class="state">Checking…</p>
+      <div class="row">
+        <button class="primary play" disabled>Play</button>
+        <button class="pick-folder">Import folder…</button>
+        <button class="pick-zip">Import .zip…</button>
+        <button class="remove" disabled>Remove</button>
+      </div>
+      <progress hidden max="1" value="0"></progress>
+    </section>
+
+    <section class="game" data-game="e2">
+      <h2>Ecstatica II</h2>
+      <p class="state">Checking…</p>
+      <div class="row">
+        <button class="primary play" disabled>Play</button>
+        <button class="pick-folder">Import folder…</button>
+        <button class="pick-zip">Import .zip…</button>
+        <button class="remove" disabled>Remove</button>
+      </div>
+      <progress hidden max="1" value="0"></progress>
+    </section>
+
+    <section class="game" data-game="soundfont">
+      <h2>Music (optional)</h2>
+      <p class="state">Checking…</p>
+      <div class="row">
+        <button class="pick-sf2">Import .sf2 soundfont…</button>
+        <button class="remove" disabled>Remove</button>
+      </div>
+    </section>
+
+    <details>
+      <summary>What to import</summary>
+      <ul>
+        <li>The game folder is the one with <code>CODE/ECSTATIC.FAN</code> in it. Pick that folder,
+          or a .zip of it; a folder or zip that holds it one level down works too.</li>
+        <li>Ecstatica 1: the DOS release root, with its <code>W</code> folder inside for the 640×480 graphics.</li>
+        <li>Installers, <code>DIRECTX</code>, <code>ISHIELD</code>, <code>.EXE</code> and <code>.DLL</code> files are skipped.</li>
+        <li>Saved games stay in the browser with the game. Removing a game removes its saves.</li>
+        <li>Music needs a General MIDI soundfont in .sf2 format, for example GeneralUser GS.
+          Without one, sound effects and speech still play.</li>
+        <li>Phones and tablets: use Import .zip. Most mobile browsers cannot pick a folder.</li>
+      </ul>
+      <p id="storage"></p>
+    </details>
+  </main>
+</div>
+
+<div id="game" hidden>
+  <canvas id="canvas" tabindex="0"></canvas>
+  <button id="fullscreen" title="Full screen">⛶</button>
+  <div id="pad" hidden>
+    <div class="c" id="stick"><div id="knob"></div></div>
+    <div class="c small round" data-bit="10" style="left: calc(var(--u) * 4.6); bottom: calc(var(--u) * 4.6)">L3</div>
+    <div class="c bar" data-bit="6" style="left: calc(var(--u) * 0.6); top: calc(var(--u) * 0.6)">LT</div>
+    <div class="c bar" data-bit="4" style="left: calc(var(--u) * 0.6); top: calc(var(--u) * 2.2)">LB</div>
+    <div class="c bar" data-bit="9" style="left: calc(var(--u) * 0.6); top: calc(var(--u) * 3.8)">SELECT</div>
+    <div class="c bar" data-bit="7" style="right: calc(var(--u) * 0.6); top: calc(var(--u) * 0.6)">RT</div>
+    <div class="c bar" data-bit="5" style="right: calc(var(--u) * 0.6); top: calc(var(--u) * 2.2)">RB</div>
+    <div class="c bar" data-bit="8" style="right: calc(var(--u) * 0.6); top: calc(var(--u) * 3.8)">START</div>
+    <div class="c small round" data-bit="11" style="right: calc(var(--u) * 4.8); bottom: calc(var(--u) * 4.8)">R3</div>
+    <div class="c round" data-bit="3" style="right: calc(var(--u) * 2.25); bottom: calc(var(--u) * 3.75)">Y</div>
+    <div class="c round" data-bit="2" style="right: calc(var(--u) * 3.75); bottom: calc(var(--u) * 2.25)">X</div>
+    <div class="c round" data-bit="1" style="right: calc(var(--u) * 0.75); bottom: calc(var(--u) * 2.25)">B</div>
+    <div class="c round" data-bit="0" style="right: calc(var(--u) * 2.25); bottom: calc(var(--u) * 0.75)">A</div>
+  </div>
+</div>
+
+<input type="file" id="folder-input" webkitdirectory multiple hidden>
+<input type="file" id="zip-input" accept=".zip,application/zip" hidden>
+<input type="file" id="sf2-input" accept=".sf2" hidden>
+
+<script>
+'use strict';
+
+/* Threads need SharedArrayBuffer, which browsers only give a cross-origin
+ * isolated page. A host that cannot send COOP/COEP headers (GitHub Pages)
+ * gets them from coi-sw.js, a service worker that adds them; it needs one
+ * reload to take over. */
+if (!window.crossOriginIsolated && 'serviceWorker' in navigator && window.isSecureContext) {
+  navigator.serviceWorker.register('coi-sw.js').then(reg => {
+    if (!navigator.serviceWorker.controller && !sessionStorage.getItem('coi-reloaded')) {
+      sessionStorage.setItem('coi-reloaded', '1');
+      location.reload();
+    }
+  });
+}
+
+const $ = (sel, el = document) => el.querySelector(sel);
+const TITLES = { e1: 'Ecstatica', e2: 'Ecstatica II' };
+
+function message(text) {
+  const m = $('#message');
+  m.textContent = text || '';
+  m.hidden = !text;
+}
+
+function fmtBytes(n) {
+  return n > 1e9 ? (n / 1e9).toFixed(1) + ' GB' : (n / 1e6).toFixed(0) + ' MB';
+}
+
+/* ── Library ─────────────────────────────────────────────── */
+
+async function ecsDir(create) {
+  const root = await navigator.storage.getDirectory();
+  return root.getDirectoryHandle('ecstatica', { create });
+}
+
+async function findCI(dir, name, kind) {
+  for await (const [n, h] of dir.entries())
+    if (n.toLowerCase() === name.toLowerCase() && h.kind === kind) return h;
+  return null;
+}
+
+async function gameInstalled(game) {
+  try {
+    const dir = await (await ecsDir(false)).getDirectoryHandle(game);
+    const code = await findCI(dir, 'CODE', 'directory');
+    return !!(code && await findCI(code, 'ECSTATIC.FAN', 'file'));
+  } catch (e) {
+    return false;
+  }
+}
+
+async function soundfontName() {
+  try {
+    for await (const [n, h] of (await ecsDir(false)).entries())
+      if (h.kind === 'file' && n.toLowerCase().endsWith('.sf2')) return n;
+  } catch (e) { /* no folder yet */ }
+  return null;
+}
+
+async function refresh() {
+  if (!navigator.storage || !navigator.storage.getDirectory) {
+    message('This browser has no Origin Private File System, which the game needs for its files. ' +
+            'Use a current Chrome, Edge, Firefox or Safari.');
+    document.querySelectorAll('button').forEach(b => b.disabled = true);
+    return;
+  }
+  for (const game of ['e1', 'e2']) {
+    const sec = $(`.game[data-game="${game}"]`);
+    const ok = await gameInstalled(game);
+    $('.state', sec).textContent = ok ? 'Installed in this browser.' : 'Not imported yet.';
+    $('.play', sec).disabled = !ok || !window.crossOriginIsolated;
+    $('.remove', sec).disabled = !ok;
+  }
+  const sec = $('.game[data-game="soundfont"]');
+  const sf = await soundfontName();
+  $('.state', sec).textContent = sf ? `Using ${sf}.` : 'No soundfont: music is silent.';
+  $('.remove', sec).disabled = !sf;
+
+  if (!window.crossOriginIsolated)
+    message('Waiting for cross-origin isolation. If Play stays disabled, reload the page; ' +
+            'the host must be HTTPS (or localhost).');
+  if (navigator.storage.estimate) {
+    const est = await navigator.storage.estimate();
+    $('#storage').textContent = `Browser storage used: ${fmtBytes(est.usage || 0)} of ${fmtBytes(est.quota || 0)}.`;
+  }
+}
+
+/* ── Import ──────────────────────────────────────────────────
+ * Runs in a worker: OPFS sync access handles exist only there, and Safari
+ * has no createWritable. A zip is read with the browser's own inflate. */
+
+const IMPORT_WORKER = `
+'use strict';
+const SKIP_DIRS = ['directx', 'ishield', '__macosx'];
+const SKIP_EXT = ['.exe', '.dll', '.ply'];
+
+function wanted(parts) {
+  const low = parts.map(p => p.toLowerCase());
+  if (low.some(p => SKIP_DIRS.includes(p) || p.startsWith('.'))) return false;
+  const name = low[low.length - 1];
+  return !SKIP_EXT.some(e => name.endsWith(e));
+}
+
+/* The game root is the folder holding CODE/ECSTATIC.FAN, at any depth. */
+function rootPrefix(paths) {
+  let best = null;
+  for (const p of paths) {
+    const parts = p.split('/');
+    const n = parts.length;
+    if (n >= 2 && parts[n - 1].toLowerCase() === 'ecstatic.fan' && parts[n - 2].toLowerCase() === 'code') {
+      const prefix = parts.slice(0, n - 2);
+      if (!best || prefix.length < best.length) best = prefix;
+    }
+  }
+  return best;
+}
+
+async function dirFor(root, parts) {
+  let d = root;
+  for (const p of parts) d = await d.getDirectoryHandle(p, { create: true });
+  return d;
+}
+
+async function writeFile(root, parts, chunks) {
+  const dir = await dirFor(root, parts.slice(0, -1));
+  const fh = await dir.getFileHandle(parts[parts.length - 1], { create: true });
+  const ah = await fh.createSyncAccessHandle();
+  ah.truncate(0);
+  let at = 0;
+  for await (const chunk of chunks) {
+    ah.write(chunk, { at });
+    at += chunk.byteLength;
+  }
+  ah.flush();
+  ah.close();
+  return at;
+}
+
+async function* streamChunks(stream) {
+  const reader = stream.getReader();
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) return;
+    yield value;
+  }
+}
+
+async function freshGameDir(game) {
+  const opfs = await navigator.storage.getDirectory();
+  const ecs = await opfs.getDirectoryHandle('ecstatica', { create: true });
+  try { await ecs.removeEntry(game, { recursive: true }); } catch (e) {}
+  return ecs.getDirectoryHandle(game, { create: true });
+}
+
+async function importFiles(game, files) {
+  const prefix = rootPrefix(files.map(f => f.path));
+  if (!prefix) throw new Error('No CODE/ECSTATIC.FAN in the selected folder.');
+  const list = files.filter(f => {
+    const parts = f.path.split('/');
+    return parts.slice(0, prefix.length).join('/') === prefix.join('/') && wanted(parts.slice(prefix.length));
+  });
+  const total = list.reduce((s, f) => s + f.file.size, 0);
+  const root = await freshGameDir(game);
+  let done = 0;
+  for (const f of list) {
+    await writeFile(root, f.path.split('/').slice(prefix.length), streamChunks(f.file.stream()));
+    done += f.file.size;
+    postMessage({ progress: done / total });
+  }
+}
+
+/* Central directory only; entries stored (0) or deflated (8). */
+async function importZip(game, zip) {
+  const tailLen = Math.min(zip.size, 65557);
+  const tail = new DataView(await zip.slice(zip.size - tailLen).arrayBuffer());
+  let eocd = -1;
+  for (let i = tailLen - 22; i >= 0; i--)
+    if (tail.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  if (eocd < 0) throw new Error('Not a zip file.');
+  const count = tail.getUint16(eocd + 10, true);
+  const cdSize = tail.getUint32(eocd + 12, true);
+  const cdOff = tail.getUint32(eocd + 16, true);
+  if (cdOff === 0xffffffff) throw new Error('Zip64 archives are not supported.');
+  const cd = new DataView(await zip.slice(cdOff, cdOff + cdSize).arrayBuffer());
+
+  const entries = [];
+  for (let i = 0, p = 0; i < count; i++) {
+    if (cd.getUint32(p, true) !== 0x02014b50) throw new Error('Damaged zip directory.');
+    const method = cd.getUint16(p + 10, true);
+    const csize = cd.getUint32(p + 20, true);
+    const usize = cd.getUint32(p + 24, true);
+    const nlen = cd.getUint16(p + 28, true), xlen = cd.getUint16(p + 30, true), clen = cd.getUint16(p + 32, true);
+    const local = cd.getUint32(p + 42, true);
+    const path = new TextDecoder().decode(new Uint8Array(cd.buffer, p + 46, nlen)).replace(/\\\\/g, '/');
+    if (!path.endsWith('/')) entries.push({ path, method, csize, usize, local });
+    p += 46 + nlen + xlen + clen;
+  }
+
+  const prefix = rootPrefix(entries.map(e => e.path));
+  if (!prefix) throw new Error('No CODE/ECSTATIC.FAN in the zip.');
+  const list = entries.filter(e => {
+    const parts = e.path.split('/');
+    return parts.slice(0, prefix.length).join('/') === prefix.join('/') && wanted(parts.slice(prefix.length));
+  });
+  const total = list.reduce((s, e) => s + e.csize, 0);
+  const root = await freshGameDir(game);
+  let done = 0;
+  for (const e of list) {
+    const lh = new DataView(await zip.slice(e.local, e.local + 30).arrayBuffer());
+    const start = e.local + 30 + lh.getUint16(26, true) + lh.getUint16(28, true);
+    let stream = zip.slice(start, start + e.csize).stream();
+    if (e.method === 8) stream = stream.pipeThrough(new DecompressionStream('deflate-raw'));
+    else if (e.method !== 0) throw new Error('Unsupported compression in ' + e.path);
+    await writeFile(root, e.path.split('/').slice(prefix.length), streamChunks(stream));
+    done += e.csize;
+    postMessage({ progress: done / total });
+  }
+}
+
+async function importSoundfont(file) {
+  const opfs = await navigator.storage.getDirectory();
+  const ecs = await opfs.getDirectoryHandle('ecstatica', { create: true });
+  for await (const [n, h] of ecs.entries())
+    if (h.kind === 'file' && n.toLowerCase().endsWith('.sf2')) await ecs.removeEntry(n);
+  await writeFile(ecs, [file.name.replace(/[^A-Za-z0-9._-]/g, '_')], streamChunks(file.stream()));
+}
+
+onmessage = async (e) => {
+  try {
+    const m = e.data;
+    if (m.files) await importFiles(m.game, m.files);
+    else if (m.zip) await importZip(m.game, m.zip);
+    else if (m.sf2) await importSoundfont(m.sf2);
+    postMessage({ done: true });
+  } catch (err) {
+    postMessage({ error: String(err.message || err) });
+  }
+};
+`;
+
+function runImport(msg, sec) {
+  const worker = new Worker(URL.createObjectURL(new Blob([IMPORT_WORKER], { type: 'text/javascript' })));
+  const bar = sec && $('progress', sec);
+  document.querySelectorAll('button').forEach(b => b.disabled = true);
+  if (bar) { bar.hidden = false; bar.value = 0; }
+  message('');
+  return new Promise(resolve => {
+    worker.onmessage = (e) => {
+      if (e.data.progress !== undefined && bar) bar.value = e.data.progress;
+      if (e.data.done || e.data.error) {
+        worker.terminate();
+        if (bar) bar.hidden = true;
+        document.querySelectorAll('.pick-folder, .pick-zip, .pick-sf2').forEach(b => b.disabled = false);
+        if (e.data.error) message(e.data.error);
+        refresh().then(resolve);
+      }
+    };
+    worker.postMessage(msg);
+  });
+}
+
+let pickFor = null;
+document.querySelectorAll('.game').forEach(sec => {
+  const game = sec.dataset.game;
+  const on = (cls, fn) => { const b = $(cls, sec); if (b) b.onclick = fn; };
+  on('.pick-folder', () => { pickFor = sec; $('#folder-input').click(); });
+  on('.pick-zip', () => { pickFor = sec; $('#zip-input').click(); });
+  on('.pick-sf2', () => { pickFor = sec; $('#sf2-input').click(); });
+  on('.play', () => play(game));
+  on('.remove', async () => {
+    const ecs = await ecsDir(true);
+    if (game === 'soundfont') {
+      const sf = await soundfontName();
+      if (sf) await ecs.removeEntry(sf);
+    } else {
+      await ecs.removeEntry(game, { recursive: true });
+    }
+    refresh();
+  });
+});
+
+async function persist() {
+  if (navigator.storage.persist) await navigator.storage.persist();
+}
+
+$('#folder-input').onchange = async (e) => {
+  const files = [...e.target.files].map(file => ({ path: file.webkitRelativePath || file.name, file }));
+  e.target.value = '';
+  if (!files.length) return;
+  await persist();
+  runImport({ game: pickFor.dataset.game, files }, pickFor);
+};
+$('#zip-input').onchange = async (e) => {
+  const zip = e.target.files[0];
+  e.target.value = '';
+  if (!zip) return;
+  await persist();
+  runImport({ game: pickFor.dataset.game, zip }, pickFor);
+};
+$('#sf2-input').onchange = (e) => {
+  const sf2 = e.target.files[0];
+  e.target.value = '';
+  if (sf2) runImport({ sf2 }, pickFor);
+};
+
+/* ── Touch pad ───────────────────────────────────────────── */
+
+const pad = { bits: 0, lx: 0, ly: 0, stickId: null };
+
+function sendPad() {
+  if (window.Module && Module._web_touch_pad) Module._web_touch_pad(pad.bits, pad.lx, pad.ly);
+}
+
+function setupPad() {
+  const el = $('#pad');
+  if (matchMedia('(pointer: coarse)').matches) el.hidden = false;
+  addEventListener('touchstart', () => { el.hidden = false; }, { once: true, passive: true });
+
+  el.querySelectorAll('.c[data-bit]').forEach(b => {
+    const bit = 1 << Number(b.dataset.bit);
+    const set = (on) => {
+      pad.bits = on ? (pad.bits | bit) : (pad.bits & ~bit);
+      b.classList.toggle('on', on);
+      sendPad();
+    };
+    b.addEventListener('pointerdown', (e) => { b.setPointerCapture(e.pointerId); set(true); e.preventDefault(); });
+    b.addEventListener('pointerup', () => set(false));
+    b.addEventListener('pointercancel', () => set(false));
+  });
+
+  const stick = $('#stick'), knob = $('#knob');
+  const move = (e) => {
+    const r = stick.getBoundingClientRect();
+    const rad = r.width / 2;
+    let dx = e.clientX - (r.left + rad), dy = e.clientY - (r.top + rad);
+    const len = Math.hypot(dx, dy);
+    if (len > rad) { dx *= rad / len; dy *= rad / len; }
+    pad.lx = Math.round(dx / rad * 32767);
+    pad.ly = Math.round(-dy / rad * 32767);   /* Y positive-up, as win.c reads it */
+    knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+    sendPad();
+  };
+  const release = () => {
+    pad.lx = pad.ly = 0;
+    pad.stickId = null;
+    knob.style.transform = 'translate(-50%, -50%)';
+    sendPad();
+  };
+  stick.addEventListener('pointerdown', (e) => {
+    pad.stickId = e.pointerId;
+    stick.setPointerCapture(e.pointerId);
+    move(e);
+    e.preventDefault();
+  });
+  stick.addEventListener('pointermove', (e) => { if (e.pointerId === pad.stickId) move(e); });
+  stick.addEventListener('pointerup', release);
+  stick.addEventListener('pointercancel', release);
+}
+
+/* ── Game ────────────────────────────────────────────────── */
+
+function play(game) {
+  /* Browsers start audio only inside a user gesture, so the context is made
+   * here and handed to web.c. */
+  const AC = window.AudioContext || window.webkitAudioContext;
+  const audioCtx = AC ? new AC() : null;
+
+  $('#library').hidden = true;
+  $('#game').hidden = false;
+  document.title = TITLES[game];
+  setupPad();
+  const canvas = $('#canvas');
+  canvas.focus();
+  $('#fullscreen').onclick = () => {
+    const el = document.documentElement;
+    (el.requestFullscreen || el.webkitRequestFullscreen || (() => {})).call(el);
+    canvas.focus();
+  };
+  canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+  window.Module = {
+    canvas,
+    audioCtx,
+    preRun: [() => { (Module.ENV || ENV).ECSTATICA_GAME = game; }],
+    onRuntimeInitialized() {
+      const frame = () => { Module._web_present(); requestAnimationFrame(frame); };
+      requestAnimationFrame(frame);
+    },
+    onNoData(dir) { alert('No game data in ' + dir + '. Import the game again.'); location.reload(); },
+    onExit() { location.reload(); },
+    print: (t) => console.log(t),
+    printErr: (t) => console.warn(t),
+  };
+  const s = document.createElement('script');
+  s.src = 'ecstatica.js';
+  document.body.appendChild(s);
+}
+
+refresh();
+</script>
+</body>
+</html>

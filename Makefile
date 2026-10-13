@@ -40,6 +40,11 @@
 #   make vita         — build platforms/vita/build/ecstatica-e1.vpk and ecstatica-e2.vpk
 #   make vita-clean
 #
+# Web target (Emscripten, runs in any current browser):
+#   make web          — build platforms/web/build/dist/
+#   make web-serve    — serve it on http://localhost:8080 with COOP/COEP headers
+#   make web-clean
+#
 # Set WATCOM if Open Watcom is not in ~/watcom. Both cross builds live in their
 # own directories and are driven by Watcom's wmake, not by this file. The PSP
 # build lives in platforms/psp/ and is GNU make, driven by the PSP SDK's build.mak.
@@ -73,7 +78,8 @@ WINE       ?= wine
 
 .PHONY: all run e1 e2 e1-viewer e2-viewer e1-scenes e2-scenes e1-images e2-images e1-pointcloud e2-pointcloud build clean dump \
         dos dos-e1 dos-e2 dos-clean win9x win9x-e1 win9x-e2 win9x-clean \
-        psp psp-release psp-install psp-clean vita vita-clean
+        psp psp-release psp-install psp-clean vita vita-clean \
+        web web-serve web-clean
 
 all: build
 
@@ -264,3 +270,19 @@ vita:
 
 vita-clean:
 	rm -rf platforms/vita/build
+
+# ── Web build ─────────────────────────────────────────────────
+#
+# platforms/web/ is a CMake project configured through emcmake. The game
+# data is imported in the browser, not packed, see platforms/web/README.md.
+web:
+	@command -v emcmake >/dev/null || { \
+	  echo "Emscripten not found. Install emsdk and source emsdk_env.sh."; exit 1; }
+	emcmake cmake -S platforms/web -B platforms/web/build -DCMAKE_BUILD_TYPE=Release
+	cmake --build platforms/web/build
+
+web-serve: web
+	python3 platforms/web/serve.py platforms/web/build/dist 8080
+
+web-clean:
+	rm -rf platforms/web/build
