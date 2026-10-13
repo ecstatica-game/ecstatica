@@ -25,7 +25,6 @@
 
 static bool quit_flag;
 
-int16_t mask_distance[64];
 
 /* edit_copy_defaults_to_actual  E1: 0x422390 | E2: 0x425FE0 */
 void copy_defaults_to_actual(actor_t *actor) {
@@ -618,40 +617,6 @@ void delete_code(code_t *code) {
     free(code);
 }
 
-/* edit_write_an_event  E1: ? | E2P: 0x41FDE8 */
-void write_an_event(event_t *event, FILE *f) {
-    if (!f || !event) return;
-
-    fputc(event->event_type & 0xFF, f);
-    fputc((event->event_type >> 8) & 0xFF, f);
-    putw_be(event->param1, f);
-    putw_be(event->param2, f);
-    putw_be(event->param3, f);
-}
-
-/* edit_write_parts  E1: ? | E2P: 0x41FF08 */
-void write_parts(actor_t *actor, FILE *f) {
-    if (!f || !actor) return;
-
-    part_t *part = actor->actor_parts_list;
-    while (part) {
-        putw_be(part->Offset.X, f);
-        putw_be(part->Offset.Y, f);
-        putw_be(part->Offset.Z, f);
-        putw_be(part->Rotate.X, f);
-        putw_be(part->Rotate.Y, f);
-        putw_be(part->Rotate.Z, f);
-        putw_be(part->VECTOR_Squash.X, f);
-        putw_be(part->VECTOR_Squash.Y, f);
-        putw_be(part->VECTOR_Squash.Z, f);
-        fputc(part->color, f);
-        fputc(part->type, f);
-        putw_be(part->flags, f);
-
-        part = part->next;
-    }
-}
-
 /* edit_advance_thing  E1: 0x422340 | E2: 0x425F90 */
 void advance_thing(actor_t *actor, int16_t game_time) {
     if (!actor) return;
@@ -1240,80 +1205,6 @@ void advance_selected_scene_or_action(int16_t game_time_arg) {
 
     advance_act_position(&actor->actor_act, actor, (uint16_t)game_time_arg);
     free_spent_acts(actor);
-}
-
-/* edit_init_mask_distances  E2: 0x426E88 */
-void init_mask_distances(void) {
-    for (int i = 0; i < 64; i++) {
-        mask_distance[i] = 0x7FFF;
-    }
-}
-
-/* edit_set_mask_distance  E2: 0x426EA8 */
-void set_mask_distance(void) {
-    if (!selected_thing) return;
-    if (!selected_thing->actor_parts_list) return;
-
-    int pixel = read_pixel(3, 0, mouse_x, mouse_y);
-    if (pixel < 0) return;
-
-    int16_t dist = selected_thing->actor_parts_list->mask_distanse_;
-    mask_distance[pixel] = dist;
-    if (dist < 0)
-        mask_distance[pixel] = 0;
-}
-
-/* edit_show_vector  E2: 0x426F04 */
-void show_vector(int16_t *vec) {
-    char buf[32];
-    sprintf(buf, "x %4.4x y %4.4x z %4.4x",
-            (unsigned)vec[0], (unsigned)vec[1], (unsigned)vec[2]);
-    display_message(buf);
-}
-
-/* edit_message_vector_decimal  E2: 0x426F6C */
-void message_vector_decimal(const char *label, int16_t *vec) {
-    char buf[80];
-    sprintf(buf, "%s %d %d %d",
-            label, (int)vec[0], (int)vec[1], (int)vec[2]);
-    display_message(buf);
-}
-
-/* edit_message_vector_hex  E2: 0x426FA0 */
-void message_vector_hex(const char *label, int16_t *vec) {
-    char buf[80];
-    sprintf(buf, "%s %4.4x %4.4x %4.4x",
-            label, (unsigned)vec[0], (unsigned)vec[1], (unsigned)vec[2]);
-    display_message(buf);
-}
-
-/* edit_display_message  E2: 0x426FDC */
-void display_message(const char *msg) {
-    draw_mode[db] = 2;
-    a_pen_colour = 0;
-
-    if (msg) {
-        char buf[56];
-        strncpy(buf, msg, max_message_len);
-        buf[max_message_len] = '\0';
-        int len = (int)strlen(buf);
-        while (len < max_message_len) {
-            buf[len] = ' ';
-            len++;
-        }
-
-        a_pen_colour = 7;
-        b_pen_colour = 0;
-        move_pen(db, vector_box_left, vector_box_top);
-        text(db, buf, 0);
-    } else {
-        rect_fill(db, vector_box_left, vector_box_top,
-                  max_message_len * 6, 8);
-    }
-
-    clip_blit(1 - db, vector_box_left, vector_box_top,
-              db, vector_box_left, vector_box_top,
-              max_message_len * 6, 8, 0xC0);
 }
 
 /* edit_make_game_screen  E2: 0x426BAC */

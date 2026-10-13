@@ -995,38 +995,3 @@ void play_dead_scene(int sceneIndex) {
     start_scene(scene);
 }
 
-/* menu_delete_point  E2: 0x43A6C4 */
-void delete_point(point_t *point) {
-    part_t *part = point->parent_part;
-    if (point == part->points_list) {
-        part->points_list = point->next;
-    } else {
-        point_t *prev = part->points_list;
-        while (prev) {
-            if (prev->next == point) {
-                prev->next = point->next;
-                free_point(point);
-                return;
-            }
-            if (!prev->next) break;
-            prev = prev->next;
-        }
-    }
-    free_point(point);
-}
-
-/* menu_delete_script  E2: 0x43AA94 */
-void delete_script(script_t *script) {
-    key_state_t *key = script->script_action.key_list;
-    while (key) {
-        key_state_t *next = key->next;
-        delete_key(key);
-        key = next;
-    }
-    free_script(script);
-}
-
-/* menu_find_svga_card  E2: 0x43AD30 */
-void find_svga_card(void) {
-    do_info_req("FindSVGACard not implemented for Win95");
-}

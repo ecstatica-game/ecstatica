@@ -44,10 +44,7 @@ extern int16_t joystick;
 extern bool joystick_control;
 extern int16_t joy_button;
 extern int16_t movement_speed_mode;
-extern int16_t mcursor_x;
-extern int16_t mcursor_y;
 extern bool mouse_pointer_on;
-extern char mouse_buffer[2][8][8];
 extern int16_t sine_table[65536];
 extern int16_t cosn_table[65536];
 extern int16_t arcsin_tab[32768];
@@ -78,7 +75,6 @@ void setup_long_screen(void);
 void load_logo(const char *file_name);
 void load_def_palette(void);
 void load_background_title(void);
-void load_motion_file(void);
 
 /* Quit / shutdown */
 void quit(const char *info);
@@ -87,16 +83,9 @@ void quit2(const char *msg1, const char *msg2);
 /* Sound */
 void stop_samples(void);
 void start_playing_sample(sound_t *sound, int a2, int volume);
-int  start_playing_sound(void);
-void start_recording(void);
-int  find_recorded_len(void);
 void load_tune(int sound_index);
-void select_sound_card_win95(void);
-void select_sound_card(void);
 
 /* Display timing */
-void wait_vert_blank(void);
-void select_video_page(void);
 
 /* Math table init */
 void fill_in_sin_tables(void);
@@ -120,8 +109,6 @@ void clip_blit(int src_plane, int src_x, int src_y, int dst_plane,
               int dst_x, int dst_y, int width, int height, int minterm);
 void clip_blit_win95(int src_plane, int src_x, int src_y, int dst_plane,
                    int dst_x, int dst_y, int width, int height, int minterm);
-void old_clip_blit(int src_plane, int src_x, int src_y, int dst_plane,
-                 int dst_x, int dst_y, int width, int height, int minterm);
 void put_graphic(char *data, int plane, int x, int y, int sx, int sy);
 void put_graphic_win95(char *data, int plane, int x, int y, int sx, int sy);
 void clear_background(int plane, int x, int y, int sx, int sy);
@@ -158,7 +145,6 @@ int  read_pixel(int plane, int not_used, int x, int y);
 void xor_pixel(int plane, int x, int y);
 
 /* Input */
-void add_keyboard_handler(void);
 void get_mouse(void);
 void get_joystick(void);
 void clear_keys_pressed(void);
@@ -166,19 +152,13 @@ void clear_keys_pressed(void);
 /* mouse cursor */
 void turn_mouse_pointer_on(void);
 void turn_mouse_pointer_off(void);
-void draw_mouse_cursor(void);
-void draw_mouse_cursor_win95(void);
-void draw_db_mouse_cursor_win95(void);
-void clear_mouse_cursor_win95(void);
 void clear_db_mouse_cursor_win95(void);
 
 /* Color / shade */
 void init_colours0to8(palette_entry_t *palette);
-void expand_colour_map_a_bit(void);
 void load_shade_map(void);
 
 /* Timing */
-int32_t biostime(void);
 int32_t my_time(void);
 int32_t wait_for_tick_after(int32_t t);
 
@@ -186,8 +166,6 @@ int32_t wait_for_tick_after(int32_t t);
 void clear_mask_rect(int mask, int x, int y, int w, int h);
 
 /* Pack/unpack views */
-void pack_bitmap(char *output, char *input);
-void pack_mask(int16_t *output, char *input);
 
 /* Misc init */
 void set_load_by_offset(void);
@@ -197,9 +175,6 @@ int16_t reverse_char_word_val(int16_t val);
 void change_character_set(void);
 void change_subtitles(void);
 void change_text_jap(void);
-void set_up_sub_directories(void);
-void check_directories(void);
-void if_editor_show_cursor(void);
 
 /* DirectDraw lock stubs */
 char *dd_lock(int plane, int *pitch);

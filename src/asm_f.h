@@ -61,6 +61,5 @@ void file_flush_path_cache(void);
 void file_enable_threads(void);
 
 /* VGA plane control (no-op) */
-void set_read_plane(int plane);
 
 #endif /* ASM_F_H */

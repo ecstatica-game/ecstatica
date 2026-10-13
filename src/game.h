@@ -232,8 +232,6 @@ extern actor_t *root_thing;
 extern actor_t *thing_list;
 extern actor_t *stuck_thing_list;
 extern actor_t *selected_thing;
-extern actor_t *source_thing;
-extern action_t *selected_action;
 extern scene_t *selected_scene;
 extern int16_t last_actor_dir;
 extern action_t *action_list;
@@ -290,8 +288,6 @@ extern int16_t actor_flags[THING_TAB_SIZE];
 extern int16_t *token_store;
 extern int32_t top_of_tokens;
 extern token_t tokens_table[];
-extern bool show_rate;
-extern bool develop_mode;
 extern bool is_god_mode;
 extern int16_t saved_game_num;
 extern int32_t extra_life_time;
@@ -314,7 +310,6 @@ void execute_thing_code(actor_t *actor, int16_t code_index);
 void execute_part_code(part_t *part, int16_t code_index);
 void execute_sub_obj_code(void);
 void do_execute_code(code_t *code, actor_t *actor);
-void tokenize_code(code_t *code);
 int  get_next_char(void);
 int  get_next_token(void);
 
@@ -399,7 +394,6 @@ int check_saved_game(int slot);
 void remove_all_sounds(void);
 void remove_all_textures(void);
 void check_lightning(void);
-void save_size_of_heaps(void);
 
 /* Graphics overlay */
 void draw_graphics(void);

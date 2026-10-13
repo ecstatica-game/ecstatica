@@ -24,9 +24,6 @@ extern bool menu_no_continue;
 bool menu_is_active(void);
 void do_main_menu(void);
 void draw_main_menu(void);
-void delete_point(point_t *point);
-void delete_script(script_t *script);
-void find_svga_card(void);
 
 /* Step the graphics mode: asset set and renderer as one setting. Shared by the
  * Enhanced menu row and the G hotkey so the two cannot drift apart. */

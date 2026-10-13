@@ -89,18 +89,13 @@ void init_gadget(gadget_t *gadget, int16_t x, int16_t y, int16_t w,
                  int16_t h, char *text, void (*handler)(void),
                  int16_t flags, gadget_t *next);
 void init_gadgets(void);
-void install_to_disk(void);
 
 /* Handler functions */
-void handle_dir_gadg(void);
 void handle_play_female(void);
 void handle_play_male(void);
-void handle_configure(void);
 void handle_load_game(void);
 void handle_quit_to_dos(void);
 void handle_save_game(void);
-void handle_set_card(void);
-void handle_set_install(void);
 void handle_subtitle(void);
 void handle_language(void);
 void handle_music(void);

@@ -53,10 +53,7 @@ bool joystick_control = true;
 int16_t joy_button = 0;
 int16_t movement_speed_mode = 4;  /* default: walk speed 1 (F5) */
 
-int16_t mcursor_x = 0;
-int16_t mcursor_y = 0;
 bool mouse_pointer_on = false;
-char mouse_buffer[2][8][8];
 
 int16_t sine_table[65536];
 int16_t cosn_table[65536];
@@ -356,20 +353,6 @@ void start_playing_sample(sound_t *sound, int loop, int volume) {
     }
 }
 
-/* init_start_playing_sound  E1: 0x41108C | E2: 0x413EB8 */
-int start_playing_sound(void) {
-    return 1;
-}
-
-/* init_start_recording  E1: 0x41120C | E2: 0x414038 */
-void start_recording(void) {
-}
-
-/* init_find_recorded_len  E1: 0x411418 | E2: 0x414244 */
-int find_recorded_len(void) {
-    return 0;
-}
-
 /* init_set_up_sound_driver  E1: 0x411460 | E2: 0x41428C */
 void set_up_sound_driver(void) {
     if (!tune_buffer) {
@@ -426,23 +409,6 @@ try_per_file:
             fclose(f);
         }
     }
-}
-
-/* init_select_sound_card_win95  E1: 0x412EA8 | E2: 0x416410 */
-void select_sound_card_win95(void) {
-}
-
-/* init_select_sound_card  E1: 0x412F38 | E2: 0x4164A0 */
-void select_sound_card(void) {
-}
-
-/* init_wait_vert_blank  E1: 0x411844 | E2: 0x414664 */
-void wait_vert_blank(void) {
-}
-
-/* init_select_video_page  E1: 0x411874 | E2: 0x414694 */
-void select_video_page(void) {
-    db = 1 - db;
 }
 
 /* init_set_up_bitmaps  E1: 0x411990 | E2: 0x4147B0 */
@@ -563,10 +529,6 @@ void load_background_title(void) {
     set_palette(spare_cmap);
     /* Update fade target so any subsequent CT_FADE_IN fades to this palette */
     memcpy(fade_cmap, spare_cmap, 256 * sizeof(palette_entry_t));
-}
-
-/* init_load_motion_file_420578 — editor-only motion capture import. */
-void load_motion_file(void) {
 }
 
 /* init_quit2  E1: 0x412028 | E2: 0x414E30 */
@@ -711,11 +673,6 @@ int load_anti_alias(void) {
 
 /* init_wait_for_interrupt  E1: 0x41262C | E2: 0x415CF4 — not needed. */
 
-/* init_biostime  E1: 0x41999C | E2: 0x41CF18 */
-int32_t biostime(void) {
-    return my_time();
-}
-
 /* init_my_time  E1: 0x4199B4 | E2: 0x41CF30 */
 int32_t my_time(void) {
 #ifdef MY_TIME_DETERMINISTIC
@@ -743,10 +700,6 @@ int32_t wait_for_tick_after(int32_t t) {
     while ((now = my_time()) == t)
         ;
     return now;
-}
-
-/* init_add_keyboard_handler  E1: 0x4184D4 | E2: 0x41BA4C */
-void add_keyboard_handler(void) {
 }
 
 /* init_get_joystick  E1: 0x41264C | E2: 0x415D14 */
@@ -1036,12 +989,6 @@ int16_t getwLoHi(FILE *f) {
     unsigned char buf[2];
     if (fread(buf, 1, 2, f) != 2) return 0;
     return (int16_t)((buf[1] << 8) | buf[0]);
-}
-
-/* init_old_clip_blit  E1: 0x413EB8 | E2: 0x417430 */
-void old_clip_blit(int src_plane, int src_x, int src_y, int dst_plane,
-                 int dst_x, int dst_y, int width, int height, int minterm) {
-    clip_blit(src_plane, src_x, src_y, dst_plane, dst_x, dst_y, width, height, minterm);
 }
 
 /* init_clip_blit  E1: 0x414068 | E2: 0x4175E0 */
@@ -1337,10 +1284,6 @@ void xor_pixel(int plane, int x, int y) {
     }
 }
 
-/* init_if_editor_show_cursor  E1: 0x4184C4 | E2: 0x41BA3C */
-void if_editor_show_cursor(void) {
-}
-
 /* init_turn_mouse_pointer_on  E1: 0x418724 | E2: 0x41BC9C */
 void turn_mouse_pointer_on(void) {
     mouse_pointer_on = true;
@@ -1349,23 +1292,6 @@ void turn_mouse_pointer_on(void) {
 /* init_turn_mouse_pointer_off  E1: 0x418758 | E2: 0x41BCD0 */
 void turn_mouse_pointer_off(void) {
     mouse_pointer_on = false;
-}
-
-/* init_draw_mouse_cursor  E1: 0x418778 | E2: 0x41BCF0 */
-void draw_mouse_cursor(void) {
-    draw_mouse_cursor_win95();
-}
-
-/* init_draw_mouse_cursor_win95  E1: 0x4188EC | E2: 0x41BE68 */
-void draw_mouse_cursor_win95(void) {
-}
-
-/* init_draw_db_mouse_cursor_win95  E1: 0x418A54 | E2: 0x41BFD0 */
-void draw_db_mouse_cursor_win95(void) {
-}
-
-/* init_clear_mouse_cursor_win95  E1: 0x418BDC | E2: 0x41C158 */
-void clear_mouse_cursor_win95(void) {
 }
 
 /* init_clear_db_mouse_cursor_win95  E1: 0x418CD8 | E2: 0x41C254 */
@@ -1382,10 +1308,6 @@ void init_colours0to8(palette_entry_t *palette) {
     palette[5] = pal_rgb(40, 40, 40);     /* Gray */
     palette[6] = pal_rgb(0, 0, 32);       /* Dark blue */
     palette[7] = pal_rgb(32, 48, 63);     /* Light cyan */
-}
-
-/* init_expand_colour_map_a_bit_41CD54 — not called at runtime. */
-void expand_colour_map_a_bit(void) {
 }
 
 /* init_load_shade_map  E1: 0x4198E0 | E2: 0x41CE5C */
@@ -1417,16 +1339,6 @@ void clear_mask_rect(int mask, int x, int y, int w, int h) {
     clip_mask(0, mask, x, y, w, h);
 }
 
-/* init_pack_bitmap_41D084 — editor-only; a no-op in the Win95 release. */
-void pack_bitmap(char *output, char *input) {
-    (void)output; (void)input;
-}
-
-/* init_pack_mask_41D2BC — editor-only; a no-op in the Win95 release. */
-void pack_mask(int16_t *output, char *input) {
-    (void)output; (void)input;
-}
-
 /* init_set_load_by_offset  E1: 0x41A59C | E2: 0x41DB1C */
 void set_load_by_offset(void) {
     load_by_offset = true;
@@ -1450,14 +1362,6 @@ void change_subtitles(void) {
 
 /* init_change_text_jap_41E85C — not called. */
 void change_text_jap(void) {
-}
-
-/* init_set_up_sub_directories  E1: ? | E2P: 0x41EB30 */
-void set_up_sub_directories(void) {
-}
-
-/* init_check_directories  E1: 0x41C53C | E2: 0x41FABC */
-void check_directories(void) {
 }
 
 /* init_dd_lock  E1: 0x415460 | E2: 0x4189D8 */

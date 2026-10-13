@@ -463,10 +463,6 @@ void win_set_render_size(int w, int h) {
         platform_set_render_size(g_platform, w, h);
 }
 
-/* win_change_screen_mode_win95  E1: 0x44A7C0 | E2: 0x458770 */
-void change_screen_mode_win95(void) {
-}
-
 /* win_win_main_game_458B84 — the original WinMain body. */
 void win_main_game(void) {
     /* Resolve the version before do_init(), which picks the window title.
@@ -480,6 +476,3 @@ void win_main_game(void) {
 void make_code_writable(void) {
 }
 
-/* win_get_windows_directory_win95  E1: 0x44A9E8 | E2: 0x458998 */
-void get_windows_directory_win95(void) {
-}

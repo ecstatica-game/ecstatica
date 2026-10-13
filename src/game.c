@@ -81,8 +81,6 @@ actor_t *root_thing = NULL;
 actor_t *thing_list = NULL;
 actor_t *stuck_thing_list = NULL;
 actor_t *selected_thing = NULL;
-actor_t *source_thing = NULL;
-action_t *selected_action = NULL;
 scene_t *selected_scene = NULL;
 int16_t last_actor_dir = -1;
 action_t *action_list = NULL;
@@ -152,8 +150,6 @@ int16_t actor_flags[THING_TAB_SIZE];
 int16_t *token_store = NULL;
 int32_t top_of_tokens = 0;
 
-bool show_rate = false;
-bool develop_mode = false;
 bool is_god_mode = false;
 
 int16_t saved_game_num = 0;
@@ -1463,32 +1459,6 @@ void do_execute_code(code_t *code, actor_t *actor) {
             break;
         }
     }
-}
-
-/* game_tokenize_code_42C7D0 — editor-only; at runtime tokens come pre-built
- * from the .FAN files. */
-void tokenize_code(code_t *code) {
-    if (!code) return;
-    code->token_store_index = top_of_tokens;
-
-    if (!code->text_line_of_code) {
-        token_store[top_of_tokens++] = 0;
-        return;
-    }
-
-    for (line_of_code_t *line = code->text_line_of_code; line; line = line->next_line_code) {
-        int first = 0;
-        while (first < 52 && line->field_0[first] == ' ')
-            first++;
-        if (first >= 52 || line->field_0[first] == ';')
-            continue;
-
-        /* For now, just store the raw line text offset — the full
-           keyword→CT_* parser needs the tokens_table dictionary.
-           This will be fleshed out when the token table is populated. */
-    }
-
-    token_store[top_of_tokens++] = 0;
 }
 
 /* game_find_empty_actor_slot  E1: ? | E2P: 0x426128 */
@@ -3236,13 +3206,6 @@ void init_graphics(void) {
     }
 }
 
-/* game_init_sound_driver_win95  E1: ? | E2P: 0x42E258 */
-void init_sound_driver_win95(void) {
-    platform_audio_init();
-    sound_is_on = true;
-    sound_fx_on = true;
-}
-
 /* game_play_sound_win95  E1: ? | E2P: 0x42E2C8 */
 void play_sound_win95(sound_t *sound, int volume) {
     if (!sound) return;
@@ -3267,17 +3230,6 @@ void remove_sound_driver_win95(void) {
             release_sound_buffer_win95(&sound_heap_arr[i]);
     }
     sound_is_on = false;
-}
-
-/* game_allocate_ds_buffer  E1: ? | E2P: 0x42E418 */
-void allocate_ds_buffer(sound_t *sound, FILE *f) {
-    if (!sound || !f) return;
-    if (sound->sound_length > 0) {
-        sound->audio_ptr = calloc(1, sound->sound_length);
-        if (sound->audio_ptr) {
-            fread_ignore(sound->audio_ptr, 1, sound->sound_length, f);
-        }
-    }
 }
 
 /* game_load_palette_and_set_background  E1: ? | E2P: 0x42E5D8 */
@@ -4770,28 +4722,3 @@ void check_lightning(void) {
     check_time = now;
 }
 
-/* game_save_size_of_heaps  E1: 0x449CCC | E2: 0x457C68 */
-void save_size_of_heaps(void) {
-    FILE *f = fopen("heap.txt", "wt");
-    if (!f) return;
-    fprintf(f, "ActorHeap    %4d x%4d  = %6d\n", 200, 396, 79200);
-    fprintf(f, "PartHeap     %4d x%4d  = %6d\n", 4000, 350, 1400000);
-    fprintf(f, "ActionHeap   %4d x%4d  = %6d\n", 400, 22, 8800);
-    fprintf(f, "SceneHeap    %4d x%4d  = %6d\n", 200, 168, 33600);
-    fprintf(f, "ScriptHeap   %4d x%4d  = %6d\n", 600, 29, 17400);
-    fprintf(f, "RepHeap      %4d x%4d  = %6d\n", 200, 432, 86400);
-    fprintf(f, "EventHeap    %4d x%4d  = %6d\n", 40000, 14, 560000);
-    fprintf(f, "KeyHeap      %4d x%4d  = %6d\n", 4000, 15, 60000);
-    fprintf(f, "TriHeap      %4d x%4d  = %6d\n", 1800, 68, 122400);
-    fprintf(f, "PointHeap    %4d x%4d  = %6d\n", 1800, 42, 75600);
-    fprintf(f, "SoundHeap    %4d x%4d  = %6d\n", 200, 60, 12000);
-    fprintf(f, "TextureHeap  %4d x%4d  = %6d\n", 20, 20, 400);
-    fprintf(f, "TActionHeap  %4d x%4d  = %6d\n", 100, 10, 1000);
-    fprintf(f, "PartTabHeap      %4d x%4d  = %6d\n", 4, 111000, 444000);
-    fprintf(f, "PointTabHeap     %4d x%4d  = %6d\n", 4, 100000, 400000);
-    fprintf(f, "TriangleTabHeap  %4d x%4d  = %6d\n", 4, 100000, 400000);
-    fprintf(f, "Total heaps: %d\n", 3700800);
-    fprintf(f, "MapElements  %4d x%4d  = %6d\n", 12, 60000, 720000);
-    fprintf(f, "Total: %d\n", 4421824);
-    fclose(f);
-}

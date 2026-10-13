@@ -68,16 +68,12 @@ extern sound_t sound_heap_arr[SOUND_POOL_SIZE];
 void remove_sound_driver_win95(void);
 void release_sound_buffer_win95(sound_t *sound);
 void play_sound_win95(sound_t *sound, int volume);
-void allocate_ds_buffer(sound_t *sound, FILE *f);
 void my_new_direct_sound_buffer(void *dsbuf, sound_t *sound, FILE *f);
-void init_sound_driver_win95(void);
 void start_tune(void);
 void start_tune_win95(void);
 void stop_tune_win95(void);
 void play_tune(int tune_index);
 void stop_tune(void);
 void fade_tune(int target_volume, int speed);
-void wave_open_file(const char *filename);
-void wave_load_file(const char *filename);
 
 #endif /* MUSIC_H */

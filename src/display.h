@@ -211,9 +211,6 @@ extern int16_t graphic_size_x[GRAPHICS_MAX];
 extern int16_t graphic_size_y[GRAPHICS_MAX];
 extern graphic_name_t graphic_name_arr[GRAPHICS_MAX];
 extern int16_t background_status;
-extern int16_t max_fps;
-extern int16_t fps;
-extern bool making_background;
 extern int16_t level_of_detail;
 extern int16_t set_palette_flag;
 
@@ -234,14 +231,10 @@ void clear_a_stuck_thing(actor_t *actor);
 void clear_a_subtitle(int index);
 void draw_stuck_parts(void);
 void unbake_stuck_actors(void);
-void add_polygons(void);
-void add_a_triangle(void);
-void add_actor_polys(actor_t *actor);
 void draw_parts(void);
 void put_a_circle(part_t *part);
 void long_view_trans_ellipse(part_t *part);
 void put_a_line(part_t *part);
-void xxx_stick_to_background(actor_t *actor);
 void show_parts(void);
 void clear_expired_subtitles(void);
 void draw_subtitles(void);
@@ -289,7 +282,6 @@ void find_view_positions(actor_t *actor);
 /* Display list management */
 void clear_masking(void);
 void clear_parts(void);
-void put_parts_select(actor_t *actor);
 void put_parts_not_shadows(actor_t *actor);
 void put_shadows(actor_t *actor);
 void put_smoke(actor_t *actor);
@@ -300,7 +292,5 @@ void put_a_cuboid(part_t *part);
 void put_an_ellipse(part_t *part);
 
 /* Debug */
-void print_matrix(matrix3x3_t *m);
-void print_vector(vector_t *v);
 
 #endif /* DISPLAY_H */

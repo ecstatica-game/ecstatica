@@ -47,12 +47,6 @@ extern int16_t num_cameras;
 extern char palette_control[24];
 extern int32_t palette_offset[1200];
 extern int32_t visib_offset[1200];
-extern int16_t num_arcs;
-extern int32_t next_mask_tab_offset;
-extern int16_t left_ang[100];
-extern int16_t right_ang[100];
-extern char *spare_bit_map;
-extern char *mask_bit_map;
 
 void init_profile_heights(void);
 int find_map_element(vector_t *pos);
@@ -67,14 +61,9 @@ int  do_update_velocity(actor_t *actor, int time_interval);
 void flush_backgrounds(void);
 int load_raw(void);
 char *load_raw_graphic(const char *source, int *size_x, int *size_y);
-void save_screen_shot(void);
 void load_palette(const char *filename);
 void load_visibility_map(void);
 void swap_xy(int32_t *a, int32_t *b);
-int check_block_needs_rendering(void);
 int16_t find_def_height(vector_t *pos);
-void add_arc(int16_t left_angle, int16_t right_angle_val);
-void init_topography(void);
-int compare_bitmaps_0_and_1(void);
 
 #endif /* TOPO_H */

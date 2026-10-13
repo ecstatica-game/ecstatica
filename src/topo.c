@@ -37,12 +37,6 @@ int32_t last_camera_change = 0;
 bool no_die = false;
 int16_t loaded_background[4] = {-1, -1, -1, -1};
 int16_t selected_camera = 0;
-int16_t num_arcs = 0;
-int32_t next_mask_tab_offset = 0;
-int16_t left_ang[100];
-int16_t right_ang[100];
-char *spare_bit_map = NULL;
-char *mask_bit_map = NULL;
 int16_t num_cameras = 0;
 char palette_control[24];
 int32_t palette_offset[1200];
@@ -775,38 +769,6 @@ char *load_raw_graphic(const char *source, int *size_x, int *size_y) {
     return result;
 }
 
-/* topo_save_screen_shot  E1: 0x43FBC4 | E2: 0x44A268 */
-void save_screen_shot(void) {
-    if (!display_mode) return;
-
-    static int shot_counter = 0;
-    char filename[64];
-    snprintf(filename, sizeof(filename), "screenshot_%03d.ppm", shot_counter++);
-
-    int pitch;
-    char *fb = dd_lock(db, &pitch);
-    if (!fb) return;
-
-    FILE *f = fopen(filename, "wb");
-    if (f) {
-        const uint8_t *pal = (const uint8_t *)view_cmap;
-        int total = screen_width * screen_height;
-        fprintf(f, "P6\n%d %d\n255\n", screen_width, screen_height);
-        for (int i = 0; i < total; i++) {
-            uint8_t idx = (uint8_t)fb[i];
-            uint8_t r = (uint8_t)(pal[idx * 3 + 0] << 2);
-            uint8_t g = (uint8_t)(pal[idx * 3 + 1] << 2);
-            uint8_t b = (uint8_t)(pal[idx * 3 + 2] << 2);
-            fwrite(&r, 1, 1, f);
-            fwrite(&g, 1, 1, f);
-            fwrite(&b, 1, 1, f);
-        }
-        fclose(f);
-        fprintf(stderr, "[SCREENSHOT] Saved %s (%dx%d)\n", filename, screen_width, screen_height);
-    }
-    dd_unlock(db, fb);
-}
-
 /* topo_load_palette  E1: ? | E2: 0x44AD28 */
 void load_palette(const char *filename) {
     if (!load_by_offset || intro_flag) {
@@ -983,11 +945,6 @@ void swap_xy(int32_t *a, int32_t *b) {
     *b = tmp;
 }
 
-/* topo_check_block_needs_rendering_44A260 — E2: 0x44A260 */
-int check_block_needs_rendering(void) {
-    return 1;
-}
-
 /* topo_find_def_height_44893C — E2: 0x44893C */
 int16_t find_def_height(vector_t *pos) {
     int idx = find_map_element(pos);
@@ -998,40 +955,3 @@ int16_t find_def_height(vector_t *pos) {
     return (int16_t)((0x80 - map_elements[idx].def_height) << height_shift);
 }
 
-/* topo_add_arc_4483B0 — E2: 0x4483B0 */
-void add_arc(int16_t left_angle, int16_t right_angle_val) {
-    if (num_arcs >= 100)
-        quit("too many arcs in visibility proc.");
-    int idx = next_mask_tab_offset >> 16;
-    num_arcs++;
-    left_ang[idx] = left_angle;
-    right_ang[idx] = right_angle_val;
-}
-
-/* topo_init_topography_448328 — E2: 0x448328 */
-void init_topography(void) {
-    int32_t size = (int32_t)screen_width * (int32_t)screen_height;
-
-    spare_bit_map = (char *)calloc(1, size);
-    if (!spare_bit_map)
-        quit("not enough memory for spare bitmap");
-    memcpy(spare_bit_map, bitmap[2], size);
-
-    mask_bit_map = (char *)calloc(1, size);
-    if (!mask_bit_map)
-        quit("not enough memory for mask bitmap");
-    memcpy(mask_bit_map, bitmap[3], size);
-}
-
-/* topo_compare_bitmaps0and1_44A200 — E2: 0x44A200 */
-int compare_bitmaps_0_and_1(void) {
-    int32_t plane_size = (int32_t)screen_height * 80;
-    for (int plane = 0; plane < 4; plane++) {
-        set_read_plane(plane);
-        for (int32_t i = 0; i < plane_size; i++) {
-            if (bitmap[0][i] != bitmap[1][i])
-                return 0;
-        }
-    }
-    return 1;
-}

@@ -3,7 +3,6 @@
 
 #include "types.h"
 
-extern int16_t mask_distance[64];
 
 void advance_thing(actor_t *actor, int16_t game_time_arg);
 void squash_trace(const char *who, const part_t *part, int blend,
@@ -37,12 +36,6 @@ void remove_from_display_list(actor_t *actor);
 void make_thing(void);
 void beep_message(const char *msg);
 void beep_error(const char *msg);
-void display_message(const char *msg);
 void advance_selected_scene_or_action(int16_t game_time_arg);
-void init_mask_distances(void);
-void set_mask_distance(void);
-void show_vector(int16_t *vec);
-void message_vector_decimal(const char *label, int16_t *vec);
-void message_vector_hex(const char *label, int16_t *vec);
 
 #endif /* EDIT_H */

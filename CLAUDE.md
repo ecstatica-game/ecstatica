@@ -150,6 +150,9 @@ Original Watcom debug symbols follow pattern: `module_function_name_hexaddr`
 
 These original functions were intentionally removed — empty stubs, dead wrappers,
 or unused in the C port. Do not recreate them when decompiling nearby code.
+`decomp/removed_functions.md` is the full list with original addresses, including
+the 0.9.4 batch of editor, debug, installer and DOS/VGA hardware leftovers that
+is not repeated here.
 
 **Empty stubs (no-op in original or irrelevant to C port):**
 - `init`: `analyse_view`, `archive_all`, `archive_all_fast`, `display_beep`, `expand_palette`, `set_grey_palette`, `zeroise_bitmap_pointers`, `read_from_dsp`, `write_to_dsp`, `load_hires_path` (fills `hires_path`, never read), `setup_hi_res_long_screen` (no callers), `clear_background_svga`, `rect_fill_svga`, `text_svga`, `clip_blit_svga`, `draw_mouse_cursor_svga`, `draw_db_mouse_cursor_svga`, `clear_mouse_cursor_svga`, `clear_db_mouse_cursor_svga`, `load_backmask` (SVGA bank-switched video path, no callers on any platform including DOS/Win9x)
@@ -202,6 +205,7 @@ Forward typedefs in `types.h`; definitions in module headers (`game.h`, `display
 decomp/
   parse.py       — extract Watcom debug symbols → JSON + IDC
   modules.txt    — module list with descriptions
+  removed_functions.md — original symbols the port drops on purpose, with addresses
   dump/          — wdump outputs, parsed symbols, IDC scripts
   ida/           — IDA Pro database files
 ```

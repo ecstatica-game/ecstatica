@@ -59,11 +59,6 @@ int16_t new_action_name[ACTION_TAB_SIZE];
 int16_t new_scene_name[SCENE_TAB_SIZE];
 int16_t new_code_name[CODE_TAB_SIZE];
 int16_t new_rep_name[REPERTOIRE_TAB_SIZE];
-uint8_t rep_name_flags[REPERTOIRE_TAB_SIZE];
-uint8_t action_name_flags[ACTION_TAB_SIZE];
-uint8_t code_name_flags[CODE_TAB_SIZE];
-uint8_t sound_name_flags[SOUND_TAB_SIZE];
-uint8_t texture_name_flags[TEXTURE_TAB_SIZE];
 int16_t new_sound_name[SOUND_TAB_SIZE];
 int16_t new_map_area_name[MAP_AREA_TAB_SIZE];
 int16_t new_texture_name[TEXTURE_TAB_SIZE];
@@ -446,7 +441,6 @@ int hires_data_available(void) {
     return found;
 }
 
-void merge_file_contents(FILE *f);
 void merge_sought_file(FILE *f, int quiet);
 void file_read_thing(FILE *f);
 void file_read_part(FILE *f, actor_t *actor);
@@ -600,51 +594,6 @@ actor_t *find_named_thing(const char *name) {
     return thing_tab[idx];
 }
 
-/* file_delete_repertoire_name  E2: 0x442594 */
-void delete_repertoire_name(int16_t index) {
-    if (index < 0 || index >= REPERTOIRE_TAB_SIZE) return;
-    if (repertoire_names[index].field_0[0] == '\0')
-        quit("attempt to access nonexistant Repertoire name");
-    for (int16_t i = index; i < REPERTOIRE_TAB_SIZE - 1; i++) {
-        if (repertoire_names[i + 1].field_0[0] == '\0') {
-            repertoire_names[i].field_0[0] = '\0';
-            break;
-        }
-        memcpy(&repertoire_names[i], &repertoire_names[i + 1], sizeof(name_text_t));
-        repertoire_tab[i] = repertoire_tab[i + 1];
-    }
-}
-
-/* file_delete_action_name  E2: 0x441B54 */
-void delete_action_name(int16_t index) {
-    if (index < 0 || index >= ACTION_TAB_SIZE) return;
-    if (action_names[index].field_0[0] == '\0')
-        quit("attempt to access nonexistant Action name");
-    for (int16_t i = index; i < ACTION_TAB_SIZE - 1; i++) {
-        if (action_names[i + 1].field_0[0] == '\0') {
-            action_names[i].field_0[0] = '\0';
-            break;
-        }
-        memcpy(&action_names[i], &action_names[i + 1], sizeof(name_text_t));
-        action_tab[i] = action_tab[i + 1];
-    }
-}
-
-/* file_delete_code_name  E2: 0x442114 */
-void delete_code_name(int16_t index) {
-    if (index < 0 || index >= CODE_TAB_SIZE) return;
-    if (code_names[index].field_0[0] == '\0')
-        quit("attempt to access nonexistant Code name");
-    for (int16_t i = index; i < CODE_TAB_SIZE - 1; i++) {
-        if (code_names[i + 1].field_0[0] == '\0') {
-            code_names[i].field_0[0] = '\0';
-            break;
-        }
-        memcpy(&code_names[i], &code_names[i + 1], sizeof(name_text_t));
-        code_tab[i] = code_tab[i + 1];
-    }
-}
-
 /* file_recursively_calc_rel_offs  E2: 0x442800 */
 void recursively_calc_rel_offs(part_t *part) {
     int16_t *squash = &part->VECTOR_Squash.X;
@@ -690,79 +639,6 @@ void calculate_all_relative_offsets(void) {
     }
 }
 
-/* file_clear_new_names_and_flags  E2: 0x4433A4 */
-void clear_new_names_and_flags(void) {
-    for (int i = 1; i < PART_TAB_SIZE; i++)
-        new_part_name[i] = -1;
-    for (int i = 1; i < POINT_TAB_SIZE; i++)
-        new_point_name[i] = -1;
-    for (int i = 1; i < TRIANGLE_TAB_SIZE; i++)
-        new_triangle_name[i] = -1;
-    for (int i = 0; i < ACTION_TAB_SIZE; i++) {
-        if (i > 0) new_action_name[i] = -1;
-        action_name_flags[i] &= ~1;
-    }
-    for (int i = 0; i < THING_TAB_SIZE; i++) {
-        if (i > 0) new_thing_name[i] = -1;
-        thing_name_flags[i] &= ~1;
-    }
-    for (int i = 0; i < SCENE_TAB_SIZE; i++) {
-        if (i > 0) new_scene_name[i] = -1;
-        scene_name_flags[i] &= ~1;
-    }
-    for (int i = 0; i < CODE_TAB_SIZE; i++) {
-        new_code_name[i] = -1;
-        code_name_flags[i] &= ~1;
-    }
-    for (int i = 0; i < REPERTOIRE_TAB_SIZE; i++) {
-        new_rep_name[i] = -1;
-        rep_name_flags[i] &= ~1;
-    }
-    for (int i = 0; i < SOUND_TAB_SIZE; i++) {
-        if (i > 0) new_sound_name[i] = -1;
-        sound_name_flags[i] &= ~1;
-    }
-    for (int i = 1; i < MAP_AREA_TAB_SIZE; i++)
-        new_map_area_name[i] = -1;
-    for (int i = 0; i < TEXTURE_TAB_SIZE; i++) {
-        new_texture_name[i] = -1;
-        texture_name_flags[i] &= ~1;
-    }
-}
-
-/* file_rep1_used  E2: 0x440C94 */
-const char *rep1_used(void) {
-    if (rep_name_flags[3] & 0x80)
-        return "Rep 1 used";
-    return "Rep 1 NOT used";
-}
-
-/* file_make_file_name_subdir  E2: 0x447DFC */
-char *make_file_name_subdir(int index) {
-    /* Sized for any int, not just the 2+4-digit case the format implies. */
-    static char buf[32];
-    snprintf(buf, sizeof(buf), "%02d\\%04d.FAN", index / 100, index);
-    return buf;
-}
-
-/* file_make_file_dir_name  E2: 0x447E5C */
-char *make_file_dir_name(int index) {
-    static char buf[16];
-    snprintf(buf, sizeof(buf), "%02d", index / 100);
-    return buf;
-}
-
-/* file_make_dir_if_not_exists  E2: 0x447EC4 */
-void make_dir_if_not_exists(const char *dirname) {
-    if (!dirname || !*dirname) return;
-    struct stat st;
-    if (stat(dirname, &st) != 0) {
-        if (mkdir(dirname, 0755) != 0) {
-            do_info_req("Can't create subdirectory");
-        }
-    }
-}
-
 /* file_write_event  E2: 0x4412F0 — write event fields via putw_be */
 void file_write_event(event_t *event, FILE *f) {
     putw_be(event->event_type, f);
@@ -785,114 +661,6 @@ static void put_event(FILE *f, int16_t index, uint16_t type,
     e.param3      = p3;
     e.next        = NULL;
     file_write_event(&e, f);
-}
-
-/* file_write_a_merged_ev  E2: 0x4412B0 */
-void write_a_merged_ev(int16_t event_type, int16_t event_index, int16_t *params, FILE *f) {
-    event_t temp = {0};
-    temp.event_index = event_index;
-    temp.event_type = event_type;
-    temp.param1 = params[0];
-    temp.param2 = params[1];
-    temp.param3 = params[2];
-    merge_event_names(&temp);
-    file_write_event(&temp, f);
-}
-
-/* file_write_merged_event  E2: 0x441338 */
-void write_merged_event(event_t *event, FILE *f) {
-    event_t temp = {0};
-    temp.event_index = event->event_index;
-    temp.event_type = event->event_type;
-    temp.param1 = event->param1;
-    temp.param2 = event->param2;
-    temp.param3 = event->param3;
-    merge_event_names(&temp);
-    file_write_event(&temp, f);
-}
-
-/* file_print_event  E2: 0x442C24 */
-void print_event(event_t *event, FILE *f) {
-    static const char *event_names[] = {
-        [NO_EVENT] = "NO_EVENT", [ROTATE] = "ROTATE", [OFFSET] = "OFFSET",
-        [COLOUR] = "COLOUR", [VECTOR1] = "VECTOR1", [VECTOR2] = "VECTOR2",
-        [VECTOR3] = "VECTOR3", [ADD_PART] = "ADD_PART", [ADD_THING] = "ADD_THING",
-        [TYPE] = "TYPE", [ADD_PART_TO_THING] = "ADD_PART_TO_THING",
-        [PSEUDO_ACTION] = "PSEUDO_ACTION", [PSEUDO_KEY] = "PSEUDO_KEY",
-        [DISP_PNT] = "DISP_PNT", [FLAGS] = "FLAGS", [MOVE_ACT] = "MOVE_ACT",
-        [RAND_ACT] = "RAND_ACT", [RAND_INFO] = "RAND_INFO",
-        [ROTATE_THING] = "ROTATE_THING", [MOVE_THING] = "MOVE_THING",
-        [START_POSITION] = "START_POSITION", [THING_FLAGS] = "THING_FLAGS",
-        [SCRIPT_MOVE] = "SCRIPT_MOVE", [SCRIPT_TURN] = "SCRIPT_TURN",
-        [SPAWN_ACTION] = "SPAWN_ACTION", [PSEUDO_SCENE] = "PSEUDO_SCENE",
-        [PSEUDO_SCRIPT] = "PSEUDO_SCRIPT", [NEXT_SCENE] = "NEXT_SCENE",
-        [ANCHOR_PART] = "ANCHOR_PART", [LOOSEN_JOINT] = "LOOSEN_JOINT",
-        [UNLOOSEN_JOINT] = "UNLOOSEN_JOINT", [POSITION] = "POSITION",
-        [TWO_PART_LIMB] = "TWO_PART_LIMB", [FIX_PART] = "FIX_PART",
-        [UNFIX_PART] = "UNFIX_PART", [UNMAKE_LIMB] = "UNMAKE_LIMB",
-        [REORIENT_THING] = "REORIENT_THING",
-        [ADD_ELLIPSE_EVT] = "ADD_ELLIPSE", [ADD_ELLIPSE_TO_KEY_EVT] = "ADD_ELLIPSE_TO_KEY",
-        [ABSOLUTE_POS] = "ABSOLUTE_POS", [ABSOLUTE_ROT] = "ABSOLUTE_ROT",
-        [ADD_POINT] = "ADD_POINT", [OFFSET_POINT] = "OFFSET_POINT",
-        [ADD_TRIANGLE] = "ADD_TRIANGLE", [COLOUR_TRIANGLE] = "COLOUR_TRIANGLE",
-        [TRIANGLE_FLAGS] = "TRIANGLE_FLAGS", [INTERACT] = "INTERACT",
-        [PSEUDO_ACTION_2] = "PSEUDO_ACTION_2", [POINT_TO_POINT] = "POINT_TO_POINT",
-        [HELD_OFFSET] = "HELD_OFFSET", [HELD_ROTATE] = "HELD_ROTATE",
-        [BACKGROUND] = "BACKGROUND", [PSEUDO_SCENE_2] = "PSEUDO_SCENE_2",
-        [PSEUDO_REP] = "PSEUDO_REP", [REP_ENTRY] = "REP_ENTRY",
-        [ACTOR_REP] = "ACTOR_REP", [DEF_ROTATE] = "DEF_ROTATE",
-        [DEF_OFFSET] = "DEF_OFFSET", [DEF_VECTOR1] = "DEF_VECTOR1",
-        [DEF_VECTOR2] = "DEF_VECTOR2", [DEF_COLOUR] = "DEF_COLOUR",
-        [DEF_FLAGS] = "DEF_FLAGS", [DEF_POSITION] = "DEF_POSITION",
-        [CUT_PART] = "CUT_PART", [HELD_OFF_LEFT] = "HELD_OFF_LEFT",
-        [HELD_ROT_LEFT] = "HELD_ROT_LEFT", [THING_CODE] = "THING_CODE",
-        [TRI_SHADE_NAME] = "TRI_SHADE_NAME",
-        [PART_TEXTURE] = "PART_TEXTURE", [END_ACTION] = "END_ACTION",
-        [SHADE] = "SHADE", [MAKE_QUAD] = "MAKE_QUAD",
-        [TRI_TEX_NAME] = "TRI_TEX_NAME", [TRI_TEXTURE1] = "TRI_TEXTURE1",
-        [TRI_TEXTURE2] = "TRI_TEXTURE2", [TRI_TEXTURE3] = "TRI_TEXTURE3",
-        [THING_CODE_2] = "THING_CODE_2",
-    };
-    int type = event->event_type;
-    const char *name = (type >= 0 && type <= THING_CODE_2) ? event_names[type] : NULL;
-    fprintf(f, "         EV ");
-    if (name)
-        fprintf(f, "%s", name);
-    else
-        fprintf(f, "?%d", type);
-    fprintf(f, " idx=%d p1=%d p2=%d p3=%d\n",
-            event->event_index, event->param1, event->param2, event->param3);
-}
-
-/* file_print_action  E2: 0x4431EC */
-void print_action(action_t *action, FILE *f) {
-    char *name = file_find_action_name(action->action_index);
-    fprintf(f, "   ACTION '%s' ", name);
-    fprintf(f, "Dur %d, Flg %4.4x\n", action->act_duration, action->action_flags);
-    key_state_t *key = action->key_list;
-    while (key) {
-        fprintf(f, "      KEY Pos %4.4x\n", key->KEY_position);
-        event_t *ev = key->key_event_list;
-        while (ev) {
-            print_event(ev, f);
-            ev = ev->next;
-        }
-        key = key->next;
-    }
-}
-
-/* file_print_scene  E2: 0x443264 */
-void print_scene(scene_t *scene, FILE *f) {
-    char *name = file_find_scene_name(scene->scene_index);
-    fprintf(f, "\nSCENE '%s'\n", name);
-    script_t *script = scene->scene_script_list;
-    while (script) {
-        char *actor_name = file_find_thing_name(script->script_actor_index);
-        fprintf(f, "   SCRIPT Actor '%s'\n", actor_name);
-        print_action(&script->script_action, f);
-        fprintf(f, "\n");
-        script = script->next_script;
-    }
 }
 
 /* Normalize Windows path separators to Unix for cross-platform support */
@@ -1060,51 +828,6 @@ void merge_a_file_no_message(const char *filename, int quiet) {
 void merge_a_file(const char *filename, int quiet) {
     beep_message("Loading...");
     merge_a_file_no_message(filename, quiet);
-}
-
-/* file_merge_file_contents_425EB8 — parse .FAN archive format */
-void merge_file_contents(FILE *f) {
-    if (!f) return;
-    int block_count = 0;
-
-    for (;;) {
-        int block_type = fgetc(f);
-        if (block_type == EOF) break;
-        block_count++;
-
-        switch (block_type) {
-        case 1: /* Thing */
-            file_read_thing(f);
-            break;
-        case 2: /* Action */
-            file_read_action(f);
-            break;
-        case 3: /* Scene */
-            file_read_scene(f);
-            break;
-        case 4: /* Code */
-            file_read_code(f);
-            break;
-        case 5: /* Sound */
-            file_read_sound(f);
-            break;
-        case 6: /* Repertoire */
-            file_read_repertoire(f);
-            break;
-        case 7: /* Map Area */
-            file_read_map_area(f);
-            break;
-        case 8: /* Texture */
-            file_read_texture(f);
-            break;
-        case 0xFF: /* End of archive */
-            DBG_LOG(2, "[FILE] merge_file_contents: end marker 0xFF after %d blocks\n", block_count);
-            return;
-        default:
-            DBG_LOG(1, "[FILE] merge_file_contents: unknown block type 0x%02X at block %d, aborting\n", block_type, block_count);
-            return;
-        }
-    }
 }
 
 /* file_read_thing  E1: ? | E2P: 0x425F28 */
@@ -2311,80 +2034,6 @@ int get_save_name(int slot, char *buf, int buflen) {
     strncpy(buf, name, buflen - 1);
     buf[buflen - 1] = '\0';
     return 1;
-}
-
-/* file_wave_open_file_4268B8 — validates the RIFF/WAVE header and reads the fmt chunk. */
-void wave_open_file(const char *filename) {
-    if (!filename) return;
-
-    FILE *f = fopen_ci(filename, "rb");
-    if (!f) return;
-
-    uint8_t hdr[44];
-    if (fread(hdr, 1, 44, f) < 44) { fclose(f); return; }
-
-    if (memcmp(hdr, "RIFF", 4) != 0 || memcmp(hdr + 8, "WAVE", 4) != 0) {
-        fclose(f);
-        return;
-    }
-
-    fclose(f);
-}
-
-/* file_wave_load_file_426928 — no callers. */
-void wave_load_file(const char *filename) {
-    if (!filename) return;
-
-    FILE *f = fopen_ci(filename, "rb");
-    if (!f) return;
-
-    uint8_t hdr[12];
-    if (fread(hdr, 1, 12, f) < 12) { fclose(f); return; }
-
-    if (memcmp(hdr, "RIFF", 4) != 0 || memcmp(hdr + 8, "WAVE", 4) != 0) {
-        fclose(f);
-        return;
-    }
-
-    int16_t channels = 0, bits_per_sample = 0;
-    int32_t sample_rate = 0, data_size = 0;
-    uint8_t *pcm_data = NULL;
-
-    while (!feof(f)) {
-        uint8_t chunk_hdr[8];
-        if (fread(chunk_hdr, 1, 8, f) < 8) break;
-
-        uint32_t chunk_size = chunk_hdr[4] | (chunk_hdr[5] << 8) |
-                              (chunk_hdr[6] << 16) | (chunk_hdr[7] << 24);
-
-        if (memcmp(chunk_hdr, "fmt ", 4) == 0 && chunk_size >= 16) {
-            uint8_t fmt[16];
-            if (fread(fmt, 1, 16, f) < 16) break;
-            channels = fmt[2] | (fmt[3] << 8);
-            sample_rate = fmt[4] | (fmt[5] << 8) | (fmt[6] << 16) | (fmt[7] << 24);
-            bits_per_sample = fmt[14] | (fmt[15] << 8);
-            if (chunk_size > 16) fseek(f, chunk_size - 16, SEEK_CUR);
-        } else if (memcmp(chunk_hdr, "data", 4) == 0) {
-            data_size = (int32_t)chunk_size;
-            pcm_data = (uint8_t *)malloc(data_size);
-            if (pcm_data) {
-                if ((int32_t)fread(pcm_data, 1, data_size, f) < data_size) {
-                    free(pcm_data);
-                    pcm_data = NULL;
-                }
-            }
-            break;
-        } else {
-            fseek(f, chunk_size, SEEK_CUR);
-        }
-    }
-
-    fclose(f);
-
-    if (pcm_data && data_size > 0 && bits_per_sample == 8 && channels == 1) {
-        platform_audio_play_pcm(pcm_data, data_size, sample_rate, 127, 0, false);
-    }
-    if (pcm_data) free(pcm_data);
 }
 
 /* file_calc_rel_offset  E1: 0x438658 | E2: 0x4428D4 */

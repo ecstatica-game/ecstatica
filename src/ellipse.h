@@ -17,7 +17,6 @@ int16_t arctan(int16_t x, int16_t y);
 int16_t arcsin(int16_t val);
 void calculate_squash(part_t *part);
 void find_ellipse(part_t *part);
-int  ellipse_half_size(void);
 void view_trans_long_tri(tri_t *tri);
 int16_t arctan_slow(int16_t x, int16_t y);
 

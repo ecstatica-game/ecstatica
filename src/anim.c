@@ -40,39 +40,6 @@ ellipse_t *add_ellipse(void) {
     return new_ellipse;
 }
 
-/* anim_load_action_directory_430600 — not called at runtime. */
-void load_action_directory(void) {
-}
-
-/* anim_recalc_cam_42FDE0 — E2: 0x42FDE0 */
-void recalc_cam(void) {
-    calculate_view_matrices();
-    if (selected_thing) {
-        vector_t input_vec;
-        set_vector(&input_vec, 0, 0, (int16_t)(-selected_thing->actor_box_size * 4));
-        vector_t result_vec;
-        matrix_vector(&input_vec, &result_vec, &view_matrix);
-        copy_vector(&view_pos, &selected_thing->position_vector);
-        add_vector(&view_pos, &result_vec);
-    }
-}
-
-/* anim_check_action_name_exists_42FF60 — E2: 0x42FF60 */
-int check_action_name_exists(int16_t index) {
-    if (index < 0)
-        return 0;
-    char *ptr = (char *)action_names;
-    for (int16_t i = 0; i < index; i++) {
-        int len = (int)strlen(ptr);
-        if (len == 0)
-            return 0;
-        ptr += len + 1;
-    }
-    if (strlen(ptr) == 0)
-        return 0;
-    return 1;
-}
-
 /* anim_calculate_ellipses_one_key_430474 — E2: 0x430474 */
 void calculate_ellipses_one_key(key_state_t *key, actor_t *actor) {
     ellipse_t *ell = key->ellipses_list;
@@ -122,64 +89,6 @@ void calculate_ellipses(key_state_t *key, actor_t *actor, int16_t factor) {
         nxt = nxt->next;
         part = part->next_in_display_list;
     }
-}
-
-static void clear_choice_box_internal(int16_t x, int16_t y, int16_t w, int16_t h) {
-    int plane = 1 - db;
-    clip_blit(2, x, y, plane, x, y, w + 1, h + 1, 0xC0);
-}
-
-static void draw_choice_box_internal(int16_t x, int16_t y, int16_t w, int16_t h, const char *str) {
-    int plane = 1 - db;
-    int x2 = x + w;
-    int y2 = y + h;
-
-    a_pen_colour = 0;
-    rect_fill(plane, x, y, x2, y2);
-
-    a_pen_colour = 1;
-    move_pen(plane, x, y);
-    draw(plane, x, y2);
-    draw(plane, x2, y2);
-    draw(plane, x2, y);
-    draw(plane, x, y);
-
-    a_pen_colour = 1;
-    b_pen_colour = 0;
-    draw_mode[plane] = 2;
-    move_pen(plane, x + 8, y + 4);
-    int len = (int)strlen(str);
-    if (len > 8) len = 8;
-    text(plane, str, len);
-
-    if ((int)strlen(str) > 8) {
-        int len2 = (int)strlen(str + 8);
-        if (len2 > 8) len2 = 8;
-        move_pen(plane, x + 16, y + 4);
-        text(plane, str + 8, len2);
-    }
-}
-
-/* anim_clear_all_choices_430098 — E2: 0x430098 */
-void clear_all_choices(int16_t x, int16_t y) {
-    clear_choice_box_internal(x, y, 0x48, 0x18);
-    clear_choice_box_internal(x + 0x4B, y, 0x48, 0x18);
-    clear_choice_box_internal(x + 0x96, y, 0x48, 0x18);
-    clear_choice_box_internal(x + 0xE1, y, 0x48, 0x18);
-}
-
-/* anim_draw_all_choices_42FFC0 — E2: 0x42FFC0 */
-void draw_all_choices(int16_t x, int16_t y) {
-    if (!selected_scene) return;
-    char *buf = selected_scene->scene_name_buf;
-    if (strlen(&buf[0]) > 0)
-        draw_choice_box_internal(x, y, 0x48, 0x18, &buf[0]);
-    if (strlen(&buf[25]) > 0)
-        draw_choice_box_internal(x + 0x4B, y, 0x48, 0x18, &buf[25]);
-    if (strlen(&buf[50]) > 0)
-        draw_choice_box_internal(x + 0x96, y, 0x48, 0x18, &buf[50]);
-    if (strlen(&buf[75]) > 0)
-        draw_choice_box_internal(x + 0xE1, y, 0x48, 0x18, &buf[75]);
 }
 
 /* anim_position_external_act_42FE58 — E2: 0x42FE58 */

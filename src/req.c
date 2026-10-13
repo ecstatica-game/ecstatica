@@ -896,15 +896,6 @@ void do_input(void) {
 void load_saved_screen(void) {
 }
 
-/* req_install_to_disk  E2: 0x43DA80 */
-void install_to_disk(void) {
-}
-
-/* req_handle_dir_gadg  E2: 0x43C430 */
-void handle_dir_gadg(void) {
-    quit("Error: Bad requester id");
-}
-
 /* req_handle_play_female  E2: 0x43D3E4 */
 void handle_play_female(void) {
     esc_req_choice = 1;
@@ -913,11 +904,6 @@ void handle_play_female(void) {
 /* req_handle_play_male  E2: 0x43D3D8 */
 void handle_play_male(void) {
     esc_req_choice = 0;
-}
-
-/* req_handle_configure  E2: 0x43D3F0 */
-void handle_configure(void) {
-    esc_req_choice = 2;
 }
 
 /* req_handle_load_game  E2: 0x43D410 */
@@ -938,16 +924,6 @@ void handle_quit_to_dos(void) {
 void handle_save_game(void) {
     if (!intro_flag)
         esc_req_choice = 3;
-}
-
-/* req_handle_set_card  E2: 0x43D62C */
-void handle_set_card(void) {
-    settings_choice = 1;
-}
-
-/* req_handle_set_install  E2: 0x43D638 */
-void handle_set_install(void) {
-    settings_choice = 2;
 }
 
 /* req_do_choice3_req  E2: 0x43CA20 */

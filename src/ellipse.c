@@ -749,11 +749,6 @@ void find_ellipse(part_t *part) {
         part->depth_offset.Z = -part->depth_offset.Z;
 }
 
-/* ellipse_half_size / shade_ellipse_svga  E2: 0x4316F4 */
-int ellipse_half_size(void) {
-    return 0;
-}
-
 /* ellipse_view_trans_long_tri  E2: 0x432B58 */
 void view_trans_long_tri(tri_t *tri) {
     long_view_transform((long_vector_t *)&tri->point1->screen_coord,

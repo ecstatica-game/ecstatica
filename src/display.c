@@ -98,10 +98,7 @@ int16_t graphic_size_y[GRAPHICS_MAX];
 graphic_name_t graphic_name_arr[GRAPHICS_MAX];
 int16_t background_status = 0;
 
-int16_t max_fps = 30;
-int16_t fps = 0;
 
-bool making_background = false;
 /* The original sets this per actor by distance in DrawDetail (0x47A6E8); until
  * that is ported, max detail keeps triangle geometry such as dress meshes.
  * Values above 2 would drop every triangle. */
@@ -735,19 +732,6 @@ void unbake_stuck_actors(void) {
     background_status = 2;
 }
 
-/* display_add_polygons  E1: 0x41E3A0 | E2: 0x421EE0 */
-void add_polygons(void) {
-}
-
-/* display_add_a_triangle  E1: ? | E2: 0x421F20 */
-void add_a_triangle(void) {
-}
-
-/* display_add_actor_polys  E1: 0x41E3CC | E2: 0x421F0C */
-void add_actor_polys(actor_t *actor) {
-    (void)actor;
-}
-
 /* display_draw_parts  E1: 0x41E3E4 | E2: 0x421F24 */
 void draw_parts(void) {
     /* 0x421F62: during camera moves, actors past view Z 0x2000 are hidden. */
@@ -1159,16 +1143,6 @@ void perspec_trans_no_overflow_chk(vector_t *point) {
 
     point->X = (int16_t)((coeff_x * (int32_t)point->X) >> 10);
     point->Y = (int16_t)((coeff_y * (int32_t)point->Y) >> 10);
-}
-
-/* display_print_matrix  E1: 0x41F9F4 | E2: 0x4235D4 */
-void print_matrix(matrix3x3_t *mtx) {
-    (void)mtx;
-}
-
-/* display_print_vector  E1: 0x41FA40 | E2: 0x423620 */
-void print_vector(vector_t *vec) {
-    (void)vec;
 }
 
 /* display_find_position_of_extremity  E1: 0x41FA64 | E2: 0x423644 */
@@ -1759,13 +1733,6 @@ void find_view_positions(actor_t *actor) {
     }
 }
 
-/* display_put_parts_select  E1: 0x4210AC | E2: 0x424C8C */
-void put_parts_select(actor_t *actor) {
-    if (!actor) return;
-    put_parts_not_shadows(actor);
-    put_triangles(actor);
-}
-
 /* display_put_parts_not_shadows  E1: 0x421104 | E2: 0x424CE4 */
 void put_parts_not_shadows(actor_t *actor) {
     if (!actor) return;
@@ -2219,33 +2186,5 @@ void put_a_line(part_t *part) {
         if (x1 + 2 > area->right) area->right = x1 + 2;
         if (y1 + 2 > area->bottom) area->bottom = y1 + 2;
     }
-}
-
-/* display_xxx_stick_to_background  E1: ? | E2: 0x425C4C */
-void xxx_stick_to_background(actor_t *actor) {
-    if (!actor) return;
-
-    if (actor == root_thing) {
-        root_thing = actor->next_in_display_list;
-    } else {
-        actor_t *prev = root_thing;
-        while (prev && prev->next_in_display_list) {
-            if (prev->next_in_display_list == actor) {
-                prev->next_in_display_list = actor->next_in_display_list;
-                break;
-            }
-            prev = prev->next_in_display_list;
-        }
-    }
-
-    actor->next_stuck = stuck_thing_list;
-    stuck_thing_list = actor;
-
-    /* Init bounding box to full range */
-    actor->area_to_clear = (subarea_t *)&actor->bounding_box;
-    actor->bounding_box.top = 0x7FFF;
-    actor->bounding_box.left = actor->bounding_box.top;
-    actor->bounding_box.bottom = (int16_t)0x8001;
-    actor->bounding_box.right = actor->bounding_box.bottom;
 }
 
