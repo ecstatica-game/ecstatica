@@ -13,6 +13,7 @@ All notable changes to this project are documented in this file.
 - Releases include `ecstatica-web-*.zip`, `ecstatica-android-*.apk` and `ecstatica-ios-*.ipa`.
 
 ### Changed
+- E2: Settings → Enhanced → Graphics switches between Original (320x200) and Enhanced (640x480), as in E1, and so do G and R3. Original uses the original game's low-res HUD art. Enhanced works without the `HIRES` backgrounds too, by doubling the 320x200 ones.
 - Analogue Pocket: both games start at 320x200. E1 started at 640x480 when its enhanced `W/` set was on the ISO, and E2 always did, stretching its 320x200 backgrounds whenever the ISO had no `HIRES/`. E2 uses the original game's low-res HUD. Its inventory page has no low-res art, so it opens at 640x480 and the game returns to 320x200 when it closes.
 - Analogue Pocket: B cycles E1's speed mode (walk, run, sneak) during gameplay, as on PSP and Vita, instead of opening the pause menu. In menus and in E2 it is still back. Start opens the pause menu.
 - Only the newest edge pre-release is kept: each push to `main` deletes the edge releases and tags of earlier versions, and a tagged release deletes them all.

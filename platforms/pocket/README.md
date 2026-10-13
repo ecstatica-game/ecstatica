@@ -198,10 +198,11 @@ scans out 640x480 for that one screen.
 That round trip is why the preference does not set `low_res_only`: the
 screen planes stay sized for 640x480, and `go_svga()` stays available.
 
-E2 does not need `HIRES/`, and the default ISO leaves it out. Without
-`HIRES/`, Settings → Enhanced has nothing to switch to. With `--hires`, the
-toggle works, and the game then renders at 640x480 with the cost that comes
-with it.
+E2 does not need `HIRES/`, and the default ISO leaves it out. Settings →
+Enhanced → Graphics still switches E2 to 640x480: without `HIRES/` each
+background is the 320x200 one doubled by `copy_vga_to_svga()`, and with
+`--hires` it is the sharp set. Either way the game then renders at 640x480,
+with the cost that comes with it.
 
 The mount code tries `ecstatica.iso`, `ecstatica2.iso`, `game.iso`, `e1.iso`,
 `e2.iso`, `data.iso` in that order and uses the first slot that exists.

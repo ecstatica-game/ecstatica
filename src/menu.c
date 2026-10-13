@@ -513,13 +513,11 @@ enum {
     SETT_MAX
 };
 
-/* One row covers both the asset set and the renderer. E2's low-res set lacks
- * the HUD art (see init.c), so E2 only chooses the renderer:
+/* One row covers both the resolution and the renderer, for both games:
  *
- *   E1:  Original (VGA, software)  Enhanced (SVGA, software)  Hardware
- *   E2:  Software                                             Hardware
+ *   Original (VGA, software)  Enhanced (SVGA, software)  Hardware
  *
- * Hardware implies the enhanced asset set on E1.
+ * Hardware implies the enhanced mode.
  */
 enum { GFX_ORIGINAL = 0, GFX_ENHANCED, GFX_HARDWARE };
 
@@ -529,12 +527,9 @@ static void gfx_apply(int mode);
  * returns how many. One mode means there is no choice and the row is hidden. */
 static int gfx_mode_list(int *out) {
     int n = 0;
-    if (game_version == GAME_VERSION_E1) {
-        out[n++] = GFX_ORIGINAL;
-        if (hires_available) out[n++] = GFX_ENHANCED;
-    } else {
-        out[n++] = GFX_ENHANCED;          /* labelled "Software" on E2 */
-    }
+    bool can_switch = enhanced_graphics_available();
+    if (can_switch || !mode_svga) out[n++] = GFX_ORIGINAL;
+    if (can_switch || mode_svga)  out[n++] = GFX_ENHANCED;
     if (render_available()) out[n++] = GFX_HARDWARE;
     return n;
 }
@@ -548,8 +543,7 @@ static const char *gfx_mode_name(int mode) {
     switch (mode) {
     case GFX_ORIGINAL: return "Original";
     case GFX_HARDWARE: return "Hardware";
-    default:
-        return (game_version == GAME_VERSION_E1) ? "Enhanced" : "Software";
+    default:           return "Enhanced";
     }
 }
 
@@ -573,7 +567,7 @@ static void gfx_apply(int mode) {
         render_select(RENDER_SOFTWARE);
 
     int want_svga = (mode != GFX_ORIGINAL);
-    if (hires_available && mode_svga != want_svga)
+    if (mode_svga != want_svga)
         set_enhanced_graphics(want_svga);
 
     if (mode == GFX_HARDWARE && render_backend != RENDER_HARDWARE)

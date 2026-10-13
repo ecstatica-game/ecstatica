@@ -219,9 +219,10 @@ modifiers instead.
 | Select / Back | I | Toggle the HUD icons |
 | Right stick click (R3) | G | Switch between the Original and Enhanced graphics sets |
 
-R3 needs a `HIRES` set beside the game data to have anything to switch to —
-E2's data ships one, E1 needs the Win95 release. Without it the button is a
-no-op. On a pad with no clickable stick — see [Handhelds](#handhelds-vita-psp-analogue-pocket-mister)
+Original is the 320x200 mode, Enhanced the 640x480 one. In E1, R3 needs the
+Win95 `HIRES` set beside the game data to have anything to switch to; without
+it the button is a no-op. E2 switches either way: a camera with no `HIRES`
+view uses its 320x200 background doubled. On a pad with no clickable stick — see [Handhelds](#handhelds-vita-psp-analogue-pocket-mister)
 below — the same switch is always reachable from Settings → Enhanced →
 Graphics instead. **Left stick click (L3) does something different in each
 game** and is listed in the per-game tables below; where it exists (E1's speed

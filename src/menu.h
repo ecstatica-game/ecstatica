@@ -19,6 +19,7 @@ void delete_key(key_state_t *key);
 void remove_part(part_t *part);
 void go_svga(void);
 void go_vga(void);
+int enhanced_graphics_available(void);
 void set_enhanced_graphics(int enabled);
 extern bool menu_no_continue;
 bool menu_is_active(void);

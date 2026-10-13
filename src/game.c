@@ -3170,8 +3170,18 @@ void go_svga(void) {
  * database (FAN, OFFSETS, FILES) stays put, so actors, scenes, camera and
  * inventory carry across untouched. go_vga/go_svga clear active_camera, which
  * makes the next check_view reload the background from the new root. */
+/* E1's database is the 320x200 one, so its 640x480 mode needs the HIRES set.
+ * E2 runs at 640x480 without it: a camera with no HIRES view is loaded from
+ * VIEWS and doubled by copy_vga_to_svga(). Either way the display has to
+ * reach 640x480, which low_res_only rules out. */
+int enhanced_graphics_available(void) {
+    if (game_version == GAME_VERSION_E1)
+        return hires_available;
+    return !low_res_only;
+}
+
 void set_enhanced_graphics(int enabled) {
-    if (!hires_available) return;
+    if (!enhanced_graphics_available()) return;
     if ((mode_svga != 0) == (enabled != 0)) return;
 
     /* go_vga/go_svga reach window_proc through make_game_screen, so a hotkey
