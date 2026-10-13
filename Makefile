@@ -50,6 +50,11 @@
 #   make android-install — install it with adb
 #   make android-clean
 #
+# iOS / iPadOS target (Xcode, through CMake's Xcode generator):
+#   make ios-sim      — build for the iOS simulator
+#   make ios          — build an unsigned platforms/ios/build/ecstatica.ipa for sideloading
+#   make ios-clean
+#
 # Set WATCOM if Open Watcom is not in ~/watcom. Both cross builds live in their
 # own directories and are driven by Watcom's wmake, not by this file. The PSP
 # build lives in platforms/psp/ and is GNU make, driven by the PSP SDK's build.mak.
@@ -81,10 +86,12 @@ DOS4GW      = $(WATCOM)/binw/dos4gw.exe
 WIN9X_EXE   = platforms/win9x/ecstatica.exe
 WINE       ?= wine
 
+.PHONY: ios-configure
 .PHONY: all run e1 e2 e1-viewer e2-viewer e1-scenes e2-scenes e1-images e2-images e1-pointcloud e2-pointcloud build clean dump \
         dos dos-e1 dos-e2 dos-clean win9x win9x-e1 win9x-e2 win9x-clean \
         psp psp-release psp-install psp-clean vita vita-clean \
-        web web-serve web-clean android android-install android-clean
+        web web-serve web-clean android android-install android-clean \
+        ios ios-sim ios-clean
 
 all: build
 
@@ -304,3 +311,28 @@ android-install: android
 
 android-clean:
 	rm -rf platforms/android/build
+
+# ── iOS build ─────────────────────────────────────────────────
+#
+# platforms/ios/ is a CMake project for the Xcode generator. The device build
+# is unsigned: sideloading tools (AltStore, Sideloadly) sign it with the
+# user's own Apple ID; see platforms/ios/README.md.
+IOS_BUILD = platforms/ios/build
+
+ios-configure:
+	@command -v xcodebuild >/dev/null || { echo "Xcode not found."; exit 1; }
+	cmake -S platforms/ios -B $(IOS_BUILD) -G Xcode -DCMAKE_SYSTEM_NAME=iOS -DGAME_VERSION=$(VERSION)
+
+ios-sim: ios-configure
+	cmake --build $(IOS_BUILD) --config Release -- -sdk iphonesimulator CODE_SIGNING_ALLOWED=NO
+
+ios: ios-configure
+	cmake --build $(IOS_BUILD) --config Release -- -sdk iphoneos CODE_SIGNING_ALLOWED=NO
+	rm -rf $(IOS_BUILD)/Payload $(IOS_BUILD)/ecstatica.ipa
+	mkdir -p $(IOS_BUILD)/Payload
+	cp -R $(IOS_BUILD)/Release-iphoneos/Ecstatica.app $(IOS_BUILD)/Payload/
+	cd $(IOS_BUILD) && zip -qr ecstatica.ipa Payload
+	@echo "Built $(IOS_BUILD)/ecstatica.ipa (unsigned)"
+
+ios-clean:
+	rm -rf $(IOS_BUILD)
