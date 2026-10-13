@@ -4,7 +4,9 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
-Nothing yet.
+### Fixed
+- E2: loading a game no longer gives the hero a different body. Cutting a part left a stale link to the freed part, so the save wrote another actor's parts as the hero's. Saves made with older builds keep the wrong model; save again to fix them.
+- E1/E2: held objects stay in the holder's hands after loading instead of floating where they were saved. Saves are now version 7 and record the holding part. Older saves put the hero's held object in the first free hand.
 
 ## [0.9.2] - 2026-10-12
 
