@@ -4,9 +4,16 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [0.9.3] - 2026-10-13
+
 ### Fixed
+- E2: the stable horse, the beast on the sewer well, the big door near it and other objects are in the world again. Only the first of the five StartUp scripts ran. Saves made with older builds get them back when loaded.
 - E2: loading a game no longer gives the hero a different body. Cutting a part left a stale link to the freed part, so the save wrote another actor's parts as the hero's. Saves made with older builds keep the wrong model; save again to fix them.
-- E1/E2: held objects stay in the holder's hands after loading instead of floating where they were saved. Saves are now version 7 and record the holding part. Older saves put the hero's held object in the first free hand.
+- E1/E2: held objects stay in the holder's hands after loading, instead of floating or going back to where they were picked up. Saves are now version 9. Older saves still load and put the hero's held object in the first free hand.
+- Confirming Load Game (or any menu item) with Enter no longer opens the inventory as the game resumes.
+- Loading a save during a running scene could quit with "Can't remove Scene in active list".
 
 ## [0.9.2] - 2026-10-12
 
@@ -276,7 +283,8 @@ All notable changes to this project are documented in this file.
 ### Added
 - Initial public release: C99 reimplementation of Ecstatica 1 & 2 with macOS, Linux, and Windows platform layers.
 
-[Unreleased]: https://github.com/ecstatica-game/ecstatica/compare/v0.9.2...HEAD
+[Unreleased]: https://github.com/ecstatica-game/ecstatica/compare/v0.9.3...HEAD
+[0.9.3]: https://github.com/ecstatica-game/ecstatica/compare/v0.9.2...v0.9.3
 [0.9.2]: https://github.com/ecstatica-game/ecstatica/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/ecstatica-game/ecstatica/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/ecstatica-game/ecstatica/compare/v0.8.4...v0.9.0
