@@ -938,9 +938,15 @@ void remove_part(part_t *part) {
         return;
     }
 
-    part_t *first = (part_t *)actor->actor_parts_list;
+    /* 0x43AB6A: the predecessor search starts at the owning actor's root part,
+     * which heads the whole display list. Starting at the holding part's first
+     * child misses later siblings (add_part puts each new child right after
+     * its parent in display order), leaving a dangling `next` into the freed
+     * slot; a save then walked into whatever actor reused it. */
+    actor_t *owner = part->parent_actor;
+    part_t *first = owner->actor_parts_list;
     if (part == first) {
-        actor->actor_parts_list = (struct part_s *)first->next;
+        owner->actor_parts_list = first->next;
     } else {
         for (part_t *fp = first; fp; fp = fp->next_in_display_list) {
             if (part == fp->next) {
