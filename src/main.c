@@ -177,6 +177,8 @@ int main(int argc, char *argv[]) {
             viewer_mode = VIEWER_SCENES;
         else if (strcmp(argv[i], "--pointcloud") == 0)
             viewer_mode = VIEWER_POINTCLOUD;
+        else if (strcmp(argv[i], "--images") == 0)
+            viewer_mode = VIEWER_IMAGES;
     }
     signal(SIGSEGV, crash_handler);
     /* SIGBUS is POSIX; neither Win32 nor DOS defines it. */

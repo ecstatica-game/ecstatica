@@ -8,6 +8,7 @@ enum {
     VIEWER_MODELS = 1,   /* --viewer */
     VIEWER_SCENES = 2,   /* --scenes */
     VIEWER_POINTCLOUD = 3, /* --pointcloud, batch export (tools/pointcloud.c) */
+    VIEWER_IMAGES = 4,   /* --images */
 };
 
 /* Set by main() from the command line. setup() branches on it once the
