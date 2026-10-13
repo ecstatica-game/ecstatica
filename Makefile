@@ -287,11 +287,16 @@ vita-clean:
 #
 # platforms/web/ is a CMake project configured through emcmake. The game
 # data is imported in the browser, not packed, see platforms/web/README.md.
+# emsdk puts upstream/emscripten on PATH, and it holds a cmake/ directory.
+# make runs simple recipes without a shell, and its PATH search stops at that
+# directory ("cmake: Permission denied"); the shell's lookup skips it.
+CMAKE_BIN := $(shell command -v cmake)
+
 web:
 	@command -v emcmake >/dev/null || { \
 	  echo "Emscripten not found. Install emsdk and source emsdk_env.sh."; exit 1; }
-	emcmake cmake -S platforms/web -B platforms/web/build -DCMAKE_BUILD_TYPE=Release
-	cmake --build platforms/web/build
+	emcmake $(CMAKE_BIN) -S platforms/web -B platforms/web/build -DCMAKE_BUILD_TYPE=Release
+	$(CMAKE_BIN) --build platforms/web/build
 
 web-serve: web
 	python3 platforms/web/serve.py platforms/web/build/dist 8080
