@@ -24,6 +24,9 @@ six images into every platform's required sizes and formats in one pass:
 | PSP | `platforms/psp/ICON0.PNG`, `platforms/psp/PIC1.PNG` (one shared EBOOT for both games) |
 | Pocket | `platforms/pocket/core/icon.bin`, `platforms/pocket/core/platform_image.bin` (openfpgaOS's 2-bytes-per-pixel grayscale format — see the script) |
 | Steam Deck | `platforms/steamdeck/{e1,e2}/{hero,grid_landscape,grid_portrait,icon,logo}.png` |
+| Web | `platforms/web/icon.png`, `platforms/web/banner.png` |
+| Android | `platforms/android/res/mipmap-*/ic_launcher.png` |
+| iOS | `platforms/ios/Assets.xcassets/AppIcon.appiconset/` |
 
 Re-run it after swapping in different source art, or after tuning a crop
 `focus` in the script:
@@ -32,5 +35,9 @@ Re-run it after swapping in different source art, or after tuning a crop
 python3 assets/generate_packaging_art.py
 ```
 
-It always writes every target — there's no per-platform flag — so a run
-touches all four platforms' art at once.
+With no arguments it writes every platform's art. To write only some, name
+them (`vita`, `psp`, `pocket`, `steam`, `web`, `android`, `ios`):
+
+```
+python3 assets/generate_packaging_art.py web android ios
+```

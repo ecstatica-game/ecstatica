@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
-"""Generate the storefront/packaging art for Vita, PSP, Pocket and Steam
-Deck from the source art in assets/screenshots/ (see assets/README.md for
-where it came from).
+"""Generate the storefront/packaging art for Vita, PSP, Pocket, Steam
+Deck, web, Android and iOS from the source art in assets/screenshots/ (see
+assets/README.md for where it came from).
 
-Run from anywhere; paths below are all relative to the repo root.
+Run from anywhere; paths below are all relative to the repo root. With no
+arguments every platform is written; name platforms to write only those.
 
     python3 assets/generate_packaging_art.py
+    python3 assets/generate_packaging_art.py web android ios
 """
+import json
 import os
+import sys
 from PIL import Image, ImageOps, ImageFilter, ImageEnhance
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -188,8 +192,57 @@ def build_steam():
         save(canvas, f"{d}/logo.png")
 
 
+# ------------------------------------------------- web, Android, iOS -----
+# Each is one app holding both games, so like the Pocket they use E2's logo
+# over its cover slice.
+def build_web():
+    d = f"{ROOT}/platforms/web"
+    save(logo_icon("e2", 192, 192), f"{d}/icon.png")
+    save(fit_canvas(SRC["e2_hero"], 1200, 630), f"{d}/banner.png")
+
+
+ANDROID_DENSITIES = (("mdpi", 48), ("hdpi", 72), ("xhdpi", 96),
+                     ("xxhdpi", 144), ("xxxhdpi", 192))
+
+
+def build_android():
+    for density, size in ANDROID_DENSITIES:
+        save(logo_icon("e2", size, size),
+             f"{ROOT}/platforms/android/res/mipmap-{density}/ic_launcher.png")
+
+
+def build_ios():
+    # One 1024x1024 image; Xcode derives every other size. The App Store
+    # rejects icons with an alpha channel, and logo_icon() is opaque RGB.
+    d = f"{ROOT}/platforms/ios/Assets.xcassets/AppIcon.appiconset"
+    save(logo_icon("e2", 1024, 1024), f"{d}/icon-1024.png")
+    contents = {
+        "images": [{"filename": "icon-1024.png", "idiom": "universal",
+                    "platform": "ios", "size": "1024x1024"}],
+        "info": {"author": "xcode", "version": 1},
+    }
+    with open(f"{d}/Contents.json", "w") as f:
+        json.dump(contents, f, indent=2)
+        f.write("\n")
+    with open(f"{ROOT}/platforms/ios/Assets.xcassets/Contents.json", "w") as f:
+        json.dump({"info": {"author": "xcode", "version": 1}}, f, indent=2)
+        f.write("\n")
+
+
+BUILDERS = {
+    "vita": build_vita,
+    "psp": build_psp,
+    "pocket": build_pocket,
+    "steam": build_steam,
+    "web": build_web,
+    "android": build_android,
+    "ios": build_ios,
+}
+
 if __name__ == "__main__":
-    build_vita()
-    build_psp()
-    build_pocket()
-    build_steam()
+    names = sys.argv[1:] or list(BUILDERS)
+    for name in names:
+        if name not in BUILDERS:
+            sys.exit(f"unknown platform {name!r}; choose from {', '.join(BUILDERS)}")
+    for name in names:
+        BUILDERS[name]()
