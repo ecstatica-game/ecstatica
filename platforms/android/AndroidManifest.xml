@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- versionCode and versionName are set by build.sh from GAME_VERSION. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="io.github.ecstaticagame.ecstatica">
+
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+    <uses-feature android:name="android.hardware.gamepad" android:required="false" />
+
+    <application
+        android:label="Ecstatica"
+        android:icon="@mipmap/ic_launcher"
+        android:hasCode="true"
+        android:isGame="true"
+        android:appCategory="game"
+        android:allowBackup="false">
+
+        <activity
+            android:name=".LauncherActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.Material.NoActionBar">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Its own process: the engine keeps its state in globals and quits
+             with _exit, so each game starts in a fresh process and quitting
+             returns to the launcher. -->
+        <activity
+            android:name=".GameActivity"
+            android:exported="false"
+            android:process=":game"
+            android:launchMode="singleTask"
+            android:screenOrientation="sensorLandscape"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden|navigation|uiMode|density"
+            android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen">
+            <meta-data android:name="android.app.lib_name" android:value="ecstatica" />
+        </activity>
+    </application>
+</manifest>
