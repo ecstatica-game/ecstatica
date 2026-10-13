@@ -209,6 +209,13 @@ void do_main_menu(void) {
 
     menu_no_continue = false;
 
+    /* Menu frames pump window_proc, which latches the Enter/Space that picked
+     * the item; left set, the first game frame took that Enter as the
+     * inventory key (get_joystick). */
+    clear_keys_pressed();
+    space_was_pressed = false;
+    enter_was_pressed = false;
+
     /* Actions run after the menu loop, as the original ran them outside req_request. */
     if (menu_result >= 0) {
         if (game_version == GAME_VERSION_E1) {
