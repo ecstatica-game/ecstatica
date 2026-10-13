@@ -271,11 +271,11 @@ until a real controller is attached through the Dock's second port.
 | Bare Pocket | Action |
 |---|---|
 | D-pad | move (8-way) |
-| A | interact / pick up |
+| A | interact / pick up (E1: left hand) |
 | B | E1 gameplay: cycle speed (walk → run → sneak). Menus and E2: back |
 | Start | pause menu |
 | X | use held item / flip / roll |
-| Y | inventory |
+| Y | E1: right hand pick up & drop. E2: inventory |
 | L | jump |
 | R | run, or attack with a direction |
 | Select | toggle HUD icons |

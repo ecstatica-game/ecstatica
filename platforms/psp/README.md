@@ -47,9 +47,9 @@ path in `win.c`. The mapping follows `docs/controls.md`:
 | PSP              | Action                                    |
 | ---------------- | ----------------------------------------- |
 | D-pad / analog   | walk and turn, eight ways                 |
-| Cross            | reach out — pick up, interact, confirm    |
-| Circle           | back / cancel                             |
-| Triangle         | inventory                                 |
+| Cross            | reach out — pick up (E1: left hand), interact, confirm |
+| Circle           | E1 gameplay: cycle speed. Menus and E2: back |
+| Triangle         | E1: right hand pick up and drop. E2: inventory |
 | Square           | use what is held                          |
 | L                | jump                                      |
 | R                | attack with the stick (E1), run (E2)      |
@@ -92,10 +92,10 @@ for play, because the counters cost a little on every frame.
 - 333 MHz MIPS, 32 MB RAM on a PSP-1000 (~20 MB of it usable), 480x272.
   `platform_init` clocks the CPU up; at the 222 MHz default the software
   renderer is not playable.
-- **Prefer the 320x200 data.** E2's Win95 set renders 640x480, which is four
-  times the pixels for a screen that cannot show them and is then reduced to
-  480x272 by the GPU. The DOS data at 320x200 is both faster and, upscaled
-  rather than downscaled, sharper.
+- **Both games start at 320x200** (`platform_boot_low_res()`). 640x480 is four
+  times the pixels for a screen that cannot show them, and the GPU then reduces
+  it to 480x272. 320x200 is faster and, upscaled rather than downscaled,
+  sharper. Settings → Enhanced → Graphics still switches to 640x480.
 - Palette expansion and scaling are done by the GE, not the CPU: the frame goes
   over as a `GU_PSM_T8` texture with a 256-entry CLUT.
 - The PSP-2000's extra 32 MB needs a kernel-mode module flag the SDK's user

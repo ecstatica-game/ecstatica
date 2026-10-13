@@ -13,6 +13,8 @@ All notable changes to this project are documented in this file.
 - Releases include `ecstatica-web-*.zip`, `ecstatica-android-*.apk` and `ecstatica-ios-*.ipa`.
 
 ### Changed
+- PSP: both games start at 320x200, a quarter of the pixels to render on its single core. Settings → Enhanced → Graphics still switches to 640x480.
+- E1: Y / Triangle picks up and drops with the right hand, as A / Cross does with the left. PSP, Vita and the Pocket had the right hand only on Select + R.
 - E2: Settings → Enhanced → Graphics switches between Original (320x200) and Enhanced (640x480), as in E1, and so do G and R3. Original uses the original game's low-res HUD art. Enhanced works without the `HIRES` backgrounds too, by doubling the 320x200 ones.
 - Analogue Pocket: both games start at 320x200. E1 started at 640x480 when its enhanced `W/` set was on the ISO, and E2 always did, stretching its 320x200 backgrounds whenever the ISO had no `HIRES/`. E2 uses the original game's low-res HUD. Its inventory page has no low-res art, so it opens at 640x480 and the game returns to 320x200 when it closes.
 - Analogue Pocket: B cycles E1's speed mode (walk, run, sneak) during gameplay, as on PSP and Vita, instead of opening the pause menu. In menus and in E2 it is still back. Start opens the pause menu.
@@ -20,6 +22,7 @@ All notable changes to this project are documented in this file.
 - `assets/generate_packaging_art.py` takes platform names, so it can write one platform's art without rewriting the others.
 
 ### Fixed
+- E1: Enter, or Y / Triangle on a pad, no longer switches the game to 640x480 and leaves it on camera 0. It opened E2's inventory screen, which E1 does not have.
 - Analogue Pocket: sound effects no longer stop for good after about 32 have played. The mixer frees a finished voice only when its handle is queried, and the effects path never queried it. Stopping speech or recycling a slot could also cut a note of the music, and stopping all effects stopped the music too.
 
 ## [0.9.5] - 2026-10-13

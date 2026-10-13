@@ -221,9 +221,11 @@ bool platform_hires_supported(platform_t *p) {
     return true;
 }
 
+/* One 333 MHz core rasterizes the whole frame; 320x200 is a quarter of the
+ * pixels. 640x480 stays a Settings toggle away. */
 bool platform_boot_low_res(platform_t *p) {
     (void)p;
-    return false;
+    return true;
 }
 
 bool platform_scale_mode_supported(platform_t *p) {

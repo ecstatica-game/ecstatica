@@ -72,7 +72,7 @@ a second stick and two touch panels:
 | D-pad / left stick     | walk and turn, eight ways                     |
 | Cross                  | reach out: pick up, interact, confirm         |
 | Circle                 | back / cancel                                 |
-| Triangle               | inventory                                     |
+| Triangle               | E1: right hand pick up and drop. E2: inventory |
 | Square                 | use what is held                              |
 | L                      | jump                                          |
 | R                      | attack with the stick (E1), run (E2)          |

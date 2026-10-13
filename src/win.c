@@ -220,7 +220,8 @@ void window_proc(void) {
      *   B / Circle (east)     → Escape: back / cancel. On pads with no
      *                           L3 (PSP, Vita, Pocket), in E1 gameplay
      *                           (not a menu), cycles speed mode instead.
-     *   Y / Triangle (north)  → Enter: inventory
+     *   Y / Triangle (north)  → Enter: inventory (E2). E1 has none, so
+     *                           there Y is the right hand, like RT.
      *   X / Square (west)     → Left Alt: use what is held
      *   LB / L1               → Left Shift: jump
      *   Start                 → Escape: pause menu
@@ -375,9 +376,12 @@ void window_proc(void) {
         btn_select_was_pressed = gp.btn_select;
 
         if (game_version == GAME_VERSION_E1) {
-            /* Each trigger picks up with, or puts down from, its own hand. */
+            /* Each trigger picks up with, or puts down from, its own hand.
+             * E1 has no inventory page, so Y is the right hand too: A is the
+             * left one, and pads with no triggers get both hands without the
+             * Select chord. */
             extra_keys_pressed[79] |= gp.btn_lt;   /* Num1 / Z — left hand  */
-            extra_keys_pressed[81] |= gp.btn_rt;   /* Num3 / C — right hand */
+            extra_keys_pressed[81] |= gp.btn_rt || gp.btn_north;   /* Num3 / C — right hand */
 
             /* Quick swings. Horizontal axis only: these scancodes suppress
              * BH_JOYSTICK's diagonals. */

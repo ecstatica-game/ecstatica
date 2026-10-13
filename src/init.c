@@ -768,11 +768,14 @@ void get_joystick(void) {
         }
     }
 
-    /* Return: inventory page (byte_4C39AC). */
+    /* Return: inventory page (byte_4C39AC). E2 only: E1 has no ICONPAGE,
+     * and show_icon_page() switches to SVGA before it finds that out. */
     if (key_return_was_pressed) {
         key_return_was_pressed = false;
-        stop_the_clock = true;
-        show_icon_page();
+        if (game_version != GAME_VERSION_E1) {
+            stop_the_clock = true;
+            show_icon_page();
+        }
     }
 
     /* I: toggle HUD icons (byte_4C39A7). */

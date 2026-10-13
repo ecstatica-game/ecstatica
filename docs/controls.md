@@ -213,7 +213,7 @@ modifiers instead.
 | A / Cross (south) | Space | Reach out — pick up, interact, confirm a menu or dialogue |
 | B / Circle (east) | Escape | Back / cancel. **On Vita/PSP/Pocket, during E1 gameplay** this instead cycles speed mode — see [Handhelds](#handhelds-vita-psp-analogue-pocket-mister) |
 | X / Square (west) | Left Alt | Use what is held (empty-handed: flip / roll) |
-| Y / Triangle (north) | Enter | Open the inventory screen |
+| Y / Triangle (north) | Enter | Open the inventory screen (E2). In E1, which has none, the right hand — see below |
 | LB / L1 | Left Shift | Jump |
 | Start | Escape | Pause menu |
 | Select / Back | I | Toggle the HUD icons |
@@ -247,7 +247,8 @@ the free hand, and either can be holding something. Each trigger is that hand.
 | Right stick → | Numpad 9 / E | Straight punch (unarmed) / right swing (armed) |
 | RB / R1 + left stick | Ctrl + direction | Directional attack — see below |
 | **Left stick click (L3)** | F1 / F5 / F9 | Cycle speed mode: walk → run → sneak → walk |
-| A / Cross | Space | Pick up without choosing a hand |
+| A / Cross | Space | Left hand, like LT |
+| Y / Triangle | Numpad 3 / C | Right hand, like RT |
 
 L3 needs a clickable stick, which not every pad this engine targets has.
 Vita, PSP and Pocket instead cycle speed mode on B/Circle during gameplay (Circle
