@@ -2146,8 +2146,9 @@ void load_game(int slot) {
             /* Pre-v7 saves name the holder but not the part; the hero only
              * holds in its hands, so take the first free one, right first. */
             int e1 = game_version == GAME_VERSION_E1;
-            int16_t hands[2] = { e1 ? E1_RIGHT_HAND_PART : E2_RIGHT_HAND_PART,
-                                 e1 ? E1_LEFT_HAND_PART : E2_LEFT_HAND_PART };
+            int16_t hands[2];
+            hands[0] = e1 ? E1_RIGHT_HAND_PART : E2_RIGHT_HAND_PART;
+            hands[1] = e1 ? E1_LEFT_HAND_PART : E2_LEFT_HAND_PART;
             for (int h = 0; h < 2 && !hand; h++) {
                 part_t *p = holder->_PartTab->field_0[hands[h]];
                 if (p && !p->actor_2_held) hand = p;
