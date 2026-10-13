@@ -6,6 +6,14 @@ All notable changes to this project are documented in this file.
 
 ### Added
 - Image browser for the game's raw art: `--images`, or `make e2-images` / `make e1-images`. It lists VIEWS, HIRES, GRAPHICS, LOWGRAPH and the title art in the data folder, plus the other half of an E1 install (the DOS bundle or its `W/` folder). Each background can be shown as the picture or as its depth plane, and the `.PA2`/`.PAL` camera palettes are shown as colour swatches. Images open in the palette the game uses for them. `P` switches to the image's own palette, `PALLETTE.RAW`, any E2 camera palette, or grey. In the viewer, `V` now cycles models, scenes and images.
+- Web build: both games run in the browser. The page imports your game folder or a zip of it into the browser's private storage once, and saves stay there. Keyboard, mouse, gamepad and an on-screen pad for touch screens. `make web`.
+- Android build: one APK for both games (Android 8.0 and later, arm64 and x86_64). The launcher imports a game folder or zip, and the game has an on-screen pad, gamepad, keyboard and mouse support. `make android`.
+- iOS and iPadOS build: one app for both games (iOS 15 and later). Import a game folder from the Files app, or copy it into the app's folder there. On-screen pad, game controllers and hardware keyboards. `make ios` makes an unsigned IPA for sideloading.
+- Music on web, Android and iOS through a General MIDI soundfont (.sf2) you supply. Without one, sound effects and speech still play.
+- Releases include `ecstatica-web-*.zip`, `ecstatica-android-*.apk` and `ecstatica-ios-*.ipa`.
+
+### Changed
+- `assets/generate_packaging_art.py` takes platform names, so it can write one platform's art without rewriting the others.
 
 ## [0.9.5] - 2026-10-13
 

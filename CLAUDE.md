@@ -22,7 +22,7 @@ DOS and Win9x: Open Watcom `wmake` builds in `platforms/dos/` and
 Binary output: `build/bin/ecstatica`.
 
 All non-desktop platform build trees (DOS, Win9x, Analogue Pocket, PSP, Vita,
-Steam Deck packaging art) live under `platforms/`.
+web, Android, iOS, Steam Deck packaging art) live under `platforms/`.
 
 **Analogue Pocket / MiSTer:** a separate build under `platforms/pocket/`
 targets openfpgaOS (rv32 soft CPU inside an openFPGA core) via the
@@ -53,13 +53,33 @@ soundfont; searched in order: `$ECSTATICA_SOUNDFONT`, game data dir,
 `~/.local/share/soundfonts`, `/usr/share/soundfonts`, `/usr/share/sounds/sf2`.
 On Arch/SteamOS: `pacman -S fluidsynth soundfont-fluid`.
 
+**Web:** `platforms/web/` is a CMake project for Emscripten (`make web`,
+`make web-serve`), see `platforms/web/README.md`. `main()` runs on a worker
+(`-sPROXY_TO_PTHREAD`), so the engine's blocking loops work unchanged; WASMFS
+mounts the Origin Private File System, where the page imports the game.
+Needs cross-origin isolation (COOP/COEP headers, or `coi-sw.js`).
+
+**Android:** `platforms/android/build.sh` (`make android`) builds the APK with
+the SDK's command-line tools, no Gradle; see `platforms/android/README.md`.
+`NativeActivity` in its own process, a Java launcher imports the games.
+
+**iOS / iPadOS:** `platforms/ios/` is a CMake project for the Xcode generator
+(`make ios-sim`, `make ios` → unsigned IPA); see `platforms/ios/README.md`.
+The engine runs on its own thread while UIKit keeps the main thread.
+
+Android and iOS compile `main.c` with `main=ecs_main`; the backend owns the
+real entry point. Web, Android and iOS share `src/platforms/mixer.c` (PCM
+voices + TinySoundFont music from a user-supplied .sf2), `screen.c` (RGBA
+palette expand and scale modes), `touch_controls.c` (Android, iOS on-screen
+pad) and `threads.c`.
+
 **Steam Deck:** just the Linux build above, no packaging step.
 `platforms/steamdeck/` holds Steam library art (grid/hero/logo/icon) for
 adding it as a non-Steam game; see `platforms/steamdeck/README.md`.
 
-**Packaging art:** `assets/` holds the two real screenshots the Vita, PSP,
-Pocket and Steam Deck packaging art is generated from, plus the script that
-builds it; see `assets/README.md`.
+**Packaging art:** `assets/` holds the source art the Vita, PSP, Pocket,
+Steam Deck, web, Android and iOS packaging art is generated from, plus the
+script that builds it; see `assets/README.md`.
 
 ## Code Style
 
@@ -103,6 +123,14 @@ src/
   tools/viewer.c     — model/animation/scene/raw-image browser (--viewer, --scenes, --images); not in the original
   tools/pointcloud.c — unprojects every view's depth into a PLY point cloud (--pointcloud); not in the original
   platforms/desktop_common.c — data dir / save paths shared by macOS, Linux, Windows
+  platforms/threads.c — Win32 / POSIX thread + semaphore API (desktops, web, Android, iOS)
+  platforms/mixer.c  — software PCM mixer + TinySoundFont music (web, Android, iOS)
+  platforms/screen.c — RGBA palette expand, scale modes (web, Android, iOS)
+  platforms/touch_controls.c — on-screen gamepad (Android, iOS)
+  platforms/web.c    — Emscripten backend (PROXY_TO_PTHREAD, WASMFS/OPFS, Web Audio)
+  platforms/android.c — NDK NativeActivity backend (ANativeWindow, AAudio)
+  platforms/ios.m    — UIKit backend (game thread, CADisplayLink, RemoteIO)
+  platforms/third_party/ — vendored tsf.h / tml.h (TinySoundFont, MIT)
   platforms/macos.m  — Cocoa NSView framebuffer, input, timing
   platforms/linux.c  — X11/GLX, ALSA, FluidSynth music
   platforms/windows.c — Win32 (also Win9x via the root platforms/win9x/ Open Watcom build)
