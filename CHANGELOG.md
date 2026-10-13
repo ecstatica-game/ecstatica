@@ -6,6 +6,14 @@ All notable changes to this project are documented in this file.
 
 Nothing yet.
 
+## [0.9.4] - 2026-10-13
+
+### Fixed
+- DOS and Win9x builds compile again. Open Watcom rejected a held-object array initialised from runtime values.
+
+### Removed
+- 113 unreachable functions and globals left over from the original editor, debug output, installer and DOS/VGA/DirectX hardware code. `decomp/removed_functions.md` lists each one with its original Watcom name and E1/E2 address, so IDA comparisons can skip them.
+
 ## [0.9.3] - 2026-10-13
 
 ### Fixed
@@ -283,7 +291,8 @@ Nothing yet.
 ### Added
 - Initial public release: C99 reimplementation of Ecstatica 1 & 2 with macOS, Linux, and Windows platform layers.
 
-[Unreleased]: https://github.com/ecstatica-game/ecstatica/compare/v0.9.3...HEAD
+[Unreleased]: https://github.com/ecstatica-game/ecstatica/compare/v0.9.4...HEAD
+[0.9.4]: https://github.com/ecstatica-game/ecstatica/compare/v0.9.3...v0.9.4
 [0.9.3]: https://github.com/ecstatica-game/ecstatica/compare/v0.9.2...v0.9.3
 [0.9.2]: https://github.com/ecstatica-game/ecstatica/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/ecstatica-game/ecstatica/compare/v0.9.0...v0.9.1
