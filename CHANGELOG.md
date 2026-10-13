@@ -4,7 +4,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+- Image browser for the game's raw art: `--images`, or `make e2-images` / `make e1-images`. It lists VIEWS, HIRES, GRAPHICS, LOWGRAPH and the title art in the data folder, plus the other half of an E1 install (the DOS bundle or its `W/` folder). Each background can be shown as the picture or as its depth plane, and the `.PA2`/`.PAL` camera palettes are shown as colour swatches. Images open in the palette the game uses for them. `P` switches to the image's own palette, `PALLETTE.RAW`, any E2 camera palette, or grey. In the viewer, `V` now cycles models, scenes and images.
 
 ## [0.9.5] - 2026-10-13
 
