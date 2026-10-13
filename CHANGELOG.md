@@ -4,6 +4,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.9.6] - 2026-10-13
+
 ### Added
 - Image browser for the game's raw art: `--images`, or `make e2-images` / `make e1-images`. It lists VIEWS, HIRES, GRAPHICS, LOWGRAPH and the title art in the data folder, plus the other half of an E1 install (the DOS bundle or its `W/` folder). Each background can be shown as the picture or as its depth plane, and the `.PA2`/`.PAL` camera palettes are shown as colour swatches. Images open in the palette the game uses for them. `P` switches to the image's own palette, `PALLETTE.RAW`, any E2 camera palette, or grey. In the viewer, `V` now cycles models, scenes and images.
 - Web build: both games run in the browser. The page imports your game folder or a zip of it into the browser's private storage once, and saves stay there. Keyboard, mouse, gamepad and an on-screen pad for touch screens. `make web`.
@@ -315,7 +317,8 @@ All notable changes to this project are documented in this file.
 ### Added
 - Initial public release: C99 reimplementation of Ecstatica 1 & 2 with macOS, Linux, and Windows platform layers.
 
-[Unreleased]: https://github.com/ecstatica-game/ecstatica/compare/v0.9.5...HEAD
+[Unreleased]: https://github.com/ecstatica-game/ecstatica/compare/v0.9.6...HEAD
+[0.9.6]: https://github.com/ecstatica-game/ecstatica/compare/v0.9.5...v0.9.6
 [0.9.5]: https://github.com/ecstatica-game/ecstatica/compare/v0.9.4...v0.9.5
 [0.9.4]: https://github.com/ecstatica-game/ecstatica/compare/v0.9.3...v0.9.4
 [0.9.3]: https://github.com/ecstatica-game/ecstatica/compare/v0.9.2...v0.9.3
