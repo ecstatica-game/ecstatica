@@ -52,6 +52,17 @@ void file_set_data_root(const char *root);
  * game folder before anything is loaded. */
 int file_dir_has_database(const char *dir);
 
+/* The roots the swappable directories are searched in: the launch root, then
+ * the other half of an E1 install when init_data_roots paired one. "" is the
+ * launch root. Returns the count (1 or 2). */
+int file_asset_roots(const char *roots[2]);
+
+/* Lists `dir` (case-insensitive; "" for the root itself) under an asset root
+ * from file_asset_roots. Writes the directory's real path to `path` and calls
+ * fn once per entry. Returns 0 if the directory is not there. */
+int file_list_dir(const char *root, const char *dir, char *path, size_t pathsz,
+                  void (*fn)(void *ctx, const char *name), void *ctx);
+
 /* Drop the cached directory listings used by the case-resolving path walk.
  * Asset roots are read-only once mounted, so this is only needed if a root is
  * swapped underneath a running game. */

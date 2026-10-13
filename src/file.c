@@ -426,6 +426,40 @@ void init_data_roots(void) {
                "DOS bundle at '%s' holds 320x200\n", alt_data_root);
 }
 
+int file_asset_roots(const char *roots[2]) {
+    roots[0] = "";
+    if (!alt_data_root[0]) return 1;
+    roots[1] = alt_data_root;
+    return 2;
+}
+
+int file_list_dir(const char *root, const char *dir, char *path, size_t pathsz,
+                  void (*fn)(void *ctx, const char *name), void *ctx) {
+    const char *base = (root && root[0]) ? root : data_root;
+    if (dir && dir[0]) {
+        if (!resolve_ci(root, dir, path, pathsz)) return 0;
+    } else {
+        snprintf(path, pathsz, "%s", base[0] ? base : ".");
+    }
+
+    if (path_lock) platform_sem_wait(path_lock);
+    dircache_t *e = dircache_get(path);
+    /* Copied out: fn may open files, and the listing can be evicted meanwhile. */
+    char *names = NULL;
+    size_t used = 0;
+    if (e && (names = (char *)malloc(e->used)) != NULL) {
+        memcpy(names, e->names, e->used);
+        used = e->used;
+    }
+    if (path_lock) platform_sem_post(path_lock);
+    if (!e) return 0;
+
+    for (size_t off = 0; off < used; off += strlen(names + off) + 1)
+        if (names[off] != '.') fn(ctx, names + off);
+    free(names);
+    return 1;
+}
+
 /* True when a HIRES background set resolves through either root. */
 int hires_data_available(void) {
     int was_enhanced = enhanced_graphics;
