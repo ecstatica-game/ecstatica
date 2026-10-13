@@ -33,7 +33,7 @@ CFLAGS = -bt=nt -6s $(OPT) -zp1 -zq -za99 -j -i=$(SRC) -i=$(WATCOM_H) -i=$(WATCO
 OBJS = init.obj asm_f.obj display.obj debug_overlay.obj edit.obj game.obj &
        file.obj move.obj menu.obj req.obj music.obj topo.obj map.obj &
        anim.obj ellipse.obj tri.obj icon.obj win.obj chars.obj main.obj &
-       render.obj prefetch.obj raster.obj viewer.obj pointcloud.obj windows.obj desktop_common.obj
+       render.obj prefetch.obj raster.obj viewer.obj pointcloud.obj windows.obj desktop_common.obj threads.obj
 
 all: ecstatica.exe
 
@@ -104,6 +104,8 @@ windows.obj: $(SRC)/platforms/windows.c
 	$(CC) $(CFLAGS) $(SRC)/platforms/windows.c -fo=$^@
 desktop_common.obj: $(SRC)/platforms/desktop_common.c
 	$(CC) $(CFLAGS) $(SRC)/platforms/desktop_common.c -fo=$^@
+threads.obj: $(SRC)/platforms/threads.c
+	$(CC) $(CFLAGS) $(SRC)/platforms/threads.c -fo=$^@
 
 clean: .SYMBOLIC
 	@if exist *.obj del *.obj

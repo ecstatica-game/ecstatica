@@ -34,7 +34,7 @@ set(C_SRCS
     gl_loader.c
 )
 
-list(APPEND C_SRCS platforms/desktop_common.c)
+list(APPEND C_SRCS platforms/desktop_common.c platforms/threads.c)
 
 if(APPLE)
     enable_language(OBJC)
